@@ -1,0 +1,73 @@
+<html>
+  <head>
+    <title>Jingle Interop Testing</title>
+    <script src="stanzaio.bundle.js"></script>
+  </head>
+  <body>
+    <div id="settings">
+      <h1>Connection Settings</h1>
+      <form id="loginInfo">
+        <label>JID: <input id="jid" type="text" name="jid" value="stanzaio@lance.im"/></label>
+        <label>Password: <input id="password" type="password" name="password" /></label>
+        <label>WebSocket URL: <input id="wsURL" type="text" name="wsURL" value="" /></label>
+        <input id="connect" type="submit" value="Connect" />
+      </form>
+    </div>
+
+    <h1>Local Video</h1>
+    <video id="localVideo"></video>
+
+    <h2>Remote Video</h2>
+    <video id="remoteVideo"></video>
+
+    <script>
+      var client;
+      var loginInfo = document.getElementById('loginInfo');
+      loginInfo.onsubmit = function (e) {
+        if (e.preventDefault) e.preventDefault();
+
+        var jid = document.getElementById('jid').value;
+        var username = jid.slice(0, jid.indexOf('@'));
+        var server = jid.slice(jid.indexOf('@') + 1);
+
+        client = XMPP.createClient({
+          jid: jid,
+          server: server,
+          credentials: {
+            password: document.getElementById('password').value,
+          },
+          wsURL: document.getElementById('wsURL').value
+        });
+
+        client.on('session:started', function () {
+          client.getRoster(function (err, resp) {
+            client.sendPresence();
+          });
+        });
+
+        client.connect();
+
+        client.on('jingle:localstream:added', function (stream) {
+            attachMediaStream(stream, document.getElementById('localVideo'), {
+                mute: true,
+                mirror: true
+            });
+        });
+
+        client.on('jingle:remotestream:added', function (session) {
+            attachMediaStream(session.stream, document.getElementById('remoteVideo'));
+        });
+
+        client.on('jingle:incoming', function (session) {
+            session.accept();
+        });
+
+        client.jingle.startLocalMedia();
+
+        return false;
+      };
+    </script>
+
+    </script>
+  </body>
+</html>
