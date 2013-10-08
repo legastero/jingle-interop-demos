@@ -7,10 +7,15 @@
     <div id="settings">
       <h1>Connection Settings</h1>
       <form id="loginInfo">
-        <label>JID: <input id="jid" type="text" name="jid" value="stanzaio@lance.im"/></label>
+        <label>JID: <input id="jid" type="text" name="jid" value="me@example.com"/></label>
         <label>Password: <input id="password" type="password" name="password" /></label>
         <label>WebSocket URL: <input id="wsURL" type="text" name="wsURL" value="" /></label>
         <input id="connect" type="submit" value="Connect" />
+      </form>
+      <h2>Start Video Session</h2>
+      <form id="callInfo">
+        <label>JID: <input id="peer" type="text" name="peer" value="otherperson@example.com"/></label>
+        <input id="call" type="submit" value="Call" />
       </form>
     </div>
 
@@ -63,6 +68,14 @@
         });
 
         client.jingle.startLocalMedia();
+
+        var callInfo = document.getElementById('callInfo');
+        callInfo.onsubmit = function (e) {
+          e.preventDefault();
+          var jid = document.getElementById('peer').value;
+          client.call(jid);
+          return false;
+        };
 
         return false;
       };
