@@ -19,6 +19,8 @@
       </form>
     </div>
 
+    <p id="myJID"></p>
+
     <h1>Local Video</h1>
     <video id="localVideo"></video>
 
@@ -48,6 +50,7 @@
           client.getRoster(function (err, resp) {
             client.sendPresence();
           });
+          document.getElementById('myJID').textContent = client.jid.full;
         });
 
         client.connect();
