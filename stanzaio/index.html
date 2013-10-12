@@ -41,9 +41,16 @@
           jid: jid,
           server: server,
           credentials: {
-            password: document.getElementById('password').value,
+            password: document.getElementById('password').value
           },
           wsURL: document.getElementById('wsURL').value
+        });
+
+        client.on('raw:incoming', function (data) {
+            console.log(data);
+        });
+        client.on('raw:outgoing', function (data) {
+            console.log(data.toString());
         });
 
         client.on('session:started', function () {
