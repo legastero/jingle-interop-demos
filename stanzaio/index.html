@@ -68,7 +68,7 @@
 
         client.on('jingle:localstream:added', function (stream) {
             attachMediaStream(stream, document.getElementById('localVideo'), {
-                mute: true,
+                muted: true,
                 mirror: true
             });
         });
