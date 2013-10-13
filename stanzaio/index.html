@@ -30,6 +30,10 @@
     <script>
       var client;
       var loginInfo = document.getElementById('loginInfo');
+
+      var inlog = bows('in>>>');
+      var outlog = bows('<<<out');
+
       loginInfo.onsubmit = function (e) {
         if (e.preventDefault) e.preventDefault();
 
@@ -47,10 +51,10 @@
         });
 
         client.on('raw:incoming', function (data) {
-            console.log(data);
+            inlog(data);
         });
         client.on('raw:outgoing', function (data) {
-            console.log(data.toString());
+            outlog(data.toString());
         });
 
         client.on('session:started', function () {
