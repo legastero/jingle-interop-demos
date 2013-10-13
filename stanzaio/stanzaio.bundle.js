@@ -1563,7 +1563,6 @@ function StreamManagement(conn) {
     this.lastAck = 0;
     this.handled = 0;
     this.windowSize = 1;
-    this.windowCount = 0;
     this.unacked = [];
     this.pendingAck = false;
 }
@@ -1601,7 +1600,6 @@ StreamManagement.prototype = {
         this.id = false;
         this.lastAck = 0;
         this.handled = 0;
-        this.windowCount = 0;
         this.unacked = [];
     },
     ack: function () {
@@ -1617,18 +1615,20 @@ StreamManagement.prototype = {
         var self = this;
         var numAcked = mod(ack.h - this.lastAck, MAX_SEQ);
 
+        this.pendingAck = false;
+
         for (var i = 0; i < numAcked && this.unacked.length > 0; i++) {
             this.conn.emit('stanza:acked', this.unacked.shift());
         }
+        this.lastAck = ack.h;
+
         if (resend) {
             var resendUnacked = this.unacked;
             this.unacked = [];
             resendUnacked.forEach(function (stanza) {
-                self.conn.send(stanza); 
+                self.conn.send(stanza);
             });
         }
-        this.pendingAck = false;
-        this.lastAck = ack.h;
     },
     track: function (stanza) {
         var name = stanza._name;
@@ -1640,10 +1640,8 @@ StreamManagement.prototype = {
 
         if (this.started && acceptable[name]) {
             this.unacked.push(stanza);
-            this.windowCount += 1;
-            if (!this.pendingAck && this.windowCount >= this.windowSize) {
+            if (!this.pendingAck && this.unacked.length >= this.windowSize) {
                 this.request();
-                this.windowCount = 0;
             }
         }
     },
@@ -13409,7 +13407,7 @@ function JinglePeerConnection(config, constraints) {
     this.localDescription = {contents: []};
     this.remoteDescription = {contents: []};
 
-    PeerConnection.call(this);
+    PeerConnection.call(this, config, constraints);
 }
 
 JinglePeerConnection.prototype = Object.create(PeerConnection.prototype, {
