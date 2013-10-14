@@ -3335,7 +3335,7 @@ exports.Bundle = stanza.define({
     namespace: 'urn:ietf:rfc:5888',
     element: 'group',
     fields: {
-        type: stanza.attribute('type'),
+        semantics: stanza.attribute('semantics'),
         contents: {
             get: function () {
                 var self = this;
@@ -14382,7 +14382,7 @@ exports.toMediaSDP = function (content) {
 
     var encryption = desc.encryption || [];
     encryption.forEach(function (crypto) {
-        sdp.push('a=crypto:' + crypto.tag + ' ' + crypto.cipherSuite + ' ' + crypto.keyParams + (crypto.sessionParams) ? ' ' + crypto.sessionParams : '');
+        sdp.push('a=crypto:' + crypto.tag + ' ' + crypto.cipherSuite + ' ' + crypto.keyParams + (crypto.sessionParams ? ' ' + crypto.sessionParams : ''));
     });
 
     payloads.forEach(function (payload) {
