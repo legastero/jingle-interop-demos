@@ -3210,7 +3210,7 @@ exports.RTP = stanza.define({
         ssrc: stanza.attribute('ssrc'),
         bandwidth: stanza.subText(NS, 'bandwidth'),
         bandwidthType: stanza.subAttribute(NS, 'bandwidth', 'type'),
-        mux: stanza.boolSub(NS, 'rtp-mux'),
+        mux: stanza.boolSub(NS, 'rtcp-mux'),
         encryption: {
             get: function () {
                 var enc = stanza.find(this.xml, NS, 'encryption');
@@ -3321,7 +3321,7 @@ exports.Crypto = stanza.define({
     namespace: NS,
     element: 'crypto',
     fields: {
-        cipherSuite: stanza.attribute('cipher-suite'),
+        cipherSuite: stanza.attribute('crypto-suite'),
         keyParams: stanza.attribute('key-params'),
         sessionParams: stanza.attribute('session-params'),
         tag: stanza.attribute('tag')
@@ -13126,7 +13126,7 @@ Jingle.prototype.process = function (req) {
         for (var i = 0; i < sids.length; i++) {
             currsid = sids[i];
             sess = this.sessions[currsid];
-            if (sess.pending) {
+            if (sess && sess.pending) {
                 if (_.intersection(contentTypes, sess.contentTypes).length) {
                     // We already have a pending session request for this content type.
                     if (currsid > sid) {
@@ -14382,7 +14382,7 @@ exports.toMediaSDP = function (content) {
 
     var encryption = desc.encryption || [];
     encryption.forEach(function (crypto) {
-        sdp.push('a=crypto:' + crypto.tag + ' ' + crypto.cipherSuite + ' ' + crypto.keyParams + ' ' + crypto.sessionParams);
+        sdp.push('a=crypto:' + crypto.tag + ' ' + crypto.cipherSuite + ' ' + crypto.keyParams + (crypto.sessionParams) ? ' ' + crypto.sessionParams : '');
     });
 
     payloads.forEach(function (payload) {
@@ -14430,7 +14430,7 @@ exports.toMediaSDP = function (content) {
     ssrcs.forEach(function (ssrc) {
         for (var attribute in ssrc) {
             if (attribute == 'ssrc') continue;
-            sdp.push('a=ssrc:' + ssrc.ssrc + ' ' + attribute + (ssrc[attribute] ? (':' + ssrc[attribute]) : ''));
+            sdp.push('a=ssrc:' + (ssrc.ssrc || desc.ssrc) + ' ' + attribute + (ssrc[attribute] ? (':' + ssrc[attribute]) : ''));
         }
     });
 
