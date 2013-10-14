@@ -1629,6 +1629,10 @@ StreamManagement.prototype = {
                 self.conn.send(stanza);
             });
         }
+
+        if (this.unacked.length >= this.windowSize) {
+            this.request();
+        }
     },
     track: function (stanza) {
         var name = stanza._name;
@@ -3325,6 +3329,48 @@ exports.Crypto = stanza.define({
 });
 
 
+// Bundle mapping has not been standardized yet
+exports.Bundle = stanza.define({
+    name: '_group',
+    namespace: 'urn:ietf:rfc:5888',
+    element: 'group',
+    fields: {
+        type: stanza.attribute('type'),
+        contents: {
+            get: function () {
+                var self = this;
+                return stanza.getMultiSubText(this.xml, this._NS, 'content', function (sub) {
+                    return stanza.getAttribute(sub, 'name');
+                });
+            },
+            set: function (value) {
+                var self = this;
+                stanza.setMultiSubText(this.xml, this._NS, 'content', value, function (val) {
+                    var child = stanza.createElement(self._NS, 'content', self._NS);
+                    stanza.setAttribute(child, 'name', val);
+                    self.xml.appendChild(child);
+                });
+            }
+        }
+    }
+});
+
+
+// SSRC mapping has not been standardized yet
+exports.SSRC = stanza.define({
+    name: '_ssrc',
+    namespace: 'http://estos.de/ns/ssrc',
+    element: 'ssrc',
+    fields: {
+        ssrc: stanza.attribute('ssrc'),
+        cname: stanza.attribute('cname'),
+        msid: stanza.attribute('msid'),
+        mslabel: stanza.attribute('mslabel'),
+        label: stanza.attribute('label')
+    }
+});
+
+
 exports.Mute = stanza.define({
     name: 'mute',
     namespace: INFONS,
@@ -3349,9 +3395,11 @@ exports.Unmute = stanza.define({
 
 stanza.extend(jingle.Content, exports.RTP);
 stanza.extend(exports.RTP, exports.PayloadType, 'payloads');
+stanza.extend(exports.RTP, exports.SSRC, 'ssrcs');
 
 stanza.extend(jingle.Jingle, exports.Mute);
 stanza.extend(jingle.Jingle, exports.Unmute);
+stanza.extend(jingle.Jingle, exports.Bundle, 'groupings');
 stanza.add(jingle.Jingle, 'ringing', stanza.boolSub(INFONS, 'ringing'));
 stanza.add(jingle.Jingle, 'hold', stanza.boolSub(INFONS, 'hold'));
 stanza.add(jingle.Jingle, 'active', stanza.boolSub(INFONS, 'active'));
@@ -3553,7 +3601,7 @@ exports.Resume = stanza.define({
     element: 'resume',
     topLevel: true,
     fields: {
-        h: util.numberAttribute('h', '0'),
+        h: util.numberAttribute('h'),
         previd: stanza.attribute('previd')
     }
 });
@@ -3565,7 +3613,7 @@ exports.Resumed = stanza.define({
     element: 'resumed',
     topLevel: true,
     fields: {
-        h: util.numberAttribute('h', '0'),
+        h: util.numberAttribute('h'),
         previd: stanza.attribute('previd')
     }
 });
@@ -3585,7 +3633,7 @@ exports.Ack = stanza.define({
     element: 'a',
     topLevel: true,
     fields: {
-        h: util.numberAttribute('h', '0')
+        h: util.numberAttribute('h')
     }
 });
 
@@ -3883,8 +3931,8 @@ exports.dateSubAttribute = function (NS, sub, attr, now) {
 };
 
 exports.numberAttribute = stanza.field(
-    function (xml, attr, defaultVal) {
-        return parseInt(stanza.getAttribute(xml, attr, defaultVal), 10);
+    function (xml, attr)  {
+        return parseInt(stanza.getAttribute(xml, attr, '0'), 10);
     },
     function (xml, attr, value) {
         stanza.setAttribute(xml, attr, value.toString());
@@ -3892,8 +3940,8 @@ exports.numberAttribute = stanza.field(
 );
 
 exports.numberSub = stanza.field(
-    function (xml, NS, sub, defaultVal) {
-        return parseInt(stanza.getSubText(xml, NS, sub, defaultVal), 10);
+    function (xml, NS, sub) {
+        return parseInt(stanza.getSubText(xml, NS, sub, '0'), 10);
     },
     function (xml, NS, sub, value) {
         stanza.setSubText(xml, NS, sub, value.toString());
