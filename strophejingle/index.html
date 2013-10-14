@@ -1,0 +1,118 @@
+<html>
+  <head>
+    <title>Jingle Interop Testing</title>
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+    <script src="strophejingle.bundle.js"></script>
+  </head>
+  <body>
+    <div id="settings">
+      <h1>Connection Settings</h1>
+      <form id="loginInfo">
+        <label>JID: <input id="jid" type="text" name="jid" value="me@example.com"/></label>
+        <label>Password: <input id="password" type="password" name="password" value="" /></label>
+        <label>BOSH URL: <input id="boshURL" type="text" name="boshURL" value="" /></label>
+        <input id="connect" type="submit" value="Connect" />
+      </form>
+      <h2>Your JID</h2>
+      <p id="myJID">Your JID will appear here after you're connected.</p>
+      <h2>Start Video Session</h2>
+      <form id="callInfo">
+        <label>JID: <input id="peer" type="text" name="peer" value="otherperson@example.com" disabled /></label>
+        <input id="call" type="submit" value="Call" disabled />
+      </form>
+    </div>
+
+
+    <h1>Local Video</h1>
+    <video id="localVideo"></video>
+
+    <h2>Remote Video</h2>
+    <video id="remoteVideo"></video>
+
+    <script>
+      var connection = null;
+      var RTC = setupRTC();
+      var RTCPeerconnection = RTC.peerconnection;
+      loginInfo.onsubmit = function (e) {
+        if (e.preventDefault) e.preventDefault();
+
+        var jid = document.getElementById('jid').value;
+        var username = jid.slice(0, jid.indexOf('@'));
+        var server = jid.slice(jid.indexOf('@') + 1);
+
+        connection = new Strophe.Connection(document.getElementById('boshURL').value);
+        connection.connect(jid, document.getElementById('password').value, function(status) {
+          if (status == Strophe.Status.CONNECTED) {
+            console.log('connected');
+            getUserMediaWithConstraints(['audio', 'video']);
+            document.getElementById('connect').disabled = true;
+            document.getElementById('myJID').textContent = connection.jid;
+          } else {
+            console.log('status', status);
+          }
+        });
+
+
+        var callInfo = document.getElementById('callInfo');
+        callInfo.onsubmit = function (e) {
+          e.preventDefault();
+          if (document.getElementById('call').value == 'Call') {
+            var jid = document.getElementById('peer').value;
+            document.getElementById('call').disabled = true;
+            document.getElementById('peer').disabled = true;
+            connection.jingle.initiate(jid);
+          } else {
+              connection.jingle.terminate();
+          }
+          return false;
+        };
+
+        return false;
+      };
+      $(document).bind('mediaready.jingle', function(event, stream) {
+        connection.jingle.localStream = stream;
+        RTC.attachMediaStream($('#localVideo'), stream);
+        document.getElementById('localVideo').muted = true;
+        document.getElementById('localVideo').autoplay = true;
+        document.getElementById('call').disabled = false;
+        document.getElementById('peer').disabled = false;
+      });
+      //$(document).bind('mediafailure.jingle', onMediaFailure);
+      
+      $(document).bind('remotestreamadded.jingle', function(event, data, sid) {
+        function waitForRemoteVideo(selector, sid) {
+            sess = connection.jingle.sessions[sid];
+            videoTracks = sess.remoteStream.getVideoTracks();
+            if (videoTracks.length === 0 || selector[0].currentTime > 0) {
+                $(document).trigger('callactive.jingle', [selector, sid]);
+                RTC.attachMediaStream(selector, sess.remoteStream); // FIXME: why do i have to do this for FF?
+                console.log('waitForremotevideo', sess.peerconnection.iceConnectionState, sess.peerconnection.signalingState);
+            } else {
+                setTimeout(function() { waitForRemoteVideo(selector, sid); }, 100);
+            }
+        }
+        RTC.attachMediaStream($('#remoteVideo'), data.stream);
+        document.getElementById('remoteVideo').autoplay = true;
+        waitForRemoteVideo($('#remoteVideo'), sid);
+      });
+      $(document).bind('callincoming.jingle', function(event, sid) {
+        var sess = connection.jingle.sessions[sid];
+        document.getElementById('call').disabled = true;
+        document.getElementById('peer').disabled = true;
+        document.getElementById('peer').value = sess.peerjid;
+        sess.sendAnswer();
+        sess.accept();
+      });
+      $(document).bind('callactive.jingle', function(event, videoelem, sid) {
+        console.log('call active');
+        document.getElementById('call').disabled = false;
+        document.getElementById('call').value = 'hangup';
+      });
+      $(document).bind('callterminated.jingle', function(event, sid, reason) {
+        document.getElementById('call').disabled = false;
+        document.getElementById('call').value = 'Call';
+        document.getElementById('peer').disabled = false;
+      });
+    </script>
+  </body>
+</html>
