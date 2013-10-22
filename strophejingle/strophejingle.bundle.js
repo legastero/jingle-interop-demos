@@ -429,7 +429,8 @@ SDP.prototype.mangle = function() {
 
 // add content's to a jingle element
 SDP.prototype.toJingle = function(elem, thecreator) {
-    var i, j, k, mline, ssrc, rtpmap, tmp, lines;
+    var i, j, k, mline, ssrc, rtpmap, tmp, line, lines;
+    var ob = this;
     // new bundle plan
     if (SDPUtil.find_line(this.session, 'a=group:')) {
         lines = SDPUtil.find_lines(this.session, 'a=group:');
@@ -465,7 +466,7 @@ SDP.prototype.toJingle = function(elem, thecreator) {
             var mid = SDPUtil.parse_mid(SDPUtil.find_line(this.media[i], 'a=mid:'));
             elem.attrs({ name: mid });
 
-            // preliminary bundle mapping
+            // old BUNDLE plan, to be removed
             if (bundle.indexOf(mid) != -1) {
                 elem.c('bundle', {xmlns:'http://estos.de/ns/bundle'}).up();
                 bundle.splice(bundle.indexOf(mid), 1);
@@ -501,7 +502,26 @@ SDP.prototype.toJingle = function(elem, thecreator) {
             }
 
             if (ssrc) {
+                // new style mapping
+                elem.c('source', { ssrc: ssrc, xmlns: 'urn:xmpp:jingle:apps:rtp:ssma:0' });
+                // FIXME: group by ssrc and support multiple different ssrcs
+                $.each(SDPUtil.find_lines(this.media[i], 'a=ssrc:'), function(idx, line) {
+                    var idx = line.indexOf(' ');
+                    var kv = line.substr(idx+1);
+                    elem.c('parameter');
+                    if (kv.indexOf(':') == -1) {
+                        elem.attrs({ name: kv });
+                    } else {
+                        elem.attrs({ name: kv.split(':', 2)[0] });
+                        elem.attrs({ value: kv.split(':', 2)[1] });
+                    }
+                    elem.up();
+                });
+                elem.up();
+
+                // old proprietary mapping, to be removed at some point
                 tmp = SDPUtil.parse_ssrc(this.media[i]);
+                tmp.xmlns = 'http://estos.de/ns/ssrc';
                 tmp.ssrc = ssrc;
                 elem.c('ssrc', tmp).up(); // ssrc is part of description
             }
@@ -544,9 +564,14 @@ SDP.prototype.toJingle = function(elem, thecreator) {
         // XEP-0320
         $.each(SDPUtil.find_lines(this.media[i], 'a=fingerprint:', this.session), function(idx, line) {
             tmp = SDPUtil.parse_fingerprint(line);
-            tmp.required = true;
+            tmp.xmlns = 'urn:xmpp:tmp:jingle:apps:dtls:0';
+            // tmp.xmlns = 'urn:xmpp:jingle:apps:dtls:0'; -- FIXME: update receivers first
             elem.c('fingerprint').t(tmp.fingerprint);
             delete tmp.fingerprint;
+            line = SDPUtil.find_line(ob.media[i], 'a=setup:', ob.session);
+            if (line) {
+                tmp.setup = line.substr(8);
+            }
             elem.attrs(tmp);
             elem.up();
         });
@@ -703,9 +728,13 @@ SDP.prototype.jingle2media = function(content) {
             media += SDPUtil.build_icepwd(tmp.attr('pwd')) + '\r\n';
         }
         tmp.find('>fingerprint').each(function() {
+            // FIXME: check namespace at some point
             media += 'a=fingerprint:' + $(this).attr('hash');
             media += ' ' + $(this).text();
             media += '\r\n';
+            if ($(this).attr('setup')) {
+                media += 'a=setup:' + $(this).attr('setup') + '\r\n';
+            }
         });
     }
     switch (content.attr('senders')) {
@@ -767,13 +796,26 @@ SDP.prototype.jingle2media = function(content) {
         media += SDPUtil.candidateFromJingle(this);
     });
 
-    // proprietary mapping of a=ssrc lines
-    tmp = content.find('description>ssrc[xmlns="http://estos.de/ns/ssrc"]');
-    if (tmp.length) {
-        media += 'a=ssrc:' + ssrc + ' cname:' + tmp.attr('cname') + '\r\n';
-        media += 'a=ssrc:' + ssrc + ' msid:' + tmp.attr('msid') + '\r\n';
-        media += 'a=ssrc:' + ssrc + ' mslabel:' + tmp.attr('mslabel') + '\r\n';
-        media += 'a=ssrc:' + ssrc + ' label:' + tmp.attr('label') + '\r\n';
+    tmp = content.find('description>source[xmlns="urn:xmpp:jingle:apps:rtp:ssma:0"]');
+    tmp.each(function() {
+        var ssrc = $(this).attr('ssrc');
+        $(this).find('>parameter').each(function() {
+            media += 'a=ssrc:' + ssrc + ' ' + $(this).attr('name');
+            if ($(this).attr('value') && $(this).attr('value').length)
+                media += ':' + $(this).attr('value');
+            media += '\r\n';
+        });
+    });
+
+    if (tmp.length == 0) {
+        // fallback to proprietary mapping of a=ssrc lines
+        tmp = content.find('description>ssrc[xmlns="http://estos.de/ns/ssrc"]');
+        if (tmp.length) {
+            media += 'a=ssrc:' + ssrc + ' cname:' + tmp.attr('cname') + '\r\n';
+            media += 'a=ssrc:' + ssrc + ' msid:' + tmp.attr('msid') + '\r\n';
+            media += 'a=ssrc:' + ssrc + ' mslabel:' + tmp.attr('mslabel') + '\r\n';
+            media += 'a=ssrc:' + ssrc + ' label:' + tmp.attr('label') + '\r\n';
+        }
     }
     return media;
 };
@@ -850,7 +892,7 @@ SDPUtil = {
     },
     parse_fingerprint: function(line) { // RFC 4572
         var parts = line.substring(14).split(' '),
-        data = {xmlns: 'urn:xmpp:tmp:jingle:apps:dtls:0'};
+        data = {};
         data.hash = parts.shift();
         data.fingerprint = parts.shift();
         // TODO assert that fingerprint satisfies 2UHEX *(":" 2UHEX) ?
@@ -936,7 +978,7 @@ SDPUtil = {
         // TODO: see "Jingle RTP Source Description" by Juberti and P. Thatcher on google docs
         // and parse according to that
         var lines = desc.split('\r\n'),
-            data = {xmlns: 'http://estos.de/ns/ssrc'};
+            data = {};
         for (var i = 0; i < lines.length; i++) {
             if (lines[i].substring(0, 7) == 'a=ssrc:') {
                 var idx = lines[i].indexOf(' ');
