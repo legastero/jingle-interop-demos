@@ -1,49 +1,3 @@
-!function(e){if("function"==typeof bootstrap)bootstrap("bows",e);else if("object"==typeof exports)module.exports=e();else if("function"==typeof define&&define.amd)define(e);else if("undefined"!=typeof ses){if(!ses.ok())return;ses.makeBows=e}else"undefined"!=typeof window?window.bows=e():global.bows=e()}(function(){return function(e,n,o){function r(o,i){if(!n[o]){if(!e[o]){var f="function"==typeof require&&require;if(!i&&f)return f(o,!0);if(t)return t(o,!0);throw new Error("Cannot find module '"+o+"'")}var u=n[o]={exports:{}};e[o][0].call(u.exports,function(n){var t=e[o][1][n];return r(t?t:n)},u,u.exports)}return n[o].exports}for(var t="function"==typeof require&&require,i=0;i<o.length;i++)r(o[i]);return r}({1:[function(e,n){!function(){var o,r,t,i="undefined"==typeof window,f=!i&&window.localStorage,u=f.debug,d=e("andlog"),l=.618033988749895,s=0,c=15,p=function(){};o=function(){return s+=l,s%=1,360*s};var t=u&&"/"===u[0]&&new RegExp(u.substring(1,u.length-1));r=function(e){var n;return n="%c"+e.slice(0,c),n+=Array(c+3-n.length).join(" ")+"|",t&&!e.match(t)?p:window.chrome?d.log.bind(d,n,"color: hsl("+o()+",99%,40%); font-weight: bold"):d.log.bind(d,n)},r.config=function(e){return e.padLength?c=e.padLength:void 0},"undefined"!=typeof n?n.exports=r:window.bows=r}.call()},{andlog:2}],2:[function(e,n,o){!function(){var e="undefined"==typeof window,r=!e&&window.localStorage,t={};if(e)return n.exports=console,void 0;if(r&&r.debug&&window.console)t=window.console;else for(var i="assert,count,debug,dir,dirxml,error,exception,group,groupCollapsed,groupEnd,info,log,markTimeline,profile,profileEnd,time,timeEnd,trace,warn".split(","),f=i.length,u=function(){};f--;)t[i[f]]=u;"undefined"!=typeof o?n.exports=t:window.console=t}()},{}]},{},[1])(1)});
-(function(e){if("function"==typeof bootstrap)bootstrap("attachmediastream",e);else if("object"==typeof exports)module.exports=e();else if("function"==typeof define&&define.amd)define(e);else if("undefined"!=typeof ses){if(!ses.ok())return;ses.makeAttachMediaStream=e}else"undefined"!=typeof window?window.attachMediaStream=e():global.attachMediaStream=e()})(function(){var define,ses,bootstrap,module,exports;
-return (function(e,t,n){function i(n,s){if(!t[n]){if(!e[n]){var o=typeof require=="function"&&require;if(!s&&o)return o(n,!0);if(r)return r(n,!0);throw new Error("Cannot find module '"+n+"'")}var u=t[n]={exports:{}};e[n][0].call(u.exports,function(t){var r=e[n][1][t];return i(r?r:t)},u,u.exports)}return t[n].exports}var r=typeof require=="function"&&require;for(var s=0;s<n.length;s++)i(n[s]);return i})({1:[function(require,module,exports){
-module.exports = function (stream, el, options) {
-    var URL = window.URL;
-    var opts = {
-        autoplay: true,
-        mirror: false,
-        muted: false
-    };
-    var element = el || document.createElement('video');
-    var item;
-
-    if (options) {
-        for (item in options) {
-            opts[item] = options[item];
-        }
-    }
-
-    if (opts.autoplay) element.autoplay = 'autoplay';
-    if (opts.muted) element.muted = true;
-    if (opts.mirror) {
-        ['', 'moz', 'webkit', 'o', 'ms'].forEach(function (prefix) {
-            var styleName = prefix ? prefix + 'Transform' : 'transform';
-            element.style[styleName] = 'scaleX(-1)';
-        });
-    }
-
-    // this first one should work most everywhere now
-    // but we have a few fallbacks just in case.
-    if (URL && URL.createObjectURL) {
-        element.src = URL.createObjectURL(stream);
-    } else if (element.srcObject) {
-        element.srcObject = stream;
-    } else if (element.mozSrcObject) {
-        element.mozSrcObject = stream;
-    } else {
-        return false;
-    }
-
-    return element;
-};
-
-},{}]},{},[1])(1)
-});
-;
 (function(e){if("function"==typeof bootstrap)bootstrap("xmpp",e);else if("object"==typeof exports)module.exports=e();else if("function"==typeof define&&define.amd)define(e);else if("undefined"!=typeof ses){if(!ses.ok())return;ses.makeXMPP=e}else"undefined"!=typeof window?window.XMPP=e():global.XMPP=e()})(function(){var define,ses,bootstrap,module,exports;
 return (function(e,t,n){function i(n,s){if(!t[n]){if(!e[n]){var o=typeof require=="function"&&require;if(!s&&o)return o(n,!0);if(r)return r(n,!0);throw new Error("Cannot find module '"+n+"'")}var u=t[n]={exports:{}};e[n][0].call(u.exports,function(t){var r=e[n][1][t];return i(r?r:t)},u,u.exports)}return t[n].exports}var r=typeof require=="function"&&require;for(var s=0;s<n.length;s++)i(n[s]);return i})({1:[function(require,module,exports){
 exports.Message = require('./lib/stanza/message');
@@ -119,7 +73,12 @@ function Client(opts) {
 
     WildEmitter.call(this);
 
-    this.config = opts || {};
+    opts = opts || {};
+    this.config = _.extend({
+        useStreamManagement: true,
+        transport: 'websocket'
+    }, opts);
+
     this.jid = new JID();
 
     this._idPrefix = uuid.v4();
@@ -137,9 +96,9 @@ function Client(opts) {
     ];
     this.features = {};
 
-    this.conn = new WSConnection();
-    this.conn.on('*', function (eventName, data) {
-        self.emit(eventName, data);    
+    this.transport = new WSConnection();
+    this.transport.on('*', function (eventName, data) {
+        self.emit(eventName, data);
     });
 
     this.on('streamFeatures', function (features) {
@@ -161,7 +120,7 @@ function Client(opts) {
 
         async.waterfall(series, function (cmd) {
             if (cmd === 'restart') {
-                self.conn.restart();
+                self.transport.restart();
             } else if (cmd === 'disconnect') {
                 self.disconnect();
             }
@@ -244,16 +203,20 @@ function Client(opts) {
     };
 
     this.features.streamManagement = function (features, cb) {
+        if (!self.config.useStreamManagement) {
+            return cb(null, features);
+        }
+
         self.on('stream:management:enabled', 'sm', function (enabled) {
-            self.conn.sm.enabled(enabled);
+            self.transport.sm.enabled(enabled);
             self.negotiatedFeatures.streamManagement = true;
 
             self.on('stream:management:ack', 'connection', function (ack) {
-                self.conn.sm.process(ack);
+                self.transport.sm.process(ack);
             });
 
             self.on('stream:management:request', 'connection', function (request) {
-                self.conn.sm.ack();
+                self.transport.sm.ack();
             });
 
             self.releaseGroup('sm');
@@ -261,17 +224,17 @@ function Client(opts) {
         });
 
         self.on('stream:management:resumed', 'sm', function (resumed) {
-            self.conn.sm.enabled(resumed);
+            self.transport.sm.enabled(resumed);
             self.negotiatedFeatures.streamManagement = true;
             self.negotiatedFeatures.bind = true;
             self.sessionStarted = true;
 
             self.on('stream:management:ack', 'connection', function (ack) {
-                self.conn.sm.process(ack);
+                self.transport.sm.process(ack);
             });
-            
+
             self.on('stream:management:request', 'connection', function (request) {
-                self.conn.sm.ack();
+                self.transport.sm.ack();
             });
 
             self.releaseGroup('sm');
@@ -279,22 +242,21 @@ function Client(opts) {
         });
 
         self.on('stream:management:failed', 'sm', function (failed) {
-            self.conn.sm.failed();
+            self.transport.sm.failed();
             self.emit('session:end');
             self.releaseGroup('session');
             self.releaseGroup('sm');
             cb(null, features);
         });
 
-        
-        if (!self.conn.sm.id) {
+        if (!self.transport.sm.id) {
             if (self.negotiatedFeatures.bind) {
-                self.conn.sm.enable();
+                self.transport.sm.enable();
             } else {
                 cb(null, features);
             }
-        } else if (self.conn.sm.id && self.conn.sm.allowResume) {
-            self.conn.sm.resume();
+        } else if (self.transport.sm.id && self.transport.sm.allowResume) {
+            self.transport.resume();
         } else {
             cb(null, features);
         }
@@ -390,7 +352,7 @@ Client.prototype = Object.create(WildEmitter.prototype, {
 });
 
 Client.prototype.__defineGetter__('stream', function () {
-    return this.conn ? this.conn.stream : undefined;
+    return this.transport ? this.transport.stream : undefined;
 });
 
 Client.prototype.use = function (pluginInit) {
@@ -459,13 +421,13 @@ Client.prototype.connect = function (opts) {
     }
 
     if (self.config.wsURL) {
-        return self.conn.connect(self.config);
+        return self.transport.connect(self.config);
     }
 
     self.discoverBindings(self.config.server, function (err, endpoints) {
         if (!err && endpoints.length) {
             self.config.wsURL = endpoints[0];
-            self.conn.connect(self.config);
+            self.transport.connect(self.config);
         } else {
             self.disconnect();
         }
@@ -483,13 +445,13 @@ Client.prototype.disconnect = function () {
     }
     this.sessionStarted = false;
     this.releaseGroup('connection');
-    if (this.conn) {
-        this.conn.disconnect();
+    if (this.transport) {
+        this.transport.disconnect();
     }
 };
 
 Client.prototype.send = function (data) {
-    this.conn.send(data);
+    this.transport.send(data);
 };
 
 Client.prototype.sendMessage = function (data) {
@@ -1179,6 +1141,16 @@ module.exports = function (client) {
         client.disco.addFeature(cap);
     });
 
+    var mappedEvents = [
+        'outgoing', 'incoming', 'accepted', 'terminated',
+        'ringing', 'mute', 'unmute', 'hold', 'resumed'
+    ];
+    mappedEvents.forEach(function (event) {
+        jingle.on(event, function (session, arg1) {
+            client.emit('jingle:' + event, session, arg1);
+        });
+    });
+
     jingle.on('localStream', function (stream) {
         client.emit('jingle:localstream:added', stream);
     });
@@ -1195,22 +1167,12 @@ module.exports = function (client) {
         client.emit('jingle:remotestream:removed', session);
     });
 
-    jingle.on('incoming', function (session) {
-        client.emit('jingle:incoming', session);
-    });
-
-    jingle.on('outgoing', function (session) {
-        client.emit('jingle:outgoing', session);
-    });
-
     jingle.on('send', function (data) {
         client.sendIq(data);
-        console.log('outgoing', data);
     });
 
     client.on('iq:set:jingle', function (data) {
         data = data.toJSON();
-        console.log('incoming', data);
         jingle.process(data);
     });
 
@@ -4009,6 +3971,8 @@ function WSConnection() {
         cb();
     }, 1);
 
+    self.streamEnd = '</stream:stream>';
+
     function wrap(data) {
         var result = [self.streamStart, data, self.streamEnd].join('');
         return result;
@@ -4035,42 +3999,32 @@ function WSConnection() {
     });
 
     self.on('raw:incoming', function (data) {
-        var streamData, ended;
+        var streamData, started = false;
 
         data = data.trim();
-        data = data.replace(/^(\s*<\?.*\?>\s*)*/, '');
-        if (data === '') {
-            return;
-        }
+        data = data.replace(/^(<\?.*\?>\s*)*/, '');
+        if (data === '') return;
 
         if (data.match(self.streamEnd)) {
+            self.emit('stream:end');
             return self.disconnect();
-        } else if (self.hasStream) {
-            try {
-                streamData = new Stream({}, parse(wrap(data)));
-            } catch (e) {
-                return self.disconnect();
-            }
-        } else {
-            // Inspect start of stream element to get NS prefix name
+        }
+
+        if (!self.streamStart) {
             var parts = data.match(/^<(\S+:)?(\S+) /);
-            self.streamStart = data;
             self.streamEnd = '</' + (parts[1] || '') + parts[2] + '>';
+            started = true;
+        }
 
-            ended = false;
-            try {
-                streamData = new Stream({}, parse(data + self.streamEnd));
-            } catch (e) {
-                try {
-                    streamData = new Stream({}, parse(data));
-                    ended = true;
-                } catch (e2) {
-                    return self.disconnect();
-                }
-            }
+        try {
+            streamData = new Stream({}, parse(self.streamStart + data + self.streamEnd));
+        } catch (e) {
+            return self.disconnect();
+        }
 
-            self.hasStream = true;
+        if (started) {
             self.stream = streamData;
+            self.streamStart = data;
             self.emit('stream:start', streamData);
         }
 
@@ -4090,10 +4044,6 @@ function WSConnection() {
                 self.emit('id:' + stanzaObj.id, stanzaObj);
             }
         });
-
-        if (ended) {
-            self.emit('stream:end');
-        }
     });
 }
 
@@ -4108,9 +4058,7 @@ WSConnection.prototype.connect = function (opts) {
 
     self.config = opts;
 
-    self.hasStream = false;
-    self.streamStart = '<stream:stream xmlns:stream="http://etherx.jabber.org/streams">';
-    self.streamEnd = '</stream:stream>';
+    self.streamStart = '';
     self.parser = new DOMParser();
     self.serializer = new XMLSerializer();
 
@@ -4142,7 +4090,7 @@ WSConnection.prototype.disconnect = function () {
             this.emit('raw:outgoing', '</stream:stream>');
             this.emit('stream:end');
         }
-        this.hasStream = false;
+        this.streamStart = '';
         this.conn.close();
         this.stream = undefined;
         this.conn = undefined;
@@ -4152,7 +4100,7 @@ WSConnection.prototype.disconnect = function () {
 
 WSConnection.prototype.restart = function () {
     var self = this;
-    self.hasStream = false;
+    self.streamStart = '';
     self.send([
         '<stream:stream',
         'xmlns:stream="http://etherx.jabber.org/streams"',
@@ -12630,7 +12578,7 @@ function JingleSession(opts) {
         var changes = task.changes;
         var cb = task.cb;
 
-        log(this.sid + ': ' + action);
+        log(self.sid + ': ' + action);
         self[action](changes, function (err) {
             cb(err);
             next();
@@ -12715,15 +12663,19 @@ JingleSession.prototype.start = function () {
     this.state = 'pending';
     log(this.sid + ': Can not start generic session');
 };
-JingleSession.prototype.end = function (silence) {
+JingleSession.prototype.end = function (reason, silence) {
     this.parent.peers[this.peer].splice(this.parent.peers[this.peer].indexOf(this), 1);
     delete this.parent.sessions[this.sid];
 
     this.state = 'ended';
 
+    reason = reason || {};
+
     if (!silence) {
-        this.send('session-terminate');
+        this.send('session-terminate', {reason: reason});
     }
+
+    this.parent.emit('terminated', this, reason);
 };
 
 var actions = [
@@ -12766,7 +12718,15 @@ function MediaSession(opts) {
     this.pc.on('removeStream', this.onStreamRemoved.bind(this));
     this.pendingAnswer = null;
 
-    this.pc.addStream(this.parent.localStream);
+    if (this.parent.localStream) {
+        this.pc.addStream(this.parent.localStream);
+        this.localStream = this.parent.localStream;
+    } else {
+        this.parent.once('localStream', function (stream) {
+            self.pc.addStream(stream);
+            this.localStream = stream;
+        });
+    }
 
     this.stream = null;
 }
@@ -12786,13 +12746,14 @@ MediaSession.prototype = _.extend(MediaSession.prototype, {
             self.send('session-initiate', sessDesc.json);
         });
     },
-    end: function () {
+    end: function (reason) {
         this.pc.close();
         this.onStreamRemoved();
-        JingleSession.prototype.end.call(this);
+        JingleSession.prototype.end.call(this, reason);
     },
     accept: function () {
         log(this.sid + ': Accepted incoming session');
+        this.state = 'active';
         this.send('session-accept', this.pendingAnswer);
     },
     ring: function () {
@@ -12834,15 +12795,20 @@ MediaSession.prototype = _.extend(MediaSession.prototype, {
         log(this.sid + ': Activating accepted outbound session');
         this.state = 'active';
         this.pc.handleAnswer({type: 'answer', json: changes}, function (err) {
-            log(self.sid + ': Could not process WebRTC answer', err);
-            cb({condition: 'general-error'});
+            if (err) {
+                log(self.sid + ': Could not process WebRTC answer', err);
+                return cb({condition: 'general-error'});
+            }
+
+            self.parent.emit('accepted', self);
+            cb();
         });
     },
     onSessionTerminate: function (changes, cb) {
         log(this.sid + ': Terminating session');
         this.pc.close();
         this.onStreamRemoved();
-        JingleSession.prototype.end.call(this, true);
+        JingleSession.prototype.end.call(this, changes.reason, true);
         cb();
     },
     onTransportInfo: function (changes, cb) {
@@ -12854,6 +12820,35 @@ MediaSession.prototype = _.extend(MediaSession.prototype, {
             }
             cb();
         });
+    },
+    onSessionInfo: function (info, cb) {
+        log(info);
+        if (info.ringing) {
+            log(this.sid + ': Ringing on remote stream');
+            this.parent.emit('ringing', this);
+        }
+
+        if (info.hold) {
+            log(this.sid + ': On hold');
+            this.parent.emit('hold', this);
+        }
+
+        if (info.active) {
+            log(this.sid + ': Resumed from hold');
+            this.parent.emit('resumed', this);
+        }
+
+        if (info.mute) {
+            log(this.sid + ': Muted', info.mute);
+            this.parent.emit('mute', this, info.mute);
+        }
+
+        if (info.unmute) {
+            log(this.sid + ': Unmuted', info.unmute);
+            this.parent.emit('unmute', this, info.unmute);
+        }
+
+        cb();
     },
     onIceCandidate: function (candidateInfo) {
         log(this.sid + ': Discovered new ICE candidate', candidateInfo);
@@ -13126,7 +13121,7 @@ Jingle.prototype.process = function (req) {
         for (var i = 0; i < sids.length; i++) {
             currsid = sids[i];
             sess = this.sessions[currsid];
-            if (sess && sess.pending) {
+            if (sess.pending) {
                 if (_.intersection(contentTypes, sess.contentTypes).length) {
                     // We already have a pending session request for this content type.
                     if (currsid > sid) {
@@ -17686,4 +17681,49 @@ WildEmitter.prototype.getWildcardCallbacks = function (eventName) {
 
 },{}]},{},[1])(1)
 });
+;(function(e){if("function"==typeof bootstrap)bootstrap("attachmediastream",e);else if("object"==typeof exports)module.exports=e();else if("function"==typeof define&&define.amd)define(e);else if("undefined"!=typeof ses){if(!ses.ok())return;ses.makeAttachMediaStream=e}else"undefined"!=typeof window?window.attachMediaStream=e():global.attachMediaStream=e()})(function(){var define,ses,bootstrap,module,exports;
+return (function(e,t,n){function i(n,s){if(!t[n]){if(!e[n]){var o=typeof require=="function"&&require;if(!s&&o)return o(n,!0);if(r)return r(n,!0);throw new Error("Cannot find module '"+n+"'")}var u=t[n]={exports:{}};e[n][0].call(u.exports,function(t){var r=e[n][1][t];return i(r?r:t)},u,u.exports)}return t[n].exports}var r=typeof require=="function"&&require;for(var s=0;s<n.length;s++)i(n[s]);return i})({1:[function(require,module,exports){
+module.exports = function (stream, el, options) {
+    var URL = window.URL;
+    var opts = {
+        autoplay: true,
+        mirror: false,
+        muted: false
+    };
+    var element = el || document.createElement('video');
+    var item;
+
+    if (options) {
+        for (item in options) {
+            opts[item] = options[item];
+        }
+    }
+
+    if (opts.autoplay) element.autoplay = 'autoplay';
+    if (opts.muted) element.muted = true;
+    if (opts.mirror) {
+        ['', 'moz', 'webkit', 'o', 'ms'].forEach(function (prefix) {
+            var styleName = prefix ? prefix + 'Transform' : 'transform';
+            element.style[styleName] = 'scaleX(-1)';
+        });
+    }
+
+    // this first one should work most everywhere now
+    // but we have a few fallbacks just in case.
+    if (URL && URL.createObjectURL) {
+        element.src = URL.createObjectURL(stream);
+    } else if (element.srcObject) {
+        element.srcObject = stream;
+    } else if (element.mozSrcObject) {
+        element.mozSrcObject = stream;
+    } else {
+        return false;
+    }
+
+    return element;
+};
+
+},{}]},{},[1])(1)
+});
 ;
+!function(e){if("function"==typeof bootstrap)bootstrap("bows",e);else if("object"==typeof exports)module.exports=e();else if("function"==typeof define&&define.amd)define(e);else if("undefined"!=typeof ses){if(!ses.ok())return;ses.makeBows=e}else"undefined"!=typeof window?window.bows=e():global.bows=e()}(function(){return function(e,n,o){function r(o,i){if(!n[o]){if(!e[o]){var f="function"==typeof require&&require;if(!i&&f)return f(o,!0);if(t)return t(o,!0);throw new Error("Cannot find module '"+o+"'")}var u=n[o]={exports:{}};e[o][0].call(u.exports,function(n){var t=e[o][1][n];return r(t?t:n)},u,u.exports)}return n[o].exports}for(var t="function"==typeof require&&require,i=0;i<o.length;i++)r(o[i]);return r}({1:[function(e,n){!function(){var o,r,t,i="undefined"==typeof window,f=!i&&window.localStorage,u=f.debug,d=e("andlog"),l=.618033988749895,s=0,c=15,p=function(){};o=function(){return s+=l,s%=1,360*s};var t=u&&"/"===u[0]&&new RegExp(u.substring(1,u.length-1));r=function(e){var n;return n="%c"+e.slice(0,c),n+=Array(c+3-n.length).join(" ")+"|",t&&!e.match(t)?p:window.chrome?d.log.bind(d,n,"color: hsl("+o()+",99%,40%); font-weight: bold"):d.log.bind(d,n)},r.config=function(e){return e.padLength?c=e.padLength:void 0},"undefined"!=typeof n?n.exports=r:window.bows=r}.call()},{andlog:2}],2:[function(e,n,o){!function(){var e="undefined"==typeof window,r=!e&&window.localStorage,t={};if(e)return n.exports=console,void 0;if(r&&r.debug&&window.console)t=window.console;else for(var i="assert,count,debug,dir,dirxml,error,exception,group,groupCollapsed,groupEnd,info,log,markTimeline,profile,profileEnd,time,timeEnd,trace,warn".split(","),f=i.length,u=function(){};f--;)t[i[f]]=u;"undefined"!=typeof o?n.exports=t:window.console=t}()},{}]},{},[1])(1)});
