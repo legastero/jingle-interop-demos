@@ -37,6 +37,7 @@
         if (e.preventDefault) e.preventDefault();
 
         connection = new Strophe.Connection(document.getElementById('boshURL').value);
+        connection.jingle.pc_constraints = RTC.pc_constraints;
         var jid = document.getElementById('jid').value;
 
         connection.connect(jid, document.getElementById('password').value, function(status) {
