@@ -1,0 +1,27 @@
+{
+  "name": "jingle-interop-demos",
+  "version": "0.0.0",
+  "description": "A collection of JavaScript Jingle clients for interop and testing purposes.",
+  "main": "Gruntfile.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/legastero/jingle-interop-demos.git"
+  },
+  "keywords": [
+    "jingle",
+    "webrtc",
+    "interop",
+    "xmpp",
+    "browser"
+  ],
+  "author": "",
+  "readmeFilename": "README.md",
+  "gitHead": "4ea124aec05b247d3235a6fe58b56b42d560ff77",
+  "dependencies": {
+    "grunt": "~0.4.1",
+    "grunt-contrib-connect": "~0.5.0"
+  }
+}
