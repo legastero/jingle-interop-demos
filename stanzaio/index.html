@@ -1,6 +1,7 @@
 <html>
   <head>
     <title>Jingle Interop Testing</title>
+    <script src="attachmediastream.bundle.js"></script>
     <script src="stanzaio.bundle.js"></script>
   </head>
   <body>
@@ -31,8 +32,8 @@
       var client;
       var loginInfo = document.getElementById('loginInfo');
 
-      var inlog = bows('in>>>');
-      var outlog = bows('<<<out');
+      var inlog = console.log.bind(console, '<<in');
+      var outlog = console.log.bind(console, 'out>>');;
 
       loginInfo.onsubmit = function (e) {
         if (e.preventDefault) e.preventDefault();
