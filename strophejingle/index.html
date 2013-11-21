@@ -3,21 +3,24 @@
     <title>Jingle Interop Testing</title>
     <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
     <script src="strophejingle.bundle.js"></script>
+    <style type='text/css'>
+video {width:320;height:240}
+    </style>
   </head>
   <body>
     <div id="settings">
       <h1>Connection Settings</h1>
       <form id="loginInfo">
-        <label>JID: <input id="jid" type="text" name="jid" value="me@example.com"/></label>
-        <label>Password: <input id="password" type="password" name="password" value="" /></label>
-        <label>BOSH URL: <input id="boshURL" type="text" name="boshURL" value="" /></label>
+        <label>JID: <input id="jid" type="text" name="jid" placeholder="me@example.com"/></label>
+        <label>Password: <input id="password" type="password" name="password" placeholder="secret"/></label>
+        <label>BOSH URL: <input id="boshURL" type="text" name="boshURL" placeholder="/http-bind"/></label>
         <input id="connect" type="submit" value="Connect" />
       </form>
       <h2>Your JID</h2>
       <p id="myJID">Your JID will appear here after you're connected.</p>
       <h2>Start Video Session</h2>
       <form id="callInfo">
-        <label>JID: <input id="peer" type="text" name="peer" value="otherperson@example.com" disabled /></label>
+        <label>JID: <input id="peer" type="text" name="peer" placeholder="otherperson@example.com" disabled /></label>
         <input id="call" type="submit" value="Call" disabled />
       </form>
     </div>
@@ -27,7 +30,8 @@
     <video id="localVideo"></video>
 
     <h2>Remote Video</h2>
-    <video id="remoteVideo"></video>
+    <div id="remoteVideos">
+    </div>
 
     <script>
       var connection = null;
@@ -36,9 +40,9 @@
       loginInfo.onsubmit = function (e) {
         if (e.preventDefault) e.preventDefault();
 
-        connection = new Strophe.Connection(document.getElementById('boshURL').value);
+        connection = new Strophe.Connection(document.getElementById('boshURL').value || '/http-bind');
         connection.jingle.pc_constraints = RTC.pc_constraints;
-        var jid = document.getElementById('jid').value;
+        var jid = document.getElementById('jid').value || window.location.hostname;
 
         connection.connect(jid, document.getElementById('password').value, function(status) {
           if (status == Strophe.Status.CONNECTED) {
@@ -54,7 +58,7 @@
 
         var callInfo = document.getElementById('callInfo');
         callInfo.onsubmit = function (e) {
-          e.preventDefault();
+          if (e.preventDefault) e.preventDefault();
           if (document.getElementById('call').value == 'Call') {
             var jid = document.getElementById('peer').value;
             document.getElementById('call').disabled = true;
@@ -84,15 +88,32 @@
             videoTracks = sess.remoteStream.getVideoTracks();
             if (videoTracks.length === 0 || selector[0].currentTime > 0) {
                 $(document).trigger('callactive.jingle', [selector, sid]);
-                RTC.attachMediaStream(selector, sess.remoteStream); // FIXME: why do i have to do this for FF?
+                RTC.attachMediaStream(selector, data.stream); // FIXME: why do i have to do this for FF?
                 console.log('waitForremotevideo', sess.peerconnection.iceConnectionState, sess.peerconnection.signalingState);
             } else {
                 setTimeout(function() { waitForRemoteVideo(selector, sid); }, 100);
             }
         }
-        RTC.attachMediaStream($('#remoteVideo'), data.stream);
-        document.getElementById('remoteVideo').autoplay = true;
-        waitForRemoteVideo($('#remoteVideo'), sid);
+        var sess = connection.jingle.sessions[sid];
+        var vid = document.createElement('video');
+        var id = 'remoteVideo_' + sid + '_' + data.stream.id;
+        vid.id = id;
+        vid.autoplay = true;
+        var remotes = document.getElementById('remoteVideos');
+        remotes.appendChild(vid);
+        var sel = $('#' + id);
+        sel.hide();
+        RTC.attachMediaStream(sel, data.stream);
+        waitForRemoteVideo(sel, sid);
+        console.log(data.stream);
+        data.stream.onended = function() {
+            console.log('stream ended', this.id);
+            $('#' + id).remove();
+        }
+      });
+      $(document).bind('remotestreamremoved.jingle', function(event, data, sid) {
+        console.log('remove stream', 'remoteVideo_' + sid + '_' + data.stream.id);
+        // note that this isn't triggered when the peerconnection is closed
       });
       $(document).bind('callincoming.jingle', function(event, sid) {
         var sess = connection.jingle.sessions[sid];
@@ -106,6 +127,7 @@
         console.log('call active');
         document.getElementById('call').disabled = false;
         document.getElementById('call').value = 'hangup';
+        videoelem.show();
       });
       $(document).bind('callterminated.jingle', function(event, sid, reason) {
         document.getElementById('call').disabled = false;
