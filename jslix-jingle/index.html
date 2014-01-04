@@ -1,0 +1,152 @@
+<html>
+  <head>
+    <title>Jingle Interop Testing</title>
+    <script src="https://rawgithub.com/jrburke/requirejs/2.1.9/require.js"></script>
+    <script src="require-config.js"></script>
+    <style type='text/css'>
+video {width:320;height:240}
+    </style>
+  </head>
+  <body>
+    <div id="settings">
+      <h1>Connection Settings</h1>
+      <form id="loginInfo">
+        <label>JID: <input id="jid" type="text" name="jid" placeholder="me@example.com" value="tester@server.local"/></label>
+        <label>Password: <input id="password" type="password" name="password" placeholder="secret" value="ghjcnjgfhjkm"/></label>
+        <label>BOSH URL: <input id="boshURL" type="text" name="boshURL" placeholder="/http-bind"/></label>
+        <input id="connect" type="submit" value="Connect" />
+      </form>
+      <h2>Your JID</h2>
+      <p id="myJID">Your JID will appear here after you're connected.</p>
+      <h2>Start Video Session</h2>
+      <form id="callInfo">
+        <label>JID: <input id="peer" type="text" name="peer" placeholder="otherperson@example.com" disabled /></label>
+        <input id="call" type="submit" value="Call" disabled />
+      </form>
+    </div>
+
+
+    <h1>Local Video</h1>
+    <video id="localVideo"></video>
+
+    <h2>Remote Video</h2>
+    <div id="remoteVideos">
+    </div>
+
+    <script>
+    window.onload = function() {
+        if (document.location.hash.length > 1) {
+            document.getElementById('jid').value = document.location.hash.slice(1);
+        }
+    }
+      require(['jslix/client', 'jslix/sasl.mechanisms.plain',
+               'jslix/sasl.mechanisms.digest_md5', 'jslix/jingle/adapter',
+               'jslix/jingle/signals', 'jslix/jingle/jingle', 'jslix/disco'],
+        function(JSLiXClient, _, _, adapter, signals, JinglePlugin, Disco) {
+          var plugin;
+          loginInfo.onsubmit = function (e) {
+            if (e.preventDefault) e.preventDefault();
+
+            var client = new JSLiXClient({
+                http_base: $('#boshURL').val() || '/http-bind',
+                jid: $('#jid').val(),
+                password: $('#password').val(),
+            });
+            //connection.jingle.pc_constraints = RTC.pc_constraints;
+            client.connect().done(function() {
+                console.log('connected');
+                document.getElementById('connect').disabled = true;
+                document.getElementById('myJID').textContent = client.dispatcher.connection.jid;
+                adapter.getUserMediaWithConstraints(RTC, ['audio', 'video']);
+                var disco_plugin = new Disco(client.dispatcher);
+                plugin = new JinglePlugin(client.dispatcher, {
+                    'disco_plugin': disco_plugin
+                });
+                plugin.init();
+            }).fail(function(error) {
+                console.log('Failed to connect', error);
+            });
+
+
+            var callInfo = document.getElementById('callInfo');
+            callInfo.onsubmit = function (e) {
+              if (e.preventDefault) e.preventDefault();
+              if (document.getElementById('call').value == 'Call') {
+                var jid = document.getElementById('peer').value;
+                document.getElementById('call').disabled = true;
+                document.getElementById('peer').disabled = true;
+                plugin.initiate(jid);
+              } else {
+                  plugin.terminate();
+              }
+              return false;
+            };
+
+            return false;
+          };
+          signals.media.ready.add(function(stream) {
+            plugin.localStream = stream;
+            RTC.attachMediaStream($('#localVideo'), stream);
+            document.getElementById('localVideo').muted = true;
+            document.getElementById('localVideo').autoplay = true;
+            document.getElementById('call').disabled = false;
+            document.getElementById('peer').disabled = false;
+          });
+          //signals.media.failure.add(onMediaFailure);
+
+          signals.remote_stream.added.add(function(data, sid) {
+            function waitForRemoteVideo(selector, sid) {
+                sess = plugin.sessions[sid];
+                videoTracks = sess.remoteStream.getVideoTracks();
+                if (videoTracks.length === 0 || selector[0].currentTime > 0) {
+                    $(document).trigger('callactive.jingle-interop', [selector, sid]);
+                    RTC.attachMediaStream(selector, data.stream); // FIXME: why do i have to do this for FF?
+                    console.log('waitForremotevideo', sess.peerconnection.iceConnectionState, sess.peerconnection.signalingState);
+                } else {
+                    setTimeout(function() { waitForRemoteVideo(selector, sid); }, 100);
+                }
+            }
+            var sess = plugin.sessions[sid];
+            var vid = document.createElement('video');
+            var id = 'remoteVideo_' + sid + '_' + data.stream.id;
+            vid.id = id;
+            vid.autoplay = true;
+            var remotes = document.getElementById('remoteVideos');
+            remotes.appendChild(vid);
+            var sel = $('#' + id);
+            sel.hide();
+            RTC.attachMediaStream(sel, data.stream);
+            waitForRemoteVideo(sel, sid);
+            console.log(data.stream);
+            data.stream.onended = function() {
+                console.log('stream ended', this.id);
+                $('#' + id).remove();
+            }
+          });
+          signals.remote_stream.removed.add(function(data, sid) {
+            console.log('remove stream', 'remoteVideo_' + sid + '_' + data.stream.id);
+            // note that this isn't triggered when the peerconnection is closed
+          });
+          signals.call.incoming.add(function(sid) {
+            var sess = plugin.sessions[sid];
+            document.getElementById('call').disabled = true;
+            document.getElementById('peer').disabled = true;
+            document.getElementById('peer').value = sess.peerjid;
+            sess.sendAnswer();
+            sess.accept();
+          });
+          $(document).bind('callactive.jingle-interop', function(e, videoelem, sid) {
+            console.log('call active');
+            document.getElementById('call').disabled = false;
+            document.getElementById('call').value = 'hangup';
+            videoelem.show();
+          });
+          signals.call.terminated.add(function(sid, reason) {
+            document.getElementById('call').disabled = false;
+            document.getElementById('call').value = 'Call';
+            document.getElementById('peer').disabled = false;
+          });
+       });
+    </script>
+  </body>
+</html>
