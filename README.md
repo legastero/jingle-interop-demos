@@ -7,6 +7,7 @@ Includes demo clients from the following projects:
 - [strophe.jingle](https://github.com/ESTOS/strophe.jingle)
 - [JSJaCJingle.js](https://github.com/valeriansaliou/jsjac-jingle)
 - [xmpp-ftw](https://xmpp-ftw.jit.su/)
+- [jslix](https://github.com/jbinary/jslix)
 
 ## Aim
 
