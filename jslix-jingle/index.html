@@ -43,7 +43,7 @@ video {width:320;height:240}
                'jslix/sasl.mechanisms.digest_md5', 'jslix/jingle/adapter',
                'jslix/jingle/signals', 'jslix/jingle/jingle', 'jslix/disco'],
         function(JSLiXClient, _, _, adapter, signals, JinglePlugin, Disco) {
-          var plugin;
+          var plugin, RTC = adapter.setupRTC();
           loginInfo.onsubmit = function (e) {
             if (e.preventDefault) e.preventDefault();
 
