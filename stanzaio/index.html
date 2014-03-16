@@ -75,8 +75,8 @@
             });
         });
 
-        client.on('jingle:remotestream:added', function (session) {
-            attachMediaStream(session.stream, document.getElementById('remoteVideo'));
+        client.on('jingle:remotestream:added', function (session, stream) {
+            attachMediaStream(stream, document.getElementById('remoteVideo'));
         });
 
         client.on('jingle:incoming', function (session) {
