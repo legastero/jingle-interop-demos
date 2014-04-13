@@ -15,7 +15,8 @@ video {width:320;height:240}
         <label>JID: <input id="jid" type="text" name="jid" placeholder="me@example.com" value="tester@server.local"/></label>
         <label>Password: <input id="password" type="password" name="password" placeholder="secret" value="ghjcnjgfhjkm"/></label>
         <label>BOSH URL: <input id="boshURL" type="text" name="boshURL" placeholder="/http-bind"/></label>
-        <input id="connect" type="submit" value="Connect" />
+        <label>Websocket URL: <input id="websocketURL" type="text" name="websocketURL" placeholder="ws://localhost:5280/xmpp-websocket/"/></label>
+        <input id="connect" type="submit" value="Connect" disabled />
       </form>
       <h2>Your JID</h2>
       <p id="myJID">Your JID will appear here after you're connected.</p>
@@ -42,14 +43,19 @@ video {width:320;height:240}
     }
       require(['jslix/client', 'jslix/sasl.mechanisms.plain',
                'jslix/sasl.mechanisms.digest_md5', 'jslix/jingle/adapter',
-               'jslix/jingle/signals', 'jslix/jingle/jingle', 'jslix/disco'],
-        function(JSLiXClient, _, _, adapter, signals, JinglePlugin, Disco) {
+               'jslix/jingle/signals', 'jslix/jingle/jingle', 'jslix/disco',
+               'jslix/connection.transports.websocket',
+               'jslix/connection.transports.bosh',
+               'jslix/stanzas'],
+        function(JSLiXClient, _, _, adapter, signals, JinglePlugin, Disco, _, _, stanzas) {
           var plugin, RTC = adapter.setupRTC();
+          $('#connect').attr('disabled', null);
           loginInfo.onsubmit = function (e) {
             if (e.preventDefault) e.preventDefault();
 
             var client = new JSLiXClient({
-                http_base: $('#boshURL').val() || '/http-bind',
+                bosh_uri: $('#boshURL').val() || '/http-bind',
+                websocket_uri: $('#websocketURL').val() || 'ws://localhost:5280/xmpp-websocket/',
                 jid: $('#jid').val(),
                 password: $('#password').val(),
             });
@@ -64,6 +70,9 @@ video {width:320;height:240}
                     'disco_plugin': disco_plugin
                 });
                 plugin.init();
+                client.dispatcher.send(
+                    stanzas.PresenceStanza.create()
+                );
             }).fail(function(error) {
                 console.log('Failed to connect', error);
             });
