@@ -11,7 +11,7 @@
       <form id="loginInfo">
         <label>JID: <input id="jid" type="text" name="jid" value="me@example.com"/></label>
         <label>Password: <input id="password" type="password" name="password" /></label>
-        <label>WebSocket URL: <input id="wsURL" type="text" name="wsURL" value="" placeholder="ws://localhost:5280/xmpp-websocket/" /></label>
+        <label>WebSocket URL: <input id="url" type="text" name="url" value="" placeholder="ws://localhost:5280/xmpp-websocket/" /></label>
         <input id="connect" type="submit" value="Connect" />
       </form>
       <h2>Start Video Session</h2>
@@ -43,13 +43,23 @@
         var username = jid.slice(0, jid.indexOf('@'));
         var server = jid.slice(jid.indexOf('@') + 1);
 
+        var url = document.getElementById('url').value;
+        var wsURL, boshURL, transport;
+
+        if (url.indexOf('http') === 0) {
+            boshURL = url;
+            transport = 'bosh';
+        } else if (url.indexOf('ws') === 0) {
+            wsURL = url;
+            transport = 'websocket';
+        }
+
         client = XMPP.createClient({
           jid: jid,
-          server: server,
-          credentials: {
-            password: document.getElementById('password').value
-          },
-          wsURL: document.getElementById('wsURL').value
+          password: document.getElementById('password').value,
+          wsURL: wsURL,
+          boshURL: boshURL,
+          transport: transport
         });
 
         client.on('raw:incoming', function (data) {
