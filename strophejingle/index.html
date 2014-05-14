@@ -107,10 +107,10 @@ video {width:320;height:240}
         RTC.attachMediaStream(sel, data.stream);
         waitForRemoteVideo(sel, sid);
         console.log(data.stream);
-        data.stream.onended = function() {
+        data.stream.addEventListener('ended', function() {
             console.log('stream ended', this.id);
             $('#' + id).remove();
-        }
+        });
       });
       $(document).bind('remotestreamremoved.jingle', function(event, data, sid) {
         console.log('remove stream', 'remoteVideo_' + sid + '_' + data.stream.id);
