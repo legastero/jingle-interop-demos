@@ -4,21 +4,39 @@
     <title>stanza.io — Jingle Interop Testing</title>
     <script src="attachmediastream.bundle.js"></script>
     <script src="stanzaio.bundle.js"></script>
+    <style>
+    video {
+      width: 320px;
+    }
+    #received {
+      display: none;
+    }
+    </style>
   </head>
   <body>
     <div id="settings">
       <h1>Connection Settings</h1>
       <form id="loginInfo">
-        <label>JID: <input id="jid" type="text" name="jid" value="me@example.com"/></label>
+        <label>JID: <input id="jid" type="text" name="jid" placeholder="me@example.com"/></label>
         <label>Password: <input id="password" type="password" name="password" /></label>
         <label>WebSocket URL: <input id="url" type="text" name="url" value="" placeholder="ws://localhost:5280/xmpp-websocket/" /></label>
         <input id="connect" type="submit" value="Connect" />
       </form>
       <h2>Start Video Session</h2>
       <form id="callInfo">
-        <label>JID: <input id="peer" type="text" name="peer" value="otherperson@example.com"/></label>
-        <input id="call" type="submit" value="Call" />
+        <label>JID: <input id="peer" type="text" name="peer" placeholder="otherperson@example.com"/></label>
+        <input id="call" type="submit" value="Call"/>
       </form>
+      <h2>Send a file</h2>
+      <form id="fileInfo">
+        <label>JID: <input id="filepeer" type="text" name="peer" placeholder="otherperson@example.com"/></label>
+        <input type="file" id="files" name="files"/>
+      </form>
+      <form id="snapshot">
+        <label>JID: <input id="snappeer" type="text" name="peer" placeholder="otherperson@example.com"/></label>
+        <input id="snapshot" type="submit" value="Send snapshot"/>
+      </form>
+      <a id="received"></a>
     </div>
 
     <p id="myJID"></p>
@@ -93,6 +111,19 @@
             session.accept();
         });
 
+        client.jingle.on('sentFile', function(session, metadata) {
+            console.log('sent', metadata);
+        });
+        client.jingle.on('receivedFile', function(session, file, metadata) {
+            //saveAs(file, metadata.name); // -- https://github.com/eligrey/FileSaver.js
+            var href = document.getElementById('received');
+            href.href = URL.createObjectURL(file);
+            href.download = metadata.name;
+            var text = 'Click to download ' + metadata.name + ' (' + metadata.size + ' bytes)';
+            href.appendChild(document.createTextNode(text));
+            href.style.display = 'block';
+        });
+
         client.jingle.startLocalMedia();
 
         var callInfo = document.getElementById('callInfo');
@@ -105,8 +136,55 @@
 
         return false;
       };
-    </script>
+      // file select
+      function handleFileSelect(evt) {
+          var file = evt.target.files[0]; // FileList object
+          console.log('file', file.name, file.size, file.type, file.lastModifiedDate);
+          var jid = document.getElementById('filepeer').value;
+          var sess = client.jingle.createFileTransferSession(jid);
+          sess.start(file);
+      }
+      document.getElementById('files').addEventListener('change', handleFileSelect, false);
 
+      function takeSnapshot() {
+        var canvasEl = document.createElement('canvas');
+        var localVideoEl = document.getElementById('localVideo');
+        var w = 320; //localVideoEl.videoWidth;
+        var h = 240; //localVideoEl.videoHeight;
+        canvasEl.width = w;
+        canvasEl.height = h;
+        var context = canvasEl.getContext('2d');
+
+        context.fillRect(0, 0, w, h);
+        context.translate(w/2, h/2);
+        context.scale(-1, 1);
+        context.translate(w/-2, h/-2);
+        context.drawImage(
+            localVideoEl,
+            0, 0, w, h
+        );
+        // toBlob would be nice...
+        var url = canvasEl.toDataURL('image/jpg');
+        var data = url.match(/data:([^;]*);(base64)?,([0-9A-Za-z+/]+)/);
+        var raw = atob(data[3]);
+        var arr = new Uint8Array(raw.length);
+        for (var i = 0; i < raw.length; i++) {
+            arr[i] = raw.charCodeAt(i);
+        }
+        return new Blob([arr], {type: data[1] });
+    }
+    var snapshot = document.getElementById('snapshot');
+    snapshot.onsubmit = function (e) {
+        e.preventDefault();
+        var file = takeSnapshot();
+        file.name = 'snapshot-' + (new Date()).getTime() + '.png';
+        file.lastModifiedDate = new Date();
+        console.log('file', file.name, file.size, file.type, file.lastModifiedDate);
+        var jid = document.getElementById('snappeer').value;
+        var sess = client.jingle.createFileTransferSession(jid);
+        sess.start(file);
+        return false;
+    };
     </script>
   </body>
 </html>
