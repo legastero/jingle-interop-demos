@@ -1,322 +1,74 @@
-!function(e){"object"==typeof exports?module.exports=e():"function"==typeof define&&define.amd?define(e):"undefined"!=typeof window?window.XMPP=e():"undefined"!=typeof global?global.XMPP=e():"undefined"!=typeof self&&(self.XMPP=e())}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-"use strict";
+!function(e){if("object"==typeof exports&&"undefined"!=typeof module)module.exports=e();else if("function"==typeof define&&define.amd)define([],e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.XMPP=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(_dereq_,module,exports){
+(function (process){
+'use strict';
 
-exports.Stream = require('./lib/stanza/stream');
-exports.BOSH = require('./lib/stanza/bosh');
-exports.Message = require('./lib/stanza/message');
-exports.Presence = require('./lib/stanza/presence');
-exports.Iq = require('./lib/stanza/iq');
+exports.lang = process.env.LANG;
 
-exports.PubsubEvent = require('./lib/stanza/pubsub').EventItem;
-exports.PubsubItem = require('./lib/stanza/pubsub').Item;
+exports.Stream = _dereq_('./lib/stanza/stream');
+exports.BOSH = _dereq_('./lib/stanza/bosh');
+exports.Message = _dereq_('./lib/stanza/message');
+exports.Presence = _dereq_('./lib/stanza/presence');
+exports.Iq = _dereq_('./lib/stanza/iq');
 
-exports.JID = require('./lib/jid');
+exports.PubsubEvent = _dereq_('./lib/stanza/pubsubEvents').EventItem;
+exports.PubsubItem = _dereq_('./lib/stanza/pubsub').Item;
 
-exports.Client = require('./lib/client');
-exports.crypto = require('crypto');
-exports.jxt = require('jxt');
+exports.JID = _dereq_('./lib/jid');
+
+exports.Client = _dereq_('./lib/client');
+exports.crypto = _dereq_('crypto');
+exports.jxt = _dereq_('jxt');
 
 
 exports.createClient = function (opts) {
     var client = new exports.Client(opts);
-    client.use(require('./lib/plugins'));
+    client.use(_dereq_('./lib/plugins'));
 
     return client;
 };
 
-},{"./lib/client":3,"./lib/jid":4,"./lib/plugins":20,"./lib/stanza/bosh":41,"./lib/stanza/iq":54,"./lib/stanza/message":58,"./lib/stanza/presence":63,"./lib/stanza/pubsub":65,"./lib/stanza/stream":71,"crypto":129,"jxt":161}],2:[function(require,module,exports){
-var process=require("__browserify_process");"use strict";
+}).call(this,_dereq_("FWaASH"))
+},{"./lib/client":2,"./lib/jid":3,"./lib/plugins":21,"./lib/stanza/bosh":50,"./lib/stanza/iq":65,"./lib/stanza/message":70,"./lib/stanza/presence":76,"./lib/stanza/pubsub":79,"./lib/stanza/pubsubEvents":81,"./lib/stanza/stream":92,"FWaASH":154,"crypto":148,"jxt":195}],2:[function(_dereq_,module,exports){
+'use strict';
 
-var _ = require('underscore');
-var util = require('util');
-var async = require('async');
-var Promise = require('bluebird');
-var request = Promise.promisify(require('request'));
-
-var WildEmitter = require('wildemitter');
-var stanza = require('jxt');
-var BOSH = require('./stanza/bosh');
-var StreamError = require('./stanza/streamError');
-var Message = require('./stanza/message');
-var Presence = require('./stanza/presence');
-var Iq = require('./stanza/iq');
-
-
-function ConnectionError() {}
-util.inherits(ConnectionError, Error);
-
-
-function retryRequest(opts, timeout, allowedRetries, retries) {
-    retries = retries || 0;
-
-    var req = request(opts).cancellable().timeout((timeout || 20) * 1000);
-
-    return req.spread(function (req, body) {
-        if (req.statusCode < 200 || req.statusCode >= 400) {
-            throw new ConnectionError('HTTP Status Error');
-        }
-        return body;
-    }).catch(Promise.TimeoutError, function () {
-        throw new ConnectionError('Dead Connection, exceeded timeout limit');
-    }).catch(Promise.CancellationError, function () {
-        return; // We only cancel on manual disconnect, so let things die silently
-    }).catch(function (err) {
-        if (retries < allowedRetries) {
-            return Promise.delay(100).then(function () {
-                return retryRequest(opts, timeout, allowedRetries, retries + 1);
-            });
-        } else {
-            throw new ConnectionError('Dead Connection, exceeded retry limit');
-        }
-    });
-}
+var _ = _dereq_('underscore');
+var WildEmitter = _dereq_('wildemitter');
+var util = _dereq_('util');
+var Promise = _dereq_('bluebird');
+var async = _dereq_('async');
+var uuid = _dereq_('node-uuid');
+var b64decode = _dereq_('atob');
+var b64encode = _dereq_('btoa');
+var SASL = _dereq_('./stanza/sasl');
+var Message = _dereq_('./stanza/message');
+var Presence = _dereq_('./stanza/presence');
+var StreamError = _dereq_('./stanza/streamError');
+var Iq = _dereq_('./stanza/iq');
+var JID = _dereq_('./jid');
+var StreamManagement = _dereq_('./sm');
+var WSConnection = _dereq_('./transports/websocket');
+var OldWSConnection = _dereq_('./transports/old-websocket');
+var BOSHConnection = _dereq_('./transports/bosh');
+var getHostMeta = _dereq_('hostmeta');
+var SASLFactory = _dereq_('saslmechanisms');
 
 
-function BOSHConnection(sm) {
-    var self = this;
-
-    WildEmitter.call(this);
-
-    self.sm = sm;
-
-    self.sendQueue = [];
-    self.requests = [];
-    self.maxRequests = 2;
-    self.sid = '';
-
-    self.on('raw:incoming', function (data) {
-        data = data.trim();
-        if (data === '') {
-            return;
-        }
-
-        var bosh, err;
-
-        try {
-            bosh = stanza.parse(data, BOSH);
-        } catch (e) {
-            err = new StreamError({
-                condition: 'invalid-xml'
-            });
-            self.emit('stream:error', err, e);
-            self.send(err);
-            return self.disconnect();
-        }
-
-        if (!self.hasStream) {
-            self.hasStream = true;
-            self.stream = {
-                id: bosh.sid,
-                lang: bosh.lang || 'en',
-                version: bosh.version || '1.0',
-                to: bosh.to,
-                from: bosh.from
-            };
-            self.sid = bosh.sid;
-            self.maxRequests = bosh.requests;
-        }
-
-        var payload = bosh.payload;
-        payload.forEach(function (stanzaObj) {
-            if (!stanzaObj.lang) {
-                stanzaObj.lang = self.stream.lang;
-            }
-
-            self.emit('stream:data', stanzaObj);
-            self.emit(stanzaObj._eventname || stanzaObj._name, stanzaObj);
-            if (stanzaObj._name === 'message' || stanzaObj._name === 'presence' || stanzaObj._name === 'iq') {
-                self.sm.handle(stanzaObj);
-                self.emit('stanza', stanzaObj);
-            } else if (stanzaObj._name === 'smAck') {
-                return self.sm.process(stanzaObj);
-            } else if (stanzaObj._name === 'smRequest') {
-                return self.sm.ack();
-            }
-
-            if (stanzaObj.id) {
-                self.emit('id:' + stanzaObj.id, stanzaObj);
-            }
-        });
-
-        if (bosh.type == 'terminate') {
-            self.rid = undefined;
-            self.sid = undefined;
-            self.emit('bosh:terminate', bosh);
-            self.emit('stream:end');
-            self.emit('disconnected', self);
-        }
-    });
-}
-
-util.inherits(BOSHConnection, WildEmitter);
-
-BOSHConnection.prototype.connect = function (opts) {
-    var self = this;
-
-    self.config = _.extend({
-        rid: Math.ceil(Math.random() * 9999999999),
-        wait: 30,
-        maxRetries: 5
-    }, opts);
-
-    self.hasStream = false;
-    self.sm.started = false;
-    self.url = opts.boshURL;
-
-    self.rid = self.config.rid;
-
-    self.requests = [];
-
-    self.rid++;
-    self.request(new BOSH({
-        version: self.config.version || '1.0',
-        to: self.config.server,
-        lang: self.config.lang || 'en',
-        wait: self.config.wait,
-        ver: '1.6',
-        hold: 1
-    }));
+var SASL_MECHS = {
+    external: _dereq_('sasl-external'),
+    'scram-sha-1': _dereq_('sasl-scram-sha-1'),
+    'digest-md5': _dereq_('sasl-digest-md5'),
+    plain: _dereq_('sasl-plain'),
+    anonymous: _dereq_('sasl-anonymous')
 };
-
-BOSHConnection.prototype.disconnect = function () {
-    if (this.hasStream) {
-        this.rid++;
-        this.request(new BOSH({
-            type: 'terminate'
-        }));
-    } else {
-        this.requests.forEach(function (ticket) {
-            ticket.request.cancel();
-        });
-        this.stream = undefined;
-        this.sid = undefined;
-        this.rid = undefined;
-        this.emit('disconnected', this);
-    }
-};
-
-BOSHConnection.prototype.restart = function () {
-    var self = this;
-    self.rid++;
-    self.request(new BOSH({
-        to: self.config.server,
-        lang: self.config.lang || 'en',
-        restart: true
-    }));
-};
-
-BOSHConnection.prototype.send = function (data) {
-    var self = this;
-    if (self.hasStream) {
-        self.sm.track(data);
-        self.sendQueue.push(data);
-        process.nextTick(self.longPoll.bind(self));
-    }
-};
-
-BOSHConnection.prototype.longPoll = function () {
-    var self = this;
-
-    var canReceive = this.requests.length === 0;
-    var canSend = this.sendQueue.length > 0 && this.requests.length < this.maxRequests;
-
-    if (!this.sid || (!canReceive && !canSend)) return;
-
-    var stanzas = this.sendQueue;
-    this.sendQueue = [];
-    this.rid++;
-
-    this.request(new BOSH({
-        payload: stanzas
-    }));
-};
-
-BOSHConnection.prototype.request = function (bosh) {
-    var self = this;
-
-    var ticket = {id: self.rid, request: null};
-    bosh.rid = self.rid;
-    bosh.sid = self.sid;
-
-    var body = bosh.toString();
-    self.emit('raw:outgoing', body);
-
-    self.requests.push(ticket);
-
-    var req = retryRequest({
-        uri: self.url,
-        body: body,
-        method: 'POST',
-        strictSSL: true
-    }, self.config.wait * 1.5, this.config.maxRetries);
-
-    ticket.request = req;
-
-    return req.then(function (body) {
-        self.emit('raw:incoming', body);
-    }).catch(ConnectionError, function (err) {
-        self.hasStream = false;
-        var serr = new StreamError({
-            condition: 'connection-timeout'
-        });
-        self.emit('stream:error', serr, err);
-        self.disconnect();
-    }).catch(function (err) {
-        var serr = new StreamError({
-            condition: 'undefined-condition'
-        });
-        self.emit('stream:error', serr, err);
-        self.send(serr);
-        self.disconnect();
-    }).finally(function () {
-        self.requests = _.filter(self.requests, function (item) {
-            return item.id !== ticket.id;
-        });
-        if (bosh.type !== 'terminate') {
-            process.nextTick(self.longPoll.bind(self));
-        }
-    });
-};
-
-module.exports = BOSHConnection;
-
-},{"./stanza/bosh":41,"./stanza/iq":54,"./stanza/message":58,"./stanza/presence":63,"./stanza/streamError":72,"__browserify_process":136,"async":80,"bluebird":85,"jxt":161,"request":121,"underscore":184,"util":124,"wildemitter":185}],3:[function(require,module,exports){
-"use strict";
-
-var WildEmitter = require('wildemitter');
-var _ = require('underscore');
-var util = require('util');
-var Promise = require('bluebird');
-var async = require('async');
-var uuid = require('node-uuid');
-var b64decode = require('atob');
-var b64encode = require('btoa');
-var SASL = require('./stanza/sasl');
-var Message = require('./stanza/message');
-var Presence = require('./stanza/presence');
-var StreamError = require('./stanza/streamError');
-var Iq = require('./stanza/iq');
-var JID = require('./jid');
-var StreamManagement = require('./sm');
-var WSConnection = require('./websocket');
-var BOSHConnection = require('./bosh');
-var getHostMeta = require('hostmeta');
-var SASLFactory = require('saslmechanisms');
-
-SASLFactory = new SASLFactory();
-SASLFactory.use(require('sasl-external'));
-SASLFactory.use(require('sasl-scram-sha-1'));
-SASLFactory.use(require('sasl-digest-md5'));
-SASLFactory.use(require('sasl-plain'));
-SASLFactory.use(require('sasl-anonymous'));
 
 
 // Ensure that all basic stanza relationships are established
-require('./stanza/stream');
-require('./stanza/sm');
-require('./stanza/error');
-require('./stanza/streamFeatures');
-require('./stanza/bind');
+_dereq_('./stanza/stream');
+_dereq_('./stanza/sm');
+_dereq_('./stanza/error');
+_dereq_('./stanza/streamFeatures');
+_dereq_('./stanza/bind');
+_dereq_('./stanza/session');
 
 
 function Client(opts) {
@@ -325,28 +77,14 @@ function Client(opts) {
     WildEmitter.call(this);
 
     opts = opts || {};
-    this.config = _.extend({
-        useStreamManagement: true,
-        transports: ['websocket', 'bosh']
-    }, opts);
+    this._initConfig(opts);
 
     this.jid = new JID();
 
     this.transports = {
-        websocket: function (client, config) {
-            var ws = client.transport = new WSConnection(client.sm);
-            ws.on('*', function (event, data) {
-                client.emit(event, data);
-            });
-            ws.connect(config);
-        },
-        bosh: function (client, config) {
-            var bosh = client.transport = new BOSHConnection(client.sm);
-            bosh.on('*', function (event, data) {
-                client.emit(event, data);
-            });
-            bosh.connect(config);
-        }
+        websocket: WSConnection,
+        bosh: BOSHConnection,
+        'old-websocket': OldWSConnection
     };
 
     this.negotiatedFeatures = {};
@@ -354,50 +92,82 @@ function Client(opts) {
         'sasl',
         'streamManagement',
         'bind',
-        'streamManagement'
+        'streamManagement',
+        'caps',
+        'session'
     ];
     this.features = {};
 
-    this.sm = new StreamManagement();
+    this.sm = new StreamManagement(this);
+
+    this.on('stream:data', function (data) {
+        var json = data.toJSON();
+
+        if (data._name === 'iq') {
+            json._xmlChildCount = 0;
+            _.each(data.xml.childNodes, function (child) {
+                if (child.nodeType === 1) {
+                    json._xmlChildCount += 1;
+                }
+            });
+        }
+
+        self.emit(data._eventname || data._name, json);
+        if (data._name === 'message' || data._name === 'presence' || data._name === 'iq') {
+            self.sm.handle(json);
+            self.emit('stanza', json);
+        } else if (data._name === 'smAck') {
+            return self.sm.process(json);
+        } else if (data._name === 'smRequest') {
+            return self.sm.ack();
+        }
+
+        if (json.id) {
+            self.emit('id:' + json.id, json);
+        }
+    });
 
     this.on('streamFeatures', function (features) {
-        var series = [function (cb) { cb(null, features); }];
-        var seriesNames = ['setup'];
+        var series = [];
 
         self.featureOrder.forEach(function (name) {
-            if (features._extensions[name] && !self.negotiatedFeatures[name]) {
-                series.push(function (features, cb) {
+            if (features[name] && !self.negotiatedFeatures[name]) {
+                series.push(function (cb) {
                     if (!self.negotiatedFeatures[name] && self.features[name]) {
                         self.features[name](features, cb);
                     } else {
-                        cb(null, features);
+                        cb();
                     }
                 });
-                seriesNames.push(name);
             }
         });
 
-        async.waterfall(series, function (cmd) {
+        async.series(series, function (cmd, msg) {
             if (cmd === 'restart') {
                 self.transport.restart();
             } else if (cmd === 'disconnect') {
                 var serr = new StreamError({
                     condition: 'policy-violation',
-                    text: 'failed to negotiate stream features'
+                    text: 'failed to negotiate stream features: ' + msg
                 });
                 self.emit('stream:error', serr);
                 self.disconnect();
-            }
+            } 
         });
     });
 
     this.features.sasl = function (features, cb) {
-        var mech = SASLFactory.create(features.sasl.mechanisms);
+        var mech = self.SASLFactory.create(features.sasl.mechanisms);
+        if (!mech) {
+            self.releaseGroup('sasl');
+            self.emit('auth:failed');
+            return cb('disconnect', 'authentication failed');
+        }
 
         self.on('sasl:success', 'sasl', function () {
             self.negotiatedFeatures.sasl = true;
             self.releaseGroup('sasl');
-            self.emit('auth:success');
+            self.emit('auth:success', self.config.credentials);
             cb('restart');
         });
         self.on('sasl:challenge', 'sasl', function (challenge) {
@@ -420,12 +190,12 @@ function Client(opts) {
         self.on('sasl:failure', 'sasl', function () {
             self.releaseGroup('sasl');
             self.emit('auth:failed');
-            cb('disconnect');
+            cb('disconnect', 'authentication failed');
         });
         self.on('sasl:abort', 'sasl', function () {
             self.releaseGroup('sasl');
             self.emit('auth:failed');
-            cb('disconnect');
+            cb('disconnect', 'authentication failed');
         });
 
         var auth = {
@@ -444,58 +214,92 @@ function Client(opts) {
             bind: {
                 resource: self.config.resource
             }
-        }).then(function (resp) {
+        }, function (err, resp) {
+            if (err) {
+                self.emit('session:error', err);
+                return cb('disconnect', 'JID binding failed');
+            }
+
             self.negotiatedFeatures.bind = true;
             self.emit('session:bound', resp.bind.jid);
             self.jid = new JID(resp.bind.jid);
-            self.sessionStarted = true;
-            self.emit('session:started', resp.bind.jid);
-            cb(null, features);
-        }).catch(function (err) {
-            self.emit('session:error', err);
-            cb('disconnect');
+            var canStartSession = !features.session || (features.session && features.session.optional);
+            if (!self.sessionStarted && canStartSession) {
+                self.sessionStarted = true;
+                self.emit('session:started', resp.bind.jid);
+            }
+            cb();
         });
+    };
+
+    this.features.session = function (features, cb) {
+        if (features.session.optional || self.sessionStarted) {
+            self.negotiatedFeatures.session = true;
+            return cb();
+        }
+
+        self.sendIq({
+            type: 'set',
+            session: {}
+        }, function (err) {
+            if (err) {
+                return cb('disconnect', 'session request failed');
+            }
+
+            self.negotiatedFeatures.session = true;
+            if (!self.sessionStarted) {
+                self.sessionStarted = true;
+                self.emit('session:started', self.jid);
+            }
+            cb();
+        });
+    };
+
+    this.features.caps = function (features, cb) {
+        self.emit('disco:caps', {from: new JID(self.jid.domain), caps: features.caps});
+        self.negotiatedFeatures.caps = true;
+        cb();
     };
 
     this.features.streamManagement = function (features, cb) {
         if (!self.config.useStreamManagement) {
-            return cb(null, features);
+            return cb();
         }
 
         self.on('stream:management:enabled', 'sm', function (enabled) {
             self.sm.enabled(enabled);
             self.negotiatedFeatures.streamManagement = true;
             self.releaseGroup('sm');
-            cb(null, features);
+            cb();
         });
 
         self.on('stream:management:resumed', 'sm', function (resumed) {
-            self.sm.enabled(resumed);
+            self.sm.resumed(resumed);
             self.negotiatedFeatures.streamManagement = true;
             self.negotiatedFeatures.bind = true;
             self.sessionStarted = true;
             self.releaseGroup('sm');
-            cb(null, features);
+            cb('break'); // Halt further processing of stream features
         });
 
-        self.on('stream:management:failed', 'sm', function (failed) {
+        self.on('stream:management:failed', 'sm', function () {
             self.sm.failed();
             self.emit('session:end');
             self.releaseGroup('session');
             self.releaseGroup('sm');
-            cb(null, features);
+            cb();
         });
 
         if (!self.sm.id) {
             if (self.negotiatedFeatures.bind) {
-                self.sm.enable(self.transport);
+                self.sm.enable();
             } else {
-                cb(null, features);
+                cb();
             }
         } else if (self.sm.id && self.sm.allowResume) {
-            self.sm.resume(self.transport);
+            self.sm.resume();
         } else {
-            cb(null, features);
+            cb();
         }
     };
 
@@ -514,19 +318,14 @@ function Client(opts) {
 
     this.on('iq', function (iq) {
         var iqType = iq.type;
-        var exts = Object.keys(iq._extensions);
-        var children = iq.xml.childNodes;
+        var xmlChildCount = iq._xmlChildCount;
+        delete iq._xmlChildCount;
 
-        var childCount = 0;
-        _.each(children, function (child) {
-            if (child.nodeType === 1) {
-                childCount += 1;
-            }
-        });
+        var exts = Object.keys(iq);
 
         if (iq.type === 'get' || iq.type === 'set') {
             // Invalid request
-            if (childCount != 1) {
+            if (xmlChildCount !== 1) {
                 return self.sendIq(iq.errorReply({
                     error: {
                         type: 'modify',
@@ -563,7 +362,7 @@ function Client(opts) {
     });
 
     this.on('message', function (msg) {
-        if (Object.keys(msg.$body).length) {
+        if (Object.keys(msg.$body || {}).length) {
             if (msg.type === 'chat' || msg.type === 'normal') {
                 self.emit('chat', msg);
             } else if (msg.type === 'groupchat') {
@@ -586,9 +385,60 @@ function Client(opts) {
 
 util.inherits(Client, WildEmitter);
 
-Client.prototype.__defineGetter__('stream', function () {
-    return this.transport ? this.transport.stream : undefined;
+Object.defineProperty(Client.prototype, 'stream', {
+    get: function () {
+        return this.transport ? this.transport.stream : undefined;
+    }
 });
+
+Client.prototype._initConfig = function (opts) {
+    var self = this;
+    var currConfig = this.config || {};
+
+    this.config = _.extend({
+        useStreamManagement: true,
+        transports: ['websocket', 'bosh'],
+        sasl: ['external', 'scram-sha-1', 'digest-md5', 'plain', 'anonymous']
+    }, currConfig, opts);
+
+    // Enable SASL authentication mechanisms (and their preferred order)
+    // based on user configuration.
+    if (!_.isArray(this.config.sasl)) {
+        this.config.sasl = [this.config.sasl];
+    }
+
+    this.SASLFactory = new SASLFactory();
+    this.config.sasl.forEach(function (mech) {
+        if (typeof mech === 'string') {
+            var existingMech = SASL_MECHS[mech.toLowerCase()];
+            if (existingMech) {
+                self.SASLFactory.use(existingMech);
+            }
+        } else {
+            self.SASLFactory.use(mech);
+        }
+    });
+
+    this.config.jid = new JID(this.config.jid);
+
+    if (!this.config.server) {
+        this.config.server = this.config.jid.domain;
+    }
+
+    if (this.config.password) {
+        this.config.credentials = this.config.credentials || {};
+        this.config.credentials.password = this.config.password;
+        delete this.config.password;
+    }
+
+    if (this.config.transport) {
+        this.config.transports = [this.config.transport];
+    }
+
+    if (!_.isArray(this.config.transports)) {
+        this.config.transports = [this.config.transports];
+    }
+};
 
 Client.prototype.use = function (pluginInit) {
     pluginInit(this);
@@ -600,7 +450,9 @@ Client.prototype.nextId = function () {
 
 Client.prototype.discoverBindings = function (server, cb) {
     getHostMeta(server, function (err, data) {
-        if (err) return cb(err, []);
+        if (err) {
+            return cb(err, []);
+        }
 
         var results = {
             websocket: [],
@@ -656,25 +508,31 @@ Client.prototype.getCredentials = function () {
     return result;
 };
 
-Client.prototype.connect = function (opts) {
+Client.prototype.connect = function (opts, transInfo) {
     var self = this;
 
-    _.extend(self.config, opts || {});
+    this._initConfig(opts);
 
-    self.config.jid = new JID(self.config.jid);
-
-    if (!self.config.server) {
-        self.config.server = self.config.jid.domain;
+    if (transInfo && transInfo.name && transInfo.url) {
+        var trans = self.transport = new self.transports[transInfo.name](self.sm);
+        trans.on('*', function (event, data) {
+            self.emit(event, data);
+        });
+        return trans.connect(self.config);
     }
 
-    if (self.config.password) {
-        self.config.credentials = self.config.credentials || {};
-        self.config.credentials.password = self.config.password;
-        delete self.config.password;
-    }
-
-    if (self.config.transport) {
-        return self.transports[self.config.transport](self, self.config);
+    if (!transInfo && self.config.transports.length === 1) {
+        transInfo = {};
+        transInfo.name = self.config.transports[0];
+        if (transInfo.name === 'websocket' || transInfo.name === 'old-websocket') {
+            transInfo.url = self.config.wsURL;
+        }
+        if (transInfo.name === 'bosh') {
+            transInfo.url = self.config.boshURL;
+        }
+        if (transInfo.name && transInfo.url) {
+            return self.connect(null, transInfo);
+        }
     }
 
     return self.discoverBindings(self.config.server, function (err, endpoints) {
@@ -688,14 +546,16 @@ Client.prototype.connect = function (opts) {
             for (var i = 0, len = (endpoints[transport] || []).length; i < len; i++) {
                 var uri = endpoints[transport][i];
                 if (uri.indexOf('wss://') === 0 || uri.indexOf('https://') === 0) {
-                    if (transport == 'websocket') {
+                    if (transport === 'websocket') {
                         self.config.wsURL = uri;
                     } else {
                         self.config.boshURL = uri;
                     }
                     console.log('Using %s endpoint: %s', transport, uri);
-                    self.config.transport = transport;
-                    return self.connect();
+                    return self.connect(null, {
+                        name: transport,
+                        url: uri
+                    });
                 } else {
                     console.warn('Discovered unencrypted %s endpoint (%s). Ignoring', transport, uri);
                 }
@@ -708,8 +568,12 @@ Client.prototype.connect = function (opts) {
 
 Client.prototype.disconnect = function () {
     if (this.sessionStarted) {
-        this.emit('session:end');
         this.releaseGroup('session');
+        if (!this.sm.started) {
+            // Only emit session:end if we had a session, and we aren't using
+            // stream management to keep the session alive.
+            this.emit('session:end');
+        }
     }
     this.sessionStarted = false;
     this.releaseGroup('connection');
@@ -721,7 +585,10 @@ Client.prototype.disconnect = function () {
 };
 
 Client.prototype.send = function (data) {
-    this.transport.send(data);
+    if (this.transport) {
+        this.transport.send(data);
+    }
+    this.sm.track(data);
 };
 
 Client.prototype.sendMessage = function (data) {
@@ -731,7 +598,7 @@ Client.prototype.sendMessage = function (data) {
     }
     var message = new Message(data);
 
-    this.emit('message:sent', message);
+    this.emit('message:sent', message.toJSON());
     this.send(message);
 
     return data.id;
@@ -758,7 +625,7 @@ Client.prototype.sendIq = function (data, cb) {
 
     var iq = (!data.toJSON) ? new Iq(data) : data;
 
-    if (data.type === 'error') {
+    if (data.type === 'error' || data.type === 'result') {
         this.send(iq);
         return;
     }
@@ -775,10 +642,12 @@ Client.prototype.sendIq = function (data, cb) {
     respEvent = 'id:' + data.id;
     result = new Promise(function (resolve, reject) {
         var handler = function (res) {
-            if (!allowed[res.from.full]) return;
+            if (!allowed[res.from.full]) {
+                return;
+            }
 
             self.off(respEvent, handler);
-            if (!res._extensions.error) {
+            if (!res.error) {
                 resolve(res);
             } else {
                 reject(res);
@@ -791,7 +660,7 @@ Client.prototype.sendIq = function (data, cb) {
 
     return result.timeout(self.config.timeout * 1000 || 15000)
         .catch(Promise.TimeoutError, function () {
-            return {type: 'error', error: {condition: 'timeout'}};
+            throw {type: 'error', error: {condition: 'timeout'}};
         })
         .nodeify(cb);
 };
@@ -813,8 +682,8 @@ Client.prototype.JID = function (jid) {
 
 module.exports = Client;
 
-},{"./bosh":2,"./jid":4,"./sm":37,"./stanza/bind":39,"./stanza/error":49,"./stanza/iq":54,"./stanza/message":58,"./stanza/presence":63,"./stanza/sasl":69,"./stanza/sm":70,"./stanza/stream":71,"./stanza/streamError":72,"./stanza/streamFeatures":73,"./websocket":79,"async":80,"atob":81,"bluebird":85,"btoa":137,"hostmeta":138,"node-uuid":166,"sasl-anonymous":168,"sasl-digest-md5":170,"sasl-external":172,"sasl-plain":174,"sasl-scram-sha-1":176,"saslmechanisms":183,"underscore":184,"util":124,"wildemitter":185}],4:[function(require,module,exports){
-"use strict";
+},{"./jid":3,"./sm":44,"./stanza/bind":46,"./stanza/error":57,"./stanza/iq":65,"./stanza/message":70,"./stanza/presence":76,"./stanza/sasl":88,"./stanza/session":89,"./stanza/sm":91,"./stanza/stream":92,"./stanza/streamError":93,"./stanza/streamFeatures":94,"./transports/bosh":100,"./transports/old-websocket":101,"./transports/websocket":102,"async":103,"atob":104,"bluebird":107,"btoa":157,"hostmeta":158,"node-uuid":200,"sasl-anonymous":202,"sasl-digest-md5":204,"sasl-external":206,"sasl-plain":208,"sasl-scram-sha-1":210,"saslmechanisms":217,"underscore":218,"util":156,"wildemitter":219}],3:[function(_dereq_,module,exports){
+'use strict';
 
 function JID(jid) {
     jid = jid || '';
@@ -823,7 +692,7 @@ function JID(jid) {
         this.jid = jid;
         this.parts = {};
     } else {
-        this.jid = jid.jid;
+        this.jid = jid.jid || jid.full;
         this.parts = jid.parts;
     }
 }
@@ -833,6 +702,9 @@ JID.prototype = {
         value: JID
     },
     toString: function () {
+        return this.jid;
+    },
+    toJSON: function () {
         return this.jid;
     },
     get full() {
@@ -899,8 +771,9 @@ JID.prototype = {
 
 module.exports = JID;
 
-},{}],5:[function(require,module,exports){
-"use strict";
+},{}],4:[function(_dereq_,module,exports){
+'use strict';
+
 
 module.exports = function (client) {
     client.disco.addFeature('urn:xmpp:attention:0');
@@ -921,17 +794,22 @@ module.exports = function (client) {
     });
 };
 
-},{}],6:[function(require,module,exports){
-"use strict";
+},{}],5:[function(_dereq_,module,exports){
+'use strict';
 
-var stanzas = require('../stanza/avatar');
+_dereq_('../stanza/avatar');
+
 
 module.exports = function (client) {
     client.disco.addFeature('urn:xmpp:avatar:metadata+notify');
 
-    client.on('pubsubEvent', function (msg) {
-        if (!msg.event._extensions.updated) return;
-        if (msg.event.updated.node !== 'urn:xmpp:avatar:metadata') return;
+    client.on('pubsub:event', function (msg) {
+        if (!msg.event.updated) {
+            return;
+        }
+        if (msg.event.updated.node !== 'urn:xmpp:avatar:metadata') {
+            return;
+        }
 
         client.emit('avatar', {
             jid: msg.from,
@@ -971,25 +849,129 @@ module.exports = function (client) {
     };
 };
 
-},{"../stanza/avatar":38}],7:[function(require,module,exports){
-"use strict";
+},{"../stanza/avatar":45}],6:[function(_dereq_,module,exports){
+'use strict';
 
-var stanzas = require('../stanza/bookmarks');
+_dereq_('../stanza/blocking');
+
+
+module.exports = function (client) {
+    client.disco.addFeature('urn:xmpp:blocking');
+
+    client.block = function (jid, cb) {
+        return client.sendIq({
+            type: 'set',
+            block: {
+                jids: [jid]
+            }
+        }, cb);
+    };
+
+    client.unblock = function (jid, cb) {
+        return client.sendIq({
+            type: 'set',
+            unblock: {
+                jids: [jid]
+            }
+        }, cb);
+    };
+
+    client.getBlocked = function (cb) {
+        return client.sendIq({
+            type: 'get',
+            blockList: true
+        }, cb);
+    };
+
+    client.on('iq:set:block', function (iq) {
+        client.emit('block', {
+            jids: iq.block.jids || []
+        });
+        client.sendIq(iq.resultReply());
+    });
+
+    client.on('iq:set:unblock', function (iq) {
+        client.emit('unblock', {
+            jids: iq.unblock.jids || []
+        });
+        client.sendIq(iq.resultReply());
+    });
+};
+
+},{"../stanza/blocking":47}],7:[function(_dereq_,module,exports){
+'use strict';
+
+_dereq_('../stanza/bob');
+
+
+module.exports = function (client) {
+    client.disco.addFeature('urn:xmpp:bob');
+
+    client.getBits = function (jid, cid, cb) {
+        return client.sendIq({
+            to: jid,
+            type: 'get',
+            bob: {
+                cid: cid
+            }
+        }, cb);
+    };
+};
+
+},{"../stanza/bob":48}],8:[function(_dereq_,module,exports){
+'use strict';
+
+_dereq_('../stanza/bookmarks');
+
+var _ = _dereq_('underscore');
+var JID = _dereq_('../jid');
+
 
 module.exports = function (client) {
     client.getBookmarks = function (cb) {
-        return this.getPrivateData({bookmarks: {}}, cb);
+        return this.getPrivateData({bookmarks: true}, cb);
     };
 
     client.setBookmarks = function (opts, cb) {
         return this.setPrivateData({bookmarks: opts}, cb);
     };
+
+    client.addBookmark = function (bookmark, cb) {
+        bookmark.jid = new JID(bookmark.jid);
+
+        return this.getBookmarks().then(function (res) {
+            var bookmarks = res.privateStorage.bookmarks.conferences || [];
+            var existing = _.filter(bookmarks, function (bm) {
+                return bm.jid.bare === bookmark.jid.bare;
+            });
+
+            if (existing.length) {
+                _.extend(existing[0], bookmark);
+            } else {
+                bookmarks.push(bookmark);
+            }
+
+            return client.setBookmarks({conferences: bookmarks});
+        }).nodeify(cb);
+    };
+
+    client.removeBookmark = function (jid, cb) {
+        jid = new JID(jid);
+        return this.getBookmarks().then(function (res) {
+            var bookmarks = res.privateStorage.bookmarks.conferences || [];
+            bookmarks = _.filter(bookmarks, function (bm) {
+                return jid.bare !== bm.jid.bare;
+            });
+            return client.setBookmarks({conferences: bookmarks});
+        }).nodeify(cb);
+    };
 };
 
-},{"../stanza/bookmarks":40}],8:[function(require,module,exports){
-"use strict";
+},{"../jid":3,"../stanza/bookmarks":49,"underscore":218}],9:[function(_dereq_,module,exports){
+'use strict';
 
-var stanzas = require('../stanza/carbons');
+_dereq_('../stanza/carbons');
+
 
 module.exports = function (client) {
     client.disco.addFeature('urn:xmpp:carbons:2');
@@ -1009,25 +991,66 @@ module.exports = function (client) {
     };
 
     client.on('message', function (msg) {
-        if (msg._extensions.carbonSent) {
+        if (msg.carbonSent) {
             return client.emit('carbon:sent', msg);
         }
-        if (msg._extensions.carbonReceived) {
+        if (msg.carbonReceived) {
             return client.emit('carbon:received', msg);
+        }
+    });
+
+    client.on('carbon:*', function (name, carbon) {
+        var dir = name.split(':')[1];
+
+        if (carbon.from.bare !== client.jid.bare) {
+            return;
+        }
+
+        var msg, delay;
+        if (dir === 'received') {
+            msg = carbon.carbonReceived.forwarded.message;
+            delay = carbon.carbonReceived.forwarded.delay;
+        } else {
+            msg = carbon.carbonSent.forwarded.message;
+            delay = carbon.carbonSent.forwarded.delay;
+        }
+
+        if (!msg.delay) {
+            if (delay) {
+                msg.delay.stamp = delay.stamp;
+            } else {
+                msg.delay = {
+                    stamp: new Date(Date.now())
+                };
+            }
+        }
+
+        msg.carbon = true;
+
+        // Treat the carbon copied message however we would
+        // have originally treated it ourself.
+        if (msg.from.bare === client.jid.bare) {
+            client.emit('message:sent', msg);
+        } else {
+            client.emit('message', msg);
         }
     });
 };
 
-},{"../stanza/carbons":43}],9:[function(require,module,exports){
-"use strict";
+},{"../stanza/carbons":52}],10:[function(_dereq_,module,exports){
+'use strict';
 
-var stanzas = require('../stanza/chatstates');
 
 module.exports = function (client) {
     client.disco.addFeature('http://jabber.org/protocol/chatstates');
 
     client.on('message', function (msg) {
         if (msg.chatState) {
+            client.emit('chat:state', {
+                to: msg.to,
+                from: msg.from,
+                chatState: msg.chatState
+            });
             client.emit('chatState', {
                 to: msg.to,
                 from: msg.from,
@@ -1037,11 +1060,12 @@ module.exports = function (client) {
     });
 };
 
-},{"../stanza/chatstates":44}],10:[function(require,module,exports){
-"use strict";
+},{}],11:[function(_dereq_,module,exports){
+'use strict';
+
+_dereq_('../stanza/command');
 
 var NS = 'http://jabber.org/protocol/commands';
-var stanzas = require('../stanza/command');
 
 
 module.exports = function (client) {
@@ -1057,8 +1081,9 @@ module.exports = function (client) {
     };
 };
 
-},{"../stanza/command":45}],11:[function(require,module,exports){
-"use strict";
+},{"../stanza/command":53}],12:[function(_dereq_,module,exports){
+'use strict';
+
 
 module.exports = function (client) {
     client.disco.addFeature('urn:xmpp:message-correct:0');
@@ -1071,40 +1096,44 @@ module.exports = function (client) {
     });
 };
 
-},{}],12:[function(require,module,exports){
-"use strict";
+},{}],13:[function(_dereq_,module,exports){
+'use strict';
 
-require('../stanza/dataforms');
+_dereq_('../stanza/dataforms');
+
 
 module.exports = function (client) {
     client.disco.addFeature('jabber:x:data');
+    client.disco.addFeature('urn:xmpp:media-element');
+    client.disco.addFeature('http://jabber.org/protocol/xdata-validate');
 
     client.on('message', function (msg) {
-        if (msg._extensions.form) {
+        if (msg.form) {
             client.emit('dataform', msg);
         }
     });
 };
 
-},{"../stanza/dataforms":46}],13:[function(require,module,exports){
-"use strict";
+},{"../stanza/dataforms":54}],14:[function(_dereq_,module,exports){
+'use strict';
 
-var stanzas = require('../stanza/delayed');
+_dereq_('../stanza/delayed');
+
 
 module.exports = function (client) {
     client.disco.addFeature('urn:xmpp:delay');
 };
 
-},{"../stanza/delayed":47}],14:[function(require,module,exports){
+},{"../stanza/delayed":55}],15:[function(_dereq_,module,exports){
 /*global unescape, escape */
 
-"use strict";
+'use strict';
 
-var _ = require('underscore');
-var crypto = require('crypto');
+var _ = _dereq_('underscore');
+var crypto = _dereq_('crypto');
 
-require('../stanza/disco');
-require('../stanza/caps');
+_dereq_('../stanza/disco');
+_dereq_('../stanza/caps');
 
 
 var UTF8 = {
@@ -1138,7 +1167,7 @@ function generateVerString(info, hash) {
     identities = _.unique(identities, true);
     features = _.unique(features, true);
 
-    if (featureLen != features.length || idLen != identities.length) {
+    if (featureLen !== features.length || idLen !== identities.length) {
         return false;
     }
 
@@ -1151,7 +1180,7 @@ function generateVerString(info, hash) {
     _.forEach(info.extensions, function (ext) {
         var fields = ext.fields;
         for (var i = 0, len = fields.length; i < len; i++) {
-            if (fields[i].name == 'FORM_TYPE' && fields[i].type == 'hidden') {
+            if (fields[i].name === 'FORM_TYPE' && fields[i].type === 'hidden') {
                 var name = fields[i].value;
                 if (formTypes[name]) {
                     illFormed = true;
@@ -1178,9 +1207,9 @@ function generateVerString(info, hash) {
 
         _.forEach(ext.fields, function (field) {
             var fieldName = field.name;
-            if (fieldName != 'FORM_TYPE') {
+            if (fieldName !== 'FORM_TYPE') {
                 var values = field.value || '';
-                if (typeof values != 'object') {
+                if (typeof values !== 'object') {
                     values = values.split('\n');
                 }
                 fields[fieldName] = values.sort();
@@ -1219,11 +1248,11 @@ function verifyVerString(info, hash, check) {
         hash = 'sha1';
     }
     var computed = generateVerString(info, hash);
-    return computed && computed == check;
+    return computed && computed === check;
 }
 
 
-function Disco(client) {
+function Disco() {
     this.features = {};
     this.identities = {};
     this.extensions = {};
@@ -1336,19 +1365,20 @@ module.exports = function (client) {
     };
 
     client.on('presence', function (pres) {
-        if (pres._extensions.caps) {
+        if (pres.caps) {
             client.emit('disco:caps', pres);
         }
     });
 
     client.on('iq:get:discoInfo', function (iq) {
-        var node = iq.discoInfo.node;
-        var reportedNode = iq.discoInfo.node;
+        var node = iq.discoInfo.node || '';
+        var reportedNode = iq.discoInfo.node || '';
 
         if (node === client.disco.caps.node + '#' + client.disco.caps.ver) {
             reportedNode = node;
             node = '';
         }
+
         client.sendIq(iq.resultReply({
             discoInfo: {
                 node: reportedNode,
@@ -1371,12 +1401,15 @@ module.exports = function (client) {
 
     client.verifyVerString = verifyVerString;
     client.generateVerString = generateVerString;
+
+    // Ensure we always have some caps data
+    client.updateCaps();
 };
 
-},{"../stanza/caps":42,"../stanza/disco":48,"crypto":129,"underscore":184}],15:[function(require,module,exports){
-"use strict";
+},{"../stanza/caps":51,"../stanza/disco":56,"crypto":148,"underscore":218}],16:[function(_dereq_,module,exports){
+'use strict';
 
-var stanzas = require('../stanza/extdisco');
+_dereq_('../stanza/extdisco');
 
 
 module.exports = function (client) {
@@ -1405,28 +1438,33 @@ module.exports = function (client) {
     };
 };
 
-},{"../stanza/extdisco":50}],16:[function(require,module,exports){
-"use strict";
+},{"../stanza/extdisco":58}],17:[function(_dereq_,module,exports){
+'use strict';
 
-var stanzas = require('../stanza/forwarded');
+_dereq_('../stanza/forwarded');
 
 
 module.exports = function (client) {
     client.disco.addFeature('urn:xmpp:forward:0');
 };
 
-},{"../stanza/forwarded":51}],17:[function(require,module,exports){
-"use strict";
+},{"../stanza/forwarded":60}],18:[function(_dereq_,module,exports){
+'use strict';
 
-var stanzas = require('../stanza/geoloc');
+_dereq_('../stanza/geoloc');
+
 
 module.exports = function (client) {
     client.disco.addFeature('http://jabber.org/protocol/geoloc');
     client.disco.addFeature('http://jabber.org/protocol/geoloc+notify');
 
-    client.on('pubsubEvent', function (msg) {
-        if (!msg.event._extensions.updated) return;
-        if (msg.event.updated.node !== 'http://jabber.org/protocol/geoloc') return;
+    client.on('pubsub:event', function (msg) {
+        if (!msg.event.updated) {
+            return;
+        }
+        if (msg.event.updated.node !== 'http://jabber.org/protocol/geoloc') {
+            return;
+        }
 
         client.emit('geoloc', {
             jid: msg.from,
@@ -1441,8 +1479,8 @@ module.exports = function (client) {
     };
 };
 
-},{"../stanza/geoloc":52}],18:[function(require,module,exports){
-"use strict";
+},{"../stanza/geoloc":62}],19:[function(_dereq_,module,exports){
+'use strict';
 
 module.exports = function (client) {
     client.disco.addFeature('urn:xmpp:hashes:1');
@@ -1451,56 +1489,64 @@ module.exports = function (client) {
     client.disco.addFeature('urn:xmpp:hash-function-text-names:sha-256');
 };
 
-},{}],19:[function(require,module,exports){
-"use strict";
+},{}],20:[function(_dereq_,module,exports){
+'use strict';
 
 module.exports = function (client) {
     client.disco.addFeature('urn:xmpp:idle:1');
 };
 
-},{}],20:[function(require,module,exports){
-"use strict";
+},{}],21:[function(_dereq_,module,exports){
+'use strict';
 
 module.exports = function (client) {
     // We always need this one first
-    client.use(require('./disco'));
+    client.use(_dereq_('./disco'));
 
-    client.use(require('./attention'));
-    client.use(require('./avatar'));
-    client.use(require('./bookmarks'));
-    client.use(require('./carbons'));
-    client.use(require('./chatstates'));
-    client.use(require('./command'));
-    client.use(require('./correction'));
-    client.use(require('./dataforms'));
-    client.use(require('./delayed'));
-    client.use(require('./extdisco'));
-    client.use(require('./forwarding'));
-    client.use(require('./geoloc'));
-    client.use(require('./hashes'));
-    client.use(require('./idle'));
-    client.use(require('./invisible'));
-    client.use(require('./jingle'));
-    client.use(require('./json'));
-    client.use(require('./keepalive'));
-    client.use(require('./mam'));
-    client.use(require('./muc'));
-    client.use(require('./nick'));
-    client.use(require('./oob'));
-    client.use(require('./ping'));
-    client.use(require('./private'));
-    client.use(require('./pubsub'));
-    client.use(require('./receipts'));
-    client.use(require('./roster'));
-    client.use(require('./time'));
-    client.use(require('./vcard'));
-    client.use(require('./version'));
+    client.use(_dereq_('./attention'));
+    client.use(_dereq_('./avatar'));
+    client.use(_dereq_('./blocking'));
+    client.use(_dereq_('./bob'));
+    client.use(_dereq_('./bookmarks'));
+    client.use(_dereq_('./carbons'));
+    client.use(_dereq_('./chatstates'));
+    client.use(_dereq_('./command'));
+    client.use(_dereq_('./correction'));
+    client.use(_dereq_('./dataforms'));
+    client.use(_dereq_('./delayed'));
+    client.use(_dereq_('./extdisco'));
+    client.use(_dereq_('./forwarding'));
+    client.use(_dereq_('./geoloc'));
+    client.use(_dereq_('./hashes'));
+    client.use(_dereq_('./idle'));
+    client.use(_dereq_('./invisible'));
+    client.use(_dereq_('./jingle'));
+    client.use(_dereq_('./json'));
+    client.use(_dereq_('./keepalive'));
+    client.use(_dereq_('./logging'));
+    client.use(_dereq_('./mam'));
+    client.use(_dereq_('./muc'));
+    client.use(_dereq_('./mood'));
+    client.use(_dereq_('./nick'));
+    client.use(_dereq_('./oob'));
+    client.use(_dereq_('./ping'));
+    client.use(_dereq_('./private'));
+    client.use(_dereq_('./psa'));
+    client.use(_dereq_('./pubsub'));
+    client.use(_dereq_('./reach'));
+    client.use(_dereq_('./receipts'));
+    client.use(_dereq_('./register'));
+    client.use(_dereq_('./roster'));
+    client.use(_dereq_('./shim'));
+    client.use(_dereq_('./time'));
+    client.use(_dereq_('./vcard'));
+    client.use(_dereq_('./version'));
 };
 
-},{"./attention":5,"./avatar":6,"./bookmarks":7,"./carbons":8,"./chatstates":9,"./command":10,"./correction":11,"./dataforms":12,"./delayed":13,"./disco":14,"./extdisco":15,"./forwarding":16,"./geoloc":17,"./hashes":18,"./idle":19,"./invisible":21,"./jingle":22,"./json":23,"./keepalive":24,"./mam":25,"./muc":26,"./nick":27,"./oob":28,"./ping":29,"./private":30,"./pubsub":31,"./receipts":32,"./roster":33,"./time":34,"./vcard":35,"./version":36}],21:[function(require,module,exports){
-"use strict";
+},{"./attention":4,"./avatar":5,"./blocking":6,"./bob":7,"./bookmarks":8,"./carbons":9,"./chatstates":10,"./command":11,"./correction":12,"./dataforms":13,"./delayed":14,"./disco":15,"./extdisco":16,"./forwarding":17,"./geoloc":18,"./hashes":19,"./idle":20,"./invisible":22,"./jingle":23,"./json":24,"./keepalive":25,"./logging":26,"./mam":27,"./mood":28,"./muc":29,"./nick":30,"./oob":31,"./ping":32,"./private":33,"./psa":34,"./pubsub":35,"./reach":36,"./receipts":37,"./register":38,"./roster":39,"./shim":40,"./time":41,"./vcard":42,"./version":43}],22:[function(_dereq_,module,exports){
+'use strict';
 
-require('../stanza/visibility');
+_dereq_('../stanza/visibility');
 
 
 module.exports = function (client) {
@@ -1508,25 +1554,26 @@ module.exports = function (client) {
         return this.sendIq({
             type: 'set',
             invisible: true
-        });
+        }, cb);
     };
 
     client.goVisible = function (cb) {
         return this.sendIq({
             type: 'set',
             visible: true
-        });
+        }, cb);
     };
 };
 
-},{"../stanza/visibility":78}],22:[function(require,module,exports){
-"use strict";
+},{"../stanza/visibility":99}],23:[function(_dereq_,module,exports){
+'use strict';
 
-var Jingle = require('jingle');
+var Jingle = _dereq_('jingle');
 
-var stanza = require('../stanza/jingle');
-var rtp = require('../stanza/rtp');
-var ice = require('../stanza/iceUdp');
+_dereq_('../stanza/jingle');
+_dereq_('../stanza/rtp');
+_dereq_('../stanza/iceUdp');
+_dereq_('../stanza/file');
 
 
 module.exports = function (client) {
@@ -1563,17 +1610,20 @@ module.exports = function (client) {
     });
 
     jingle.on('send', function (data) {
-        client.sendIq(data);
+        client.sendIq(data, function (err) {
+            if (err) {
+                client.emit('jingle:error', err);
+            }
+        });
     });
 
     client.on('iq:set:jingle', function (data) {
-        data = data.toJSON();
         jingle.process(data);
     });
 
     client.on('unavailable', function (pres) {
         var peer = pres.from.full;
-        jingle.endPeerSessions(peer);
+        jingle.endPeerSessions(peer, true);
     });
 
     client.call = function (peer) {
@@ -1624,19 +1674,20 @@ module.exports = function (client) {
     };
 };
 
-},{"../stanza/iceUdp":53,"../stanza/jingle":55,"../stanza/rtp":68,"jingle":140}],23:[function(require,module,exports){
-"use strict";
+},{"../stanza/file":59,"../stanza/iceUdp":64,"../stanza/jingle":66,"../stanza/rtp":87,"jingle":160}],24:[function(_dereq_,module,exports){
+'use strict';
 
-var stanza = require('../stanza/json');
+_dereq_('../stanza/json');
+
 
 module.exports = function (client) {
-    client.disco.addFeature('urn:xmpp:json:tmp');
+    client.disco.addFeature('urn:xmpp:json:0');
 };
 
-},{"../stanza/json":56}],24:[function(require,module,exports){
-"use strict";
+},{"../stanza/json":67}],25:[function(_dereq_,module,exports){
+'use strict';
 
-var Promise = require('bluebird');
+var Promise = _dereq_('bluebird');
 
 
 function checkConnection(client, timeout) {
@@ -1692,11 +1743,30 @@ module.exports = function (client) {
     });
 };
 
-},{"bluebird":85}],25:[function(require,module,exports){
-"use strict";
+},{"bluebird":107}],26:[function(_dereq_,module,exports){
+'use strict';
 
-var stanzas = require('../stanza/mam');
-var JID = require('../jid');
+_dereq_('../stanza/logging');
+
+
+module.exports = function (client) {
+    client.disco.addFeature('', 'urn:xmpp:eventlog');
+
+    client.sendLog = function (jid, logData) {
+        client.sendMessage({
+            to: jid,
+            type: 'normal',
+            log: logData
+        });
+    };
+};
+
+},{"../stanza/logging":68}],27:[function(_dereq_,module,exports){
+'use strict';
+
+_dereq_('../stanza/mam');
+
+var JID = _dereq_('../jid');
 
 
 module.exports = function (client) {
@@ -1723,7 +1793,9 @@ module.exports = function (client) {
 
         var mamResults = [];
         this.on('mam:' + queryid, 'session', function (msg) {
-            if (!allowed[msg.from.full]) return;
+            if (!allowed[msg.from.full]) {
+                return;
+            }
             mamResults.push(msg);
         });
 
@@ -1743,7 +1815,7 @@ module.exports = function (client) {
     client.getHistoryPreferences = function (cb) {
         return this.sendIq({
             type: 'get',
-            mamPrefs: {}
+            mamPrefs: true
         }, cb);
     };
 
@@ -1755,35 +1827,85 @@ module.exports = function (client) {
     };
 
     client.on('message', function (msg) {
-        if (msg._extensions.mam) {
+        if (msg.mam) {
             client.emit('mam:' + msg.mam.queryid, msg);
         }
     });
 };
 
-},{"../jid":4,"../stanza/mam":57}],26:[function(require,module,exports){
-"use strict";
+},{"../jid":3,"../stanza/mam":69}],28:[function(_dereq_,module,exports){
+'use strict';
 
-var JID = require('../jid');
-require('../stanza/muc');
+_dereq_('../stanza/mood');
+
+var NS = 'http://jabber.org/protocol/mood';
+
+module.exports = function (client) {
+    client.disco.addFeature(NS);
+    client.disco.addFeature(NS + '+notify');
+
+    client.on('pubsub:event', function (msg) {
+        if (!msg.event.updated) {
+            return;
+        }
+
+        if (msg.event.updated.node !== 'http://jabber.org/protocol/mood') {
+            return;
+        }
+
+        client.emit('mood', {
+            jid: msg.from,
+            mood: msg.event.updated.published[0].mood
+        });
+    });
+
+    client.publishMood = function (mood, text, cb) {
+        return this.publish('', NS, {
+            mood: {
+                value: mood,
+                text: text
+            }
+        }, cb);
+    };
+};
+
+},{"../stanza/mood":71}],29:[function(_dereq_,module,exports){
+'use strict';
+
+_dereq_('../stanza/muc');
+
+var _ = _dereq_('underscore');
+var JID = _dereq_('../jid');
 
 
 module.exports = function (client) {
     client.disco.addFeature('http://jabber.org/protocol/muc');
     client.disco.addFeature('jabber:x:conference');
 
+    client.joinedRooms = {};
+
+    function rejoinRooms() {
+        _.each(client.joinedRooms, function (nick, room) {
+            client.joinedRooms[room] = false;
+            client.joinRoom(room, nick);
+        });
+    }
+    client.on('session:started', rejoinRooms);
+    client.on('stream:management:resumed', rejoinRooms);
+
     client.on('message', function (msg) {
-        if (msg._extensions.muc) {
-            if (msg._extensions.muc._extensions.invite) {
+        if (msg.muc) {
+            if (msg.muc.invite) {
                 client.emit('muc:invite', {
                     from: msg.muc.invite.from,
                     room: msg.from,
                     reason: msg.muc.invite.reason,
                     password: msg.muc.password,
-                    thread: msg.muc.invite.thread
+                    thread: msg.muc.invite.thread,
+                    type: 'mediated'
                 });
             }
-            if (msg._extensions.muc._extensions.destroyed) {
+            if (msg.muc.destroyed) {
                 client.emit('muc:destroyed', {
                     room: msg.from,
                     newRoom: msg.muc.destroyed.jid,
@@ -1791,36 +1913,48 @@ module.exports = function (client) {
                     password: msg.muc.password
                 });
             }
-            if (msg._extensions.muc._extensions.decline) {
+            if (msg.muc.decline) {
                 client.emit('muc:declined', {
                     room: msg.from,
                     from: msg.muc.decline.from,
                     reason: msg.muc.decline.reason
                 });
             }
-        } else if (msg._extensions.mucInvite) {
+        } else if (msg.mucInvite) {
             client.emit('muc:invite', {
                 from: msg.from,
                 room: msg.mucInvite.jid,
                 reason: msg.mucInvite.reason,
                 password: msg.mucInvite.password,
-                thread: msg.mucInvite.thread
+                thread: msg.mucInvite.thread,
+                type: 'direct'
             });
         }
 
         if (msg.type === 'groupchat' && msg.subject) {
-            client.emit('groupchat:subject', msg);
+            client.emit('muc:subject', msg);
         }
     });
 
     client.on('presence', function (pres) {
-        if (pres._extensions.muc) {
-            if (pres.type == 'error') {
+        if (pres.joinMuc && pres.type === 'error') {
+            client.emit('muc:error', pres);
+        } else if (pres.muc) {
+            var isSelf = pres.muc.codes && pres.muc.codes.indexOf('110') >= 0;
+            if (pres.type === 'error') {
                 client.emit('muc:error', pres);
-            } else if (pres.type == 'unavailable') {
-                client.emit('muc:leave', pres);
+            } else if (pres.type === 'unavailable') {
+                client.emit('muc:unavailable', pres);
+                if (isSelf) {
+                    client.emit('muc:leave', pres);
+                    delete client.joinedRooms[pres.from.bare];
+                }
             } else {
-                client.emit('muc:join', pres);
+                client.emit('muc:available', pres);
+                if (isSelf && !client.joinedRooms[pres.from.bare]) {
+                    client.emit('muc:join', pres);
+                    client.joinedRooms[pres.from.bare] = pres.from.resource;
+                }
             }
         }
     });
@@ -1894,7 +2028,9 @@ module.exports = function (client) {
 
     client.discoverReservedNick = function (room, cb) {
         client.getDiscoInfo(room, 'x-roomuser-item', function (err, res) {
-            if (err) return cb(err);
+            if (err) {
+                return cb(err);
+            }
             var ident = res.discoInfo.identities[0] || {};
             cb(null, ident.name);
         });
@@ -1955,12 +2091,14 @@ module.exports = function (client) {
         return this.sendIq({
             to: jid,
             type: 'get',
-            mucOwner: {}
+            mucOwner: true
         }, cb);
     };
 
-    client.configureRoom =  function (jid, form, cb) {
-        if (!form.type) form.type = 'submit';
+    client.configureRoom = function (jid, form, cb) {
+        if (!form.type) {
+            form.type = 'submit';
+        }
         return this.sendIq({
             to: jid,
             type: 'set',
@@ -1969,12 +2107,21 @@ module.exports = function (client) {
             }
         }, cb);
     };
+
+    client.getUniqueRoomName = function (jid, cb) {
+        return this.sendIq({
+            type: 'get',
+            to: jid,
+            mucUnique: true
+        }, cb);
+    };
 };
 
-},{"../jid":4,"../stanza/muc":59}],27:[function(require,module,exports){
-"use strict";
+},{"../jid":3,"../stanza/muc":72,"underscore":218}],30:[function(_dereq_,module,exports){
+'use strict';
 
-var stanza = require('../stanza/nick');
+_dereq_('../stanza/nick');
+
 var NS = 'http://jabber.org/protocol/nick';
 
 
@@ -1982,9 +2129,13 @@ module.exports = function (client) {
     client.disco.addFeature(NS);
     client.disco.addFeature(NS + '+notify');
 
-    client.on('pubsubEvent', function (msg) {
-        if (!msg.event._extensions.updated) return;
-        if (msg.event.updated.node !== NS) return;
+    client.on('pubsub:event', function (msg) {
+        if (!msg.event.updated) {
+            return;
+        }
+        if (msg.event.updated.node !== NS) {
+            return;
+        }
 
         client.emit('nick', {
             jid: msg.from,
@@ -1999,19 +2150,21 @@ module.exports = function (client) {
     };
 };
 
-},{"../stanza/nick":60}],28:[function(require,module,exports){
-"use strict";
+},{"../stanza/nick":73}],31:[function(_dereq_,module,exports){
+'use strict';
 
-var stanzas = require('../stanza/oob');
+_dereq_('../stanza/oob');
+
 
 module.exports = function (client) {
     client.disco.addFeature('jabber:x:oob');
 };
 
-},{"../stanza/oob":61}],29:[function(require,module,exports){
-"use strict";
+},{"../stanza/oob":74}],32:[function(_dereq_,module,exports){
+'use strict';
 
-var stanzas = require('../stanza/ping');
+_dereq_('../stanza/ping');
+
 
 module.exports = function (client) {
     client.disco.addFeature('urn:xmpp:ping');
@@ -2024,15 +2177,15 @@ module.exports = function (client) {
         return this.sendIq({
             to: jid,
             type: 'get',
-            ping: {}
-        });
+            ping: true
+        }, cb);
     };
 };
 
-},{"../stanza/ping":62}],30:[function(require,module,exports){
-"use strict";
+},{"../stanza/ping":75}],33:[function(_dereq_,module,exports){
+'use strict';
 
-var stanzas = require('../stanza/private');
+_dereq_('../stanza/private');
 
 
 module.exports = function (client) {
@@ -2053,16 +2206,30 @@ module.exports = function (client) {
 
 };
 
-},{"../stanza/private":64}],31:[function(require,module,exports){
-"use strict";
+},{"../stanza/private":77}],34:[function(_dereq_,module,exports){
+'use strict';
 
-var stanzas = require('../stanza/pubsub');
+_dereq_('../stanza/psa');
+
+
+module.exports = function (client) {
+    client.disco.addFeature('urn:xmpp:psa');
+};
+
+},{"../stanza/psa":78}],35:[function(_dereq_,module,exports){
+'use strict';
+
+_dereq_('../stanza/pubsub');
+_dereq_('../stanza/pubsubOwner');
+_dereq_('../stanza/pubsubEvents');
+_dereq_('../stanza/pubsubError');
 
 
 module.exports = function (client) {
 
     client.on('message', function (msg) {
-        if (msg._extensions.event) {
+        if (msg.event) {
+            client.emit('pubsub:event', msg);
             client.emit('pubsubEvent', msg);
         }
     });
@@ -2186,8 +2353,50 @@ module.exports = function (client) {
     };
 };
 
-},{"../stanza/pubsub":65}],32:[function(require,module,exports){
-"use strict";
+},{"../stanza/pubsub":79,"../stanza/pubsubError":80,"../stanza/pubsubEvents":81,"../stanza/pubsubOwner":82}],36:[function(_dereq_,module,exports){
+'use strict';
+
+_dereq_('../stanza/reach');
+
+
+module.exports = function (client) {
+    client.disco.addFeature('urn:xmpp:reach:0');
+    client.disco.addFeature('urn:xmpp:reach:0+notify');
+
+    client.on('pubsub:event', function (msg) {
+        if (!msg.event.updated) {
+            return;
+        }
+        if (msg.event.updated.node !== 'urn:xmpp:reach:0') {
+            return;
+        }
+
+        client.emit('reachability', {
+            jid: msg.from,
+            addresses: msg.event.updated.published[0].reach
+        });
+    });
+
+    client.on('presence', function (pres) {
+        if (!pres.reach || !pres.reach.length) {
+            return;
+        }
+
+        client.emit('reachability', {
+            jid: pres.from,
+            addresses: pres.reach
+        });
+    });
+
+    client.publishReachability = function (data, cb) {
+        return this.publish('', 'urn:xmpp:reach:0', {
+            reach: data
+        }, cb);
+    };
+};
+
+},{"../stanza/reach":83}],37:[function(_dereq_,module,exports){
+'use strict';
 
 module.exports = function (client) {
     client.disco.addFeature('urn:xmpp:receipts');
@@ -2212,10 +2421,44 @@ module.exports = function (client) {
     });
 };
 
-},{}],33:[function(require,module,exports){
-"use strict";
+},{}],38:[function(_dereq_,module,exports){
+'use strict';
 
-var stanzas = require('../stanza/roster');
+_dereq_('../stanza/register');
+
+
+module.exports = function (client) {
+    client.getAccountInfo = function (jid, cb) {
+        return this.sendIq({
+            type: 'get',
+            to: jid,
+            register: true
+        }, cb);
+    };
+
+    client.updateAccount = function (jid, data, cb) {
+        return this.sendIq({
+            type: 'set',
+            to: jid,
+            register: data
+        }, cb);
+    };
+
+    client.deleteAccount = function (jid, cb) {
+        return this.sendIq({
+            type: 'set',
+            to: jid,
+            register: {
+                remove: true
+            }
+        }, cb);
+    };
+};
+
+},{"../stanza/register":84}],39:[function(_dereq_,module,exports){
+'use strict';
+
+_dereq_('../stanza/roster');
 
 
 module.exports = function (client) {
@@ -2291,10 +2534,21 @@ module.exports = function (client) {
     };
 };
 
-},{"../stanza/roster":66}],34:[function(require,module,exports){
-"use strict";
+},{"../stanza/roster":85}],40:[function(_dereq_,module,exports){
+_dereq_('../stanza/shim');
 
-var stanzas = require('../stanza/time');
+var NS = 'http://jabber.org/protocol/shim';
+
+
+module.exports = function (client) {
+    client.disco.addFeature(NS);
+    client.disco.addFeature(NS + '#SubID', NS);
+};
+
+},{"../stanza/shim":90}],41:[function(_dereq_,module,exports){
+'use strict';
+
+_dereq_('../stanza/time');
 
 
 module.exports = function (client) {
@@ -2319,10 +2573,11 @@ module.exports = function (client) {
     });
 };
 
-},{"../stanza/time":74}],35:[function(require,module,exports){
-"use strict";
+},{"../stanza/time":95}],42:[function(_dereq_,module,exports){
+'use strict';
 
-var stanzas = require('../stanza/vcard');
+_dereq_('../stanza/vcard');
+
 
 module.exports = function (client) {
     client.disco.addFeature('vcard-temp');
@@ -2331,7 +2586,7 @@ module.exports = function (client) {
         return this.sendIq({
             to: jid,
             type: 'get',
-            vCardTemp: {}
+            vCardTemp: true
         }, cb);
     };
 
@@ -2343,10 +2598,10 @@ module.exports = function (client) {
     };
 };
 
-},{"../stanza/vcard":76}],36:[function(require,module,exports){
-"use strict";
+},{"../stanza/vcard":97}],43:[function(_dereq_,module,exports){
+'use strict';
 
-require('../stanza/version');
+_dereq_('../stanza/version');
 
 
 module.exports = function (client) {
@@ -2354,7 +2609,7 @@ module.exports = function (client) {
 
     client.on('iq:get:version', function (iq) {
         client.sendIq(iq.resultReply({
-            version: client.config.version || {
+            version: client.config.softwareVersion || {
                 name: 'stanza.io'
             }
         }));
@@ -2364,15 +2619,15 @@ module.exports = function (client) {
         return this.sendIq({
             to: jid,
             type: 'get',
-            version: {}
+            version: true
         }, cb);
     };
 };
 
-},{"../stanza/version":77}],37:[function(require,module,exports){
-"use strict";
+},{"../stanza/version":98}],44:[function(_dereq_,module,exports){
+'use strict';
 
-var SM = require('./stanza/sm');
+var SM = _dereq_('./stanza/sm');
 var MAX_SEQ = Math.pow(2, 32);
 
 
@@ -2381,8 +2636,8 @@ function mod(v, n) {
 }
 
 
-function StreamManagement() {
-    this.conn = null;
+function StreamManagement(client) {
+    this.client = client;
     this.id = false;
     this.allowResume = true;
     this.started = false;
@@ -2397,33 +2652,31 @@ StreamManagement.prototype = {
     constructor: {
         value: StreamManagement
     },
-    enable: function (conn) {
-        this.conn = conn;
+    enable: function () {
         var enable = new SM.Enable();
         enable.resume = this.allowResume;
-        this.conn.send(enable);
+        this.client.send(enable);
         this.handled = 0;
         this.started = true;
     },
-    resume: function (conn) {
-        this.conn = conn;
+    resume: function () {
         var resume = new SM.Resume({
             h: this.handled,
             previd: this.id
         });
-        this.conn.send(resume);
+        this.client.send(resume);
         this.started = true;
     },
     enabled: function (resp) {
         this.id = resp.id;
     },
     resumed: function (resp) {
-        this.id = resp.id;
+        this.id = resp.previd;
         if (resp.h) {
             this.process(resp, true);
         }
     },
-    failed: function (resp) {
+    failed: function () {
         this.started = false;
         this.id = false;
         this.lastAck = 0;
@@ -2431,13 +2684,13 @@ StreamManagement.prototype = {
         this.unacked = [];
     },
     ack: function () {
-        this.conn.send(new SM.Ack({
+        this.client.send(new SM.Ack({
             h: this.handled
         }));
     },
     request: function () {
         this.pendingAck = true;
-        this.conn.send(new SM.Request());
+        this.client.send(new SM.Request());
     },
     process: function (ack, resend) {
         var self = this;
@@ -2446,7 +2699,7 @@ StreamManagement.prototype = {
         this.pendingAck = false;
 
         for (var i = 0; i < numAcked && this.unacked.length > 0; i++) {
-            this.conn.emit('stanza:acked', this.unacked.shift());
+            this.client.emit('stanza:acked', this.unacked.shift());
         }
         this.lastAck = ack.h;
 
@@ -2454,7 +2707,7 @@ StreamManagement.prototype = {
             var resendUnacked = this.unacked;
             this.unacked = [];
             resendUnacked.forEach(function (stanza) {
-                self.conn.send(stanza);
+                self.client.send(stanza);
             });
         }
 
@@ -2477,7 +2730,7 @@ StreamManagement.prototype = {
             }
         }
     },
-    handle: function (stanza) {
+    handle: function () {
         if (this.started) {
             this.handled = mod(this.handled + 1, MAX_SEQ);
         }
@@ -2489,13 +2742,13 @@ StreamManagement.prototype = {
 
 module.exports = StreamManagement;
 
-},{"./stanza/sm":70}],38:[function(require,module,exports){
-"use strict";
+},{"./stanza/sm":91}],45:[function(_dereq_,module,exports){
+'use strict';
 
-var _ = require('underscore');
-var stanza = require('jxt');
-var Item = require('./pubsub').Item;
-var EventItem = require('./pubsub').EventItem;
+var _ = _dereq_('underscore');
+var stanza = _dereq_('jxt');
+var Item = _dereq_('./pubsub').Item;
+var EventItem = _dereq_('./pubsubEvents').EventItem;
 
 var Avatar = module.exports = stanza.define({
     name: 'avatar',
@@ -2539,11 +2792,11 @@ stanza.add(EventItem, 'avatars', avatars);
 stanza.add(Item, 'avatarData', stanza.subText('urn:xmpp:avatar:data', 'data'));
 stanza.add(EventItem, 'avatarData', stanza.subText('urn:xmpp:avatar:data', 'data'));
 
-},{"./pubsub":65,"jxt":161,"underscore":184}],39:[function(require,module,exports){
-var stanza = require('jxt');
-var Iq = require('./iq');
-var StreamFeatures = require('./streamFeatures');
-var util = require('./util');
+},{"./pubsub":79,"./pubsubEvents":81,"jxt":195,"underscore":218}],46:[function(_dereq_,module,exports){
+var stanza = _dereq_('jxt');
+var Iq = _dereq_('./iq');
+var StreamFeatures = _dereq_('./streamFeatures');
+var util = _dereq_('./util');
 
 var NS = 'urn:ietf:params:xml:ns:xmpp-bind';
 
@@ -2560,14 +2813,107 @@ var Bind = module.exports = stanza.define({
 stanza.extend(Iq, Bind);
 stanza.extend(StreamFeatures, Bind);
 
-},{"./iq":54,"./streamFeatures":73,"./util":75,"jxt":161}],40:[function(require,module,exports){
-var stanza = require('jxt');
-var util = require('./util');
-var PrivateStorage = require('./private');
+},{"./iq":65,"./streamFeatures":94,"./util":96,"jxt":195}],47:[function(_dereq_,module,exports){
+'use strict';
+
+var stanza = _dereq_('jxt');
+var Iq = _dereq_('./iq');
+var JID = _dereq_('../jid');
+
+var NS = 'urn:xmpp:blocking';
+
+
+var jids = {
+    get: function () {
+        var result = [];
+        var items = stanza.find(this.xml, NS, 'item');
+        if (!items.length) {
+            return result;
+        }
+
+        items.forEach(function (item) {
+            result.push(new JID(stanza.getAttribute(item, 'jid', '')));
+        });
+
+        return result;
+    },
+    set: function (values) {
+        var self = this;
+        values.forEach(function (value) {
+            var item = stanza.createElement(NS, 'item', NS);
+            stanza.setAttribute(item, 'jid', value.toString());
+            self.xml.appendChild(item);
+        });
+    }
+};
+
+exports.Block = stanza.define({
+    name: 'block',
+    namespace: NS,
+    element: 'block',
+    fields: {
+        jids: jids
+    }
+});
+
+exports.Unblock = stanza.define({
+    name: 'unblock',
+    namespace: NS,
+    element: 'unblock',
+    fields: {
+        jids: jids
+    }
+});
+
+exports.BlockList = stanza.define({
+    name: 'blockList',
+    namespace: NS,
+    element: 'blocklist',
+    fields: {
+        jids: jids
+    }
+});
+
+
+stanza.extend(Iq, exports.Block);
+stanza.extend(Iq, exports.Unblock);
+stanza.extend(Iq, exports.BlockList);
+
+},{"../jid":3,"./iq":65,"jxt":195}],48:[function(_dereq_,module,exports){
+var stanza = _dereq_('jxt');
+
+var Iq = _dereq_('./iq');
+var Message = _dereq_('./message');
+var Presence = _dereq_('./presence');
+
+var NS = 'urn:xmpp:bob';
+
+
+var BOB = module.exports = stanza.define({
+    name: 'bob',
+    namespace: NS,
+    element: 'data',
+    fields: {
+        cid: stanza.attribute('cid'),
+        maxAge: stanza.numberAttribute('max-age'),
+        type: stanza.attribute('type'),
+        data: stanza.text()
+    }
+});
+
+
+stanza.extend(Iq, BOB);
+stanza.extend(Message, BOB);
+stanza.extend(Presence, BOB);
+
+},{"./iq":65,"./message":70,"./presence":76,"jxt":195}],49:[function(_dereq_,module,exports){
+var stanza = _dereq_('jxt');
+var util = _dereq_('./util');
+var PrivateStorage = _dereq_('./private');
 
 
 var Conference = stanza.define({
-    name: 'conference',
+    name: '_conference',
     namespace: 'storage:bookmarks',
     element: 'conference',
     fields: {
@@ -2588,11 +2934,11 @@ var Bookmarks = module.exports = stanza.define({
 stanza.extend(PrivateStorage, Bookmarks);
 stanza.extend(Bookmarks, Conference, 'conferences');
 
-},{"./private":64,"./util":75,"jxt":161}],41:[function(require,module,exports){
-"use strict";
+},{"./private":77,"./util":96,"jxt":195}],50:[function(_dereq_,module,exports){
+'use strict';
 
-var stanza = require('jxt');
-var util = require('./util');
+var stanza = _dereq_('jxt');
+var util = _dereq_('./util');
 
 var NS = 'http://jabber.org/protocol/httpbind';
 var XMPP_NS = 'urn:xmpp:xbosh';
@@ -2635,7 +2981,7 @@ module.exports = stanza.define({
         // These three should be using namespaced attributes, but browsers are stupid
         // when it comes to serializing attributes with namespaces
         version: stanza.attribute('xmpp:version', '1.0'),
-        restart: stanza.boolAttribute('xmpp:restart'),
+        restart: stanza.attribute('xmpp:restart'),
         restartLogic: stanza.boolAttribute('xmpp:restartLogic'),
         payload: {
             get: function () {
@@ -2658,10 +3004,10 @@ module.exports = stanza.define({
     }
 });
 
-},{"./util":75,"jxt":161}],42:[function(require,module,exports){
-var stanza = require('jxt');
-var Presence = require('./presence');
-var StreamFeatures = require('./streamFeatures');
+},{"./util":96,"jxt":195}],51:[function(_dereq_,module,exports){
+var stanza = _dereq_('jxt');
+var Presence = _dereq_('./presence');
+var StreamFeatures = _dereq_('./streamFeatures');
 
 
 var Caps = module.exports = stanza.define({
@@ -2679,11 +3025,11 @@ var Caps = module.exports = stanza.define({
 stanza.extend(Presence, Caps);
 stanza.extend(StreamFeatures, Caps);
 
-},{"./presence":63,"./streamFeatures":73,"jxt":161}],43:[function(require,module,exports){
-var stanza = require('jxt');
-var Message = require('./message');
-var Iq = require('./iq');
-var Forwarded = require('./forwarded');
+},{"./presence":76,"./streamFeatures":94,"jxt":195}],52:[function(_dereq_,module,exports){
+var stanza = _dereq_('jxt');
+var Message = _dereq_('./message');
+var Iq = _dereq_('./iq');
+var Forwarded = _dereq_('./forwarded');
 
 
 exports.Sent = stanza.define({
@@ -2728,91 +3074,15 @@ stanza.extend(Message, exports.Private);
 stanza.extend(Iq, exports.Enable);
 stanza.extend(Iq, exports.Disable);
 
-},{"./forwarded":51,"./iq":54,"./message":58,"jxt":161}],44:[function(require,module,exports){
-"use strict";
+},{"./forwarded":60,"./iq":65,"./message":70,"jxt":195}],53:[function(_dereq_,module,exports){
+'use strict';
 
-var stanza = require('jxt');
-var Message = require('./message');
+var stanza = _dereq_('jxt');
+var util = _dereq_('./util');
 
-var NS = 'http://jabber.org/protocol/chatstates';
-
-var Active = stanza.define({
-    name: 'chatStateActive',
-    eventName: 'chat:active',
-    namespace: NS,
-    element: 'active'
-});
-
-var Composing = stanza.define({
-    name: 'chatStateComposing',
-    eventName: 'chat:composing',
-    namespace: NS,
-    element: 'composing'
-});
-
-var Paused = stanza.define({
-    name: 'chatStatePaused',
-    eventName: 'chat:paused',
-    namespace: NS,
-    element: 'paused'
-});
-
-var Inactive = stanza.define({
-    name: 'chatStateInactive',
-    eventName: 'chat:inactive',
-    namespace: NS,
-    element: 'inactive'
-});
-
-var Gone = stanza.define({
-    name: 'chatStateGone',
-    eventName: 'chat:gone',
-    namespace: NS,
-    element: 'gone'
-});
-
-stanza.extend(Message, Active);
-stanza.extend(Message, Composing);
-stanza.extend(Message, Paused);
-stanza.extend(Message, Inactive);
-stanza.extend(Message, Gone);
-
-stanza.add(Message, 'chatState', {
-    get: function () {
-        var self = this;
-        var states = ['Active', 'Composing', 'Paused', 'Inactive', 'Gone'];
-
-        for (var i = 0; i < states.length; i++) {
-            if (self._extensions['chatState' + states[i]]) {
-                return states[i].toLowerCase();
-            }
-        }
-        return '';
-    },
-    set: function (value) {
-        var self = this;
-        var states = ['Active', 'Composing', 'Paused', 'Inactive', 'Gone'];
-
-        states.forEach(function (state) {
-            if (self._extensions['chatState' + state]) {
-                self.xml.removeChild(self._extensions['chatState' + state].xml);
-                delete self._extensions['chatState' + state];
-            }
-        });
-        if (value) {
-            this['chatState' + value.charAt(0).toUpperCase() + value.slice(1)];
-        }
-    }
-});
-
-},{"./message":58,"jxt":161}],45:[function(require,module,exports){
-"use strict";
-
-var stanza = require('jxt');
-
-var DataForm = require('./dataforms').DataForm;
-var ErrorStanza = require('./error');
-var Iq = require('./iq');
+var DataForm = _dereq_('./dataforms').DataForm;
+var ErrorStanza = _dereq_('./error');
+var Iq = _dereq_('./iq');
 
 var NS = 'http://jabber.org/protocol/commands';
 var ACTIONS = ['next', 'prev', 'complete', 'cancel'];
@@ -2838,7 +3108,9 @@ var Command = module.exports = stanza.define({
             get: function () {
                 var result = [];
                 var actionSet = stanza.find(this.xml, NS, 'actions');
-                if (!actionSet.length) return [];
+                if (!actionSet.length) {
+                    return [];
+                }
                 ACTIONS.forEach(function (action) {
                     var existing = stanza.find(actionSet[0], NS, action);
                     if (existing.length) {
@@ -2861,61 +3133,34 @@ var Command = module.exports = stanza.define({
 });
 
 
-stanza.add(ErrorStanza, 'adhocCommandCondition', {
-    get: function () {
-        var self = this;
-        var result = [];
-        CONDITIONS.forEach(function (condition) {
-            var exists = stanza.find(self.xml, NS, condition);
-            if (exists.length) {
-                result.push(exists[0].tagName);
-            }
-        });
-        return result[0] || '';
-    },
-    set: function (value) {
-        var self = this;
-        CONDITIONS.forEach(function (condition) {
-            var exists = stanza.find(self.xml, NS, condition);
-            if (exists.length) {
-                self.xml.removeChild(exists[0]);
-            }
-        });
-
-        if (value) {
-            var condition = stanza.createElement(NS, value);
-            this.xml.appendChild(condition);
-        }
-    }
-});
-
+stanza.add(ErrorStanza, 'adhocCommandCondition', util.enumSub(NS, CONDITIONS));
 
 stanza.extend(Iq, Command);
 stanza.extend(Command, DataForm);
 
-},{"./dataforms":46,"./error":49,"./iq":54,"jxt":161}],46:[function(require,module,exports){
-"use strict";
+},{"./dataforms":54,"./error":57,"./iq":65,"./util":96,"jxt":195}],54:[function(_dereq_,module,exports){
+'use strict';
 
-var _ = require('underscore');
-var stanza = require('jxt');
-var util = require('./util');
-var Message = require('./message');
+var stanza = _dereq_('jxt');
+var util = _dereq_('./util');
+var Message = _dereq_('./message');
+var JID = _dereq_('../jid');
 
+var FORM_NS = 'jabber:x:data';
+var MEDIA_NS = 'urn:xmpp:media-element';
+var VALIDATE_NS = 'http://jabber.org/protocol/xdata-validate';
 
-exports.DataForm = stanza.define({
-    name: 'form',
-    namespace: 'jabber:x:data',
-    element: 'x',
-    fields: {
-        title: stanza.subText('jabber:x:data', 'title'),
-        instructions: stanza.multiSubText('jabber:x:data', 'instructions'),
-        type: stanza.attribute('type', 'form')
-    }
-});
+var SINGLE_FIELDS = [
+    'text-single',
+    'text-private',
+    'list-single',
+    'jid-single'
+];
+
 
 exports.Field = stanza.define({
     name: '_field',
-    namespace: 'jabber:x:data',
+    namespace: FORM_NS,
     element: 'field',
     init: function (data) {
         this._type = (data || {}).type || this.type;
@@ -2931,12 +3176,12 @@ exports.Field = stanza.define({
             }
         },
         name: stanza.attribute('var'),
-        desc: stanza.subText('desc'),
-        required: stanza.boolSub('jabber:x:data', 'required'),
+        desc: stanza.subText(FORM_NS, 'desc'),
+        required: stanza.boolSub(FORM_NS, 'required'),
         label: stanza.attribute('label'),
         value: {
             get: function () {
-                var vals = stanza.getMultiSubText(this.xml, this._NS, 'value');
+                var vals = stanza.getMultiSubText(this.xml, FORM_NS, 'value');
                 if (this._type === 'boolean') {
                     return vals[0] === '1' || vals[0] === 'true';
                 }
@@ -2944,52 +3189,157 @@ exports.Field = stanza.define({
                     if (this._type === 'text-multi') {
                         return vals.join('\n');
                     }
+
+                    if (this._type === 'jid-multi') {
+                        return vals.map(function (jid) {
+                            return new JID(jid);
+                        });
+                    }
+
                     return vals;
                 }
-                return vals[0];
+                if (SINGLE_FIELDS.indexOf(this._type) >= 0) {
+                    if (this._type === 'jid-single') {
+                        return new JID(vals[0]);
+                    }
+                    return vals[0];
+                }
+
+                return vals;
             },
             set: function (value) {
                 if (this._type === 'boolean') {
-                    stanza.setSubText(this.xml, this._NS, 'value', value ? '1' : '0');
+                    var truthy = value === true || value === 'true' || value === '1';
+                    stanza.setSubText(this.xml, FORM_NS, 'value', truthy ? '1' : '0');
                 } else {
-                    if (this._type === 'text-multi') {
+                    if (this._type === 'text-multi' && typeof(value) === 'string') {
                         value = value.split('\n');
                     }
-                    stanza.setMultiSubText(this.xml, this._NS, 'value', value);
+                    stanza.setMultiSubText(this.xml, FORM_NS, 'value', value);
                 }
             }
-        },
-        options: {
-            get: function () {
-                var self = this;
-                return stanza.getMultiSubText(this.xml, this._NS, 'option', function (sub) {
-                    return stanza.getSubText(sub, self._NS, 'value');
-                });
-            },
-            set: function (value) {
-                var self = this;
-                stanza.setMultiSubText(this.xml, this._NS, 'option', value, function (val) {
-                    var opt = stanza.createElement(self._NS, 'option', self._NS);
-                    var value = stanza.createElement(self._NS, 'value', self._NS);
-
-                    opt.appendChild(value);
-                    value.textContent = val;
-                    self.xml.appendChild(opt);
-                });
-            }
         }
+    }
+});
+
+exports.Option = stanza.define({
+    name: '_formoption',
+    namespace: FORM_NS,
+    element: 'option',
+    fields: {
+        label: stanza.attribute('label'),
+        value: stanza.subText(FORM_NS, 'value')
+    }
+});
+
+exports.Item = stanza.define({
+    name: '_formitem',
+    namespace: FORM_NS,
+    element: 'item'
+});
+
+exports.Media = stanza.define({
+    name: 'media',
+    element: 'media',
+    namespace: MEDIA_NS,
+    fields: {
+        height: stanza.numberAttribute('height'),
+        width: stanza.numberAttribute('width')
+    }
+});
+
+exports.MediaURI = stanza.define({
+    name: '_mediaURI',
+    element: 'uri',
+    namespace: MEDIA_NS,
+    fields: {
+        uri: stanza.text(),
+        type: stanza.attribute('type')
+    }
+});
+
+exports.Validation = stanza.define({
+    name: 'validation',
+    element: 'validate',
+    namespace: VALIDATE_NS,
+    fields: {
+        dataType: stanza.attribute('datatype'),
+        basic: stanza.boolSub(VALIDATE_NS, 'basic'),
+        open: stanza.boolSub(VALIDATE_NS, 'open'),
+        regex: stanza.subText(VALIDATE_NS, 'regex')
+    }
+});
+
+exports.Range = stanza.define({
+    name: 'range',
+    element: 'range',
+    namespace: VALIDATE_NS,
+    fields: {
+        min: stanza.attribute('min'),
+        max: stanza.attribute('max')
+    }
+});
+
+exports.ListRange = stanza.define({
+    name: 'select',
+    element: 'list-range',
+    namespace: VALIDATE_NS,
+    fields: {
+        min: stanza.numberAttribute('min'),
+        max: stanza.numberAttribute('max')
+    }
+});
+
+exports.DataForm = stanza.define({
+    name: 'form',
+    namespace: FORM_NS,
+    element: 'x',
+    init: function () {
+        // Propagate reported field types to items
+
+        if (!this.reportedFields.length) {
+            return;
+        }
+
+        var fieldTypes = {};
+        this.reportedFields.forEach(function (reported) {
+            fieldTypes[reported.name] = reported.type;
+        });
+
+        this.items.forEach(function (item) {
+            item.fields.forEach(function (field) {
+                field.type = field._type = fieldTypes[field.name];
+            });
+        });
+    },
+    fields: {
+        title: stanza.subText(FORM_NS, 'title'),
+        instructions: stanza.multiSubText(FORM_NS, 'instructions'),
+        type: stanza.attribute('type', 'form'),
+        reportedFields: util.subMultiExtension(FORM_NS, 'reported', exports.Field)
     }
 });
 
 
 stanza.extend(Message, exports.DataForm);
 stanza.extend(exports.DataForm, exports.Field, 'fields');
+stanza.extend(exports.DataForm, exports.Item, 'items');
 
-},{"./message":58,"./util":75,"jxt":161,"underscore":184}],47:[function(require,module,exports){
-var stanza = require('jxt');
-var Message = require('./message');
-var Presence = require('./presence');
-var util = require('./util');
+stanza.extend(exports.Field, exports.Media);
+stanza.extend(exports.Field, exports.Validation);
+stanza.extend(exports.Field, exports.Option, 'options');
+
+stanza.extend(exports.Item, exports.Field, 'fields');
+
+stanza.extend(exports.Media, exports.MediaURI, 'uris');
+stanza.extend(exports.Validation, exports.Range);
+stanza.extend(exports.Validation, exports.ListRange);
+
+},{"../jid":3,"./message":70,"./util":96,"jxt":195}],55:[function(_dereq_,module,exports){
+var stanza = _dereq_('jxt');
+var Message = _dereq_('./message');
+var Presence = _dereq_('./presence');
+var util = _dereq_('./util');
 
 var DelayedDelivery = module.exports = stanza.define({
     name: 'delay',
@@ -3005,120 +3355,62 @@ var DelayedDelivery = module.exports = stanza.define({
 stanza.extend(Message, DelayedDelivery);
 stanza.extend(Presence, DelayedDelivery);
 
-},{"./message":58,"./presence":63,"./util":75,"jxt":161}],48:[function(require,module,exports){
-"use strict";
+},{"./message":70,"./presence":76,"./util":96,"jxt":195}],56:[function(_dereq_,module,exports){
+'use strict';
 
-var _ = require('underscore');
-var stanza = require('jxt');
-var JID = require('../jid');
-var Iq = require('./iq');
-var RSM = require('./rsm');
-var DataForm = require('./dataforms').DataForm;
+var stanza = _dereq_('jxt');
+var util = _dereq_('./util');
+var Iq = _dereq_('./iq');
+var RSM = _dereq_('./rsm');
+var DataForm = _dereq_('./dataforms').DataForm;
+
+
+var NSInfo = 'http://jabber.org/protocol/disco#info';
+var NSItems = 'http://jabber.org/protocol/disco#items';
+
 
 
 exports.DiscoInfo = stanza.define({
     name: 'discoInfo',
-    namespace: 'http://jabber.org/protocol/disco#info',
+    namespace: NSInfo,
     element: 'query',
     fields: {
         node: stanza.attribute('node'),
-        identities: {
-            get: function () {
-                var result = [];
-                var identities = stanza.find(this.xml, this._NS, 'identity');
-                identities.forEach(function (identity) {
-                    result.push({
-                        category: stanza.getAttribute(identity, 'category'),
-                        type: stanza.getAttribute(identity, 'type'),
-                        lang: identity.getAttributeNS(stanza.XML_NS, 'lang'),
-                        name: stanza.getAttribute(identity, 'name')
-                    });
-                });
-                return result;
-            },
-            set: function (values) {
-                var self = this;
+        features: stanza.multiSubAttribute(NSInfo, 'feature', 'var')
+    }
+});
 
-                var existing = stanza.find(this.xml, this._NS, 'identity');
-                existing.forEach(function (item) {
-                    self.xml.removeChild(item);
-                });
-                values.forEach(function (value) {
-                    var identity = stanza.createElement(self._NS, 'identity', self._NS);
-                    stanza.setAttribute(identity, 'category', value.category);
-                    stanza.setAttribute(identity, 'type', value.type);
-                    stanza.setAttribute(identity, 'name', value.name);
-                    if (value.lang) {
-                        identity.setAttributeNS(stanza.XML_NS, 'lang', value.lang);
-                    }
-                    self.xml.appendChild(identity);
-                });
-            }
-        },
-        features: {
-            get: function () {
-                var result = [];
-                var features = stanza.find(this.xml, this._NS, 'feature');
-                features.forEach(function (feature) {
-                    result.push(feature.getAttribute('var'));
-                });
-                return result;
-            },
-            set: function (values) {
-                var self = this;
 
-                var existing = stanza.find(this.xml, this._NS, 'feature');
-                existing.forEach(function (item) {
-                    self.xml.removeChild(item);
-                });
-                values.forEach(function (value) {
-                    var feature = stanza.createElement(self._NS, 'feature', self._NS);
-                    feature.setAttribute('var', value);
-                    self.xml.appendChild(feature);
-                });
-            }
-        }
+var DiscoIdentity = stanza.define({
+    name: '_discoIdentity',
+    namespace: NSInfo,
+    element: 'identity',
+    fields: {
+        category: stanza.attribute('category'),
+        type: stanza.attribute('type'),
+        name: stanza.attribute('name'),
+        lang: stanza.langAttribute()
     }
 });
 
 
 exports.DiscoItems = stanza.define({
     name: 'discoItems',
-    namespace: 'http://jabber.org/protocol/disco#items',
+    namespace: NSItems,
     element: 'query',
     fields: {
         node: stanza.attribute('node'),
-        items: {
-            get: function () {
-                var result = [];
-                var items = stanza.find(this.xml, this._NS, 'item');
-                items.forEach(function (item) {
-                    result.push({
-                        jid: new JID(stanza.getAttribute(item, 'jid')),
-                        node: stanza.getAttribute(item, 'node'),
-                        name: stanza.getAttribute(item, 'name')
-                    });
-                });
-                return result;
-            },
-            set: function (values) {
-                var self = this;
-                var existing = stanza.find(this.xml, this._NS, 'item');
+    }
+});
 
-                existing.forEach(function (item) {
-                    self.xml.removeChild(item);
-                });
-                values.forEach(function (value) {
-                    var item = stanza.createElement(self._NS, 'item', self._NS);
-                    if (value.jid) {
-                        stanza.setAttribute(item, 'jid', value.jid.toString());
-                    }
-                    stanza.setAttribute(item, 'node', value.node);
-                    stanza.setAttribute(item, 'name', value.name);
-                    self.xml.appendChild(item);
-                });
-            }
-        }
+var DiscoItem = stanza.define({
+    name: '_discoItem',
+    namespace: NSItems,
+    element: 'item',
+    fields: {
+        jid: util.jidAttribute('jid'),
+        node: stanza.attribute('node'),
+        name: stanza.attribute('name')
     }
 });
 
@@ -3126,17 +3418,18 @@ exports.DiscoItems = stanza.define({
 stanza.extend(Iq, exports.DiscoInfo);
 stanza.extend(Iq, exports.DiscoItems);
 stanza.extend(exports.DiscoItems, RSM);
+stanza.extend(exports.DiscoItems, DiscoItem, 'items');
+stanza.extend(exports.DiscoInfo, DiscoIdentity, 'identities');
 stanza.extend(exports.DiscoInfo, DataForm, 'extensions');
 
-},{"../jid":4,"./dataforms":46,"./iq":54,"./rsm":67,"jxt":161,"underscore":184}],49:[function(require,module,exports){
-"use strict";
+},{"./dataforms":54,"./iq":65,"./rsm":86,"./util":96,"jxt":195}],57:[function(_dereq_,module,exports){
+'use strict';
 
-var _ = require('underscore');
-var stanza = require('jxt');
-var util = require('./util');
-var Message = require('./message');
-var Presence = require('./presence');
-var Iq = require('./iq');
+var stanza = _dereq_('jxt');
+var util = _dereq_('./util');
+var Message = _dereq_('./message');
+var Presence = _dereq_('./presence');
+var Iq = _dereq_('./iq');
 
 
 var ERR_NS = 'urn:ietf:params:xml:ns:xmpp-stanzas';
@@ -3163,33 +3456,7 @@ var ErrorStanza = module.exports = stanza.define({
                 return (this.parent || {}).lang || '';
             }
         },
-        condition: {
-            get: function () {
-                var self = this;
-                var result = [];
-                CONDITIONS.forEach(function (condition) {
-                    var exists = stanza.find(self.xml, ERR_NS, condition);
-                    if (exists.length) {
-                        result.push(exists[0].tagName);
-                    }
-                });
-                return result[0] || '';
-            },
-            set: function (value) {
-                var self = this;
-                CONDITIONS.forEach(function (condition) {
-                    var exists = stanza.find(self.xml, ERR_NS, condition);
-                    if (exists.length) {
-                        self.xml.removeChild(exists[0]);
-                    }
-                });
-
-                if (value) {
-                    var condition = stanza.createElement(ERR_NS, value);
-                    this.xml.appendChild(condition);
-                }
-            }
-        },
+        condition: util.enumSub(ERR_NS, CONDITIONS),
         gone: {
             get: function () {
                 return stanza.getSubText(this.xml, ERR_NS, 'gone');
@@ -3233,10 +3500,10 @@ stanza.extend(Message, ErrorStanza);
 stanza.extend(Presence, ErrorStanza);
 stanza.extend(Iq, ErrorStanza);
 
-},{"./iq":54,"./message":58,"./presence":63,"./util":75,"jxt":161,"underscore":184}],50:[function(require,module,exports){
-var stanza = require('jxt');
-var Iq = require('./iq');
-var DataForm = require('./dataforms').DataForm;
+},{"./iq":65,"./message":70,"./presence":76,"./util":96,"jxt":195}],58:[function(_dereq_,module,exports){
+var stanza = _dereq_('jxt');
+var Iq = _dereq_('./iq');
+var DataForm = _dereq_('./dataforms').DataForm;
 
 var NS = 'urn:xmpp:extdisco:1';
 
@@ -3278,12 +3545,61 @@ stanza.extend(Service, DataForm);
 stanza.extend(Iq, Services);
 stanza.extend(Iq, Credentials);
 
-},{"./dataforms":46,"./iq":54,"jxt":161}],51:[function(require,module,exports){
-var stanza = require('jxt');
-var Message = require('./message');
-var Presence = require('./presence');
-var Iq = require('./iq');
-var DelayedDelivery = require('./delayed');
+},{"./dataforms":54,"./iq":65,"jxt":195}],59:[function(_dereq_,module,exports){
+'use strict';
+
+var stanza = _dereq_('jxt');
+var util = _dereq_('./util');
+var jingle = _dereq_('./jingle');
+var Hash = _dereq_('./hash');
+
+
+var NS = 'urn:xmpp:jingle:apps:file-transfer:3';
+
+
+exports.File = stanza.define({
+    name: '_file',
+    namespace: NS,
+    element: 'file',
+    fields: {
+        name: stanza.subText(NS, 'name'),
+        desc: stanza.subText(NS, 'desc'),
+        size: stanza.numberSub(NS, 'size'),
+        date: stanza.dateSub(NS, 'date')
+    }
+});
+
+exports.Range = stanza.define({
+    name: 'range',
+    namespace: NS,
+    element: 'range',
+    fields: {
+        offset: stanza.numberAttribute('offset')
+    }
+});
+
+exports.FileTransfer = stanza.define({
+    name: '_filetransfer',
+    namespace: NS,
+    element: 'description',
+    fields: {
+        descType: {value: 'filetransfer'},
+        offer: util.subExtension('offer', NS, 'offer', exports.File),
+        request: util.subExtension('request', NS, 'request', exports.File)
+    }
+});
+
+
+stanza.extend(exports.File, Hash, 'hashes');
+stanza.extend(exports.File, exports.Range);
+stanza.extend(jingle.Content, exports.FileTransfer);
+
+},{"./hash":63,"./jingle":66,"./util":96,"jxt":195}],60:[function(_dereq_,module,exports){
+var stanza = _dereq_('jxt');
+var Message = _dereq_('./message');
+var Presence = _dereq_('./presence');
+var Iq = _dereq_('./iq');
+var DelayedDelivery = _dereq_('./delayed');
 
 
 var Forwarded = module.exports = stanza.define({
@@ -3300,12 +3616,46 @@ stanza.extend(Forwarded, Presence);
 stanza.extend(Forwarded, Iq);
 stanza.extend(Forwarded, DelayedDelivery);
 
-},{"./delayed":47,"./iq":54,"./message":58,"./presence":63,"jxt":161}],52:[function(require,module,exports){
-"use strict";
+},{"./delayed":55,"./iq":65,"./message":70,"./presence":76,"jxt":195}],61:[function(_dereq_,module,exports){
+'use strict';
 
-var stanza = require('jxt');
-var Item = require('./pubsub').Item;
-var EventItem = require('./pubsub').EventItem;
+var stanza = _dereq_('jxt');
+var util = _dereq_('./util');
+
+var NS = 'urn:ietf:params:xml:ns:xmpp-framing';
+
+
+exports.Open = stanza.define({
+    name: 'openStream',
+    namespace: NS,
+    element: 'open',
+    topLevel: true,
+    fields: {
+        lang: stanza.langAttribute(),
+        id: stanza.attribute('id'),
+        version: stanza.attribute('version', '1.0'),
+        to: util.jidAttribute('to'),
+        from: util.jidAttribute('from')
+    }
+});
+
+exports.Close = stanza.define({
+    name: 'closeStream',
+    namespace: NS,
+    element: 'close',
+    topLevel: true,
+    fields: {
+        seeOtherURI: stanza.attribute('see-other-uri')
+    }
+});
+
+},{"./util":96,"jxt":195}],62:[function(_dereq_,module,exports){
+'use strict';
+
+var stanza = _dereq_('jxt');
+var util = _dereq_('./util');
+var Item = _dereq_('./pubsub').Item;
+var EventItem = _dereq_('./pubsubEvents').EventItem;
 
 var NS = 'http://jabber.org/protocol/geoloc';
 
@@ -3336,6 +3686,7 @@ var GeoLoc = module.exports = stanza.define({
         street: stanza.subText(NS, 'street'),
         text: stanza.subText(NS, 'text'),
         timestamp: stanza.dateSub(NS, 'timestamp'),
+        tzo: util.tzoSub(NS, 'tzo'),
         uri: stanza.subText(NS, 'uri')
     }
 });
@@ -3343,11 +3694,22 @@ var GeoLoc = module.exports = stanza.define({
 stanza.extend(Item, GeoLoc);
 stanza.extend(EventItem, GeoLoc);
 
-},{"./pubsub":65,"jxt":161}],53:[function(require,module,exports){
-var _ = require('underscore');
-var stanza = require('jxt');
-var util = require('./util');
-var jingle = require('./jingle');
+},{"./pubsub":79,"./pubsubEvents":81,"./util":96,"jxt":195}],63:[function(_dereq_,module,exports){
+var stanza = _dereq_('jxt');
+
+module.exports = stanza.define({
+    name: 'hash',
+    namespace: 'urn:xmpp:hashes:1',
+    element: 'hash',
+    fields: {
+        algo: stanza.attribute('algo'),
+        value: stanza.text()
+    }
+});
+
+},{"jxt":195}],64:[function(_dereq_,module,exports){
+var stanza = _dereq_('jxt');
+var jingle = _dereq_('./jingle');
 
 
 var NS = 'urn:xmpp:jingle:transports:ice-udp:1';
@@ -3400,7 +3762,7 @@ exports.Candidate = stanza.define({
 
 exports.Fingerprint = stanza.define({
     name: '_iceFingerprint',
-    namespace: 'urn:xmpp:tmp:jingle:apps:dtls:0',
+    namespace: 'urn:xmpp:jingle:apps:dtls:0',
     element: 'fingerprint',
     fields: {
         hash: stanza.attribute('hash'),
@@ -3409,17 +3771,29 @@ exports.Fingerprint = stanza.define({
     }
 });
 
+exports.SctpMap = stanza.define({
+    name: '_sctpMap',
+    namespace: 'urn:xmpp:jingle:transports:dtls-sctp:1',
+    element: 'sctpmap',
+    fields: {
+        number: stanza.attribute('number'),
+        protocol: stanza.attribute('protocol'),
+        streams: stanza.attribute('streams')
+    }
+});
+
 
 stanza.extend(jingle.Content, exports.ICEUDP);
 stanza.extend(exports.ICEUDP, exports.Candidate, 'candidates');
 stanza.extend(exports.ICEUDP, exports.RemoteCandidate);
 stanza.extend(exports.ICEUDP, exports.Fingerprint, 'fingerprints');
+stanza.extend(exports.ICEUDP, exports.SctpMap, 'sctp');
 
-},{"./jingle":55,"./util":75,"jxt":161,"underscore":184}],54:[function(require,module,exports){
-"use strict";
+},{"./jingle":66,"jxt":195}],65:[function(_dereq_,module,exports){
+'use strict';
 
-var stanza = require('jxt');
-var util = require('./util');
+var stanza = _dereq_('jxt');
+var util = _dereq_('./util');
 
 
 var Iq = module.exports = stanza.define({
@@ -3436,7 +3810,17 @@ var Iq = module.exports = stanza.define({
     }
 });
 
+var toJSON = Iq.prototype.toJSON;
+
+Iq.prototype.toJSON = function () {
+    var result = toJSON.call(this);
+    result.resultReply = this.resultReply;
+    result.errorReply = this.errorReply;
+    return result;
+};
+
 Iq.prototype.resultReply = function (data) {
+    data = data || {};
     data.to = this.from;
     data.id = this.id;
     data.type = 'result';
@@ -3444,20 +3828,20 @@ Iq.prototype.resultReply = function (data) {
 };
 
 Iq.prototype.errorReply = function (data) {
+    data = data || {};
     data.to = this.from;
     data.id = this.id;
     data.type = 'error';
     return new Iq(data);
 };
 
-},{"./util":75,"jxt":161}],55:[function(require,module,exports){
-"use strict";
+},{"./util":96,"jxt":195}],66:[function(_dereq_,module,exports){
+'use strict';
 
-var _ = require('underscore');
-var stanza = require('jxt');
-var util = require('./util');
-var Iq = require('./iq');
-var ErrorStanza = require('./error');
+var stanza = _dereq_('jxt');
+var util = _dereq_('./util');
+var Iq = _dereq_('./iq');
+var ErrorStanza = _dereq_('./error');
 
 
 var NS = 'urn:xmpp:jingle:1';
@@ -3496,7 +3880,7 @@ exports.Content = stanza.define({
         senders: stanza.attribute('senders', 'both'),
         description: {
             get: function () {
-                var opts = ['_rtp'];
+                var opts = ['_rtp', '_filetransfer'];
                 for (var i = 0; i < opts.length; i++) {
                     if (this._extensions[opts[i]]) {
                         return this._extensions[opts[i]];
@@ -3530,33 +3914,7 @@ exports.Reason = stanza.define({
     namespace: NS,
     element: 'reason',
     fields: {
-        condition: {
-            get: function () {
-                var self = this;
-                var result = [];
-                REASONS.forEach(function (condition) {
-                    var exists = stanza.find(self.xml, NS, condition);
-                    if (exists.length) {
-                        result.push(exists[0].tagName);
-                    }
-                });
-                return result[0] || '';
-            },
-            set: function (value) {
-                var self = this;
-                REASONS.forEach(function (condition) {
-                    var exists = stanza.find(self.xml, NS, condition);
-                    if (exists.length) {
-                        self.xml.removeChild(exists[0]);
-                    }
-                });
-
-                if (value) {
-                    var condition = stanza.createElement(NS, value, NS);
-                    this.xml.appendChild(condition);
-                }
-            }
-        },
+        condition: util.enumSub(NS, REASONS),
         alternativeSession: {
             get: function () {
                 return stanza.getSubText(this.xml, NS, 'alternative-session');
@@ -3571,46 +3929,19 @@ exports.Reason = stanza.define({
 });
 
 
-stanza.add(ErrorStanza, 'jingleCondition', {
-    get: function () {
-        var self = this;
-        var result = [];
-        CONDITIONS.forEach(function (condition) {
-            var exists = stanza.find(self.xml, ERRNS, condition);
-            if (exists.length) {
-                result.push(exists[0].tagName);
-            }
-        });
-        return result[0] || '';
-    },
-    set: function (value) {
-        var self = this;
-        CONDITIONS.forEach(function (condition) {
-            var exists = stanza.find(self.xml, ERRNS, condition);
-            if (exists.length) {
-                self.xml.removeChild(exists[0]);
-            }
-        });
-
-        if (value) {
-            var condition = stanza.createElement(ERRNS, value);
-            this.xml.appendChild(condition);
-        }
-    }
-});
-
+stanza.add(ErrorStanza, 'jingleCondition', util.enumSub(ERRNS, CONDITIONS));
 
 stanza.extend(Iq, exports.Jingle);
 stanza.extend(exports.Jingle, exports.Content, 'contents');
 stanza.extend(exports.Jingle, exports.Reason);
 
-},{"./error":49,"./iq":54,"./util":75,"jxt":161,"underscore":184}],56:[function(require,module,exports){
-"use strict";
+},{"./error":57,"./iq":65,"./util":96,"jxt":195}],67:[function(_dereq_,module,exports){
+'use strict';
 
-var stanza = require('jxt');
-var Message = require('./message');
-var Item = require('./pubsub').Item;
-var EventItem = require('./pubsub').EventItem;
+var stanza = _dereq_('jxt');
+var Message = _dereq_('./message');
+var Item = _dereq_('./pubsub').Item;
+var EventItem = _dereq_('./pubsubEvents').EventItem;
 
 
 var JSONExtension = module.exports = {
@@ -3633,16 +3964,58 @@ stanza.add(Message, 'json', JSONExtension);
 stanza.add(Item, 'json', JSONExtension);
 stanza.add(EventItem, 'json', JSONExtension);
 
-},{"./message":58,"./pubsub":65,"jxt":161}],57:[function(require,module,exports){
-"use strict";
+},{"./message":70,"./pubsub":79,"./pubsubEvents":81,"jxt":195}],68:[function(_dereq_,module,exports){
+'use strict';
 
-var stanza = require('jxt');
-var util = require('./util');
-var Message = require('./message');
-var Iq = require('./iq');
-var Forwarded = require('./forwarded');
-var RSM = require('./rsm');
-var JID = require('../jid');
+var stanza = _dereq_('jxt');
+var Message = _dereq_('./message');
+
+var NS = 'urn:xmpp:eventlog';
+
+
+exports.Log = stanza.define({
+    name: 'log',
+    namespace: NS,
+    element: 'log',
+    fields: {
+        id: stanza.attribute('id'),
+        timestamp: stanza.dateAttribute('timestamp'),
+        type: stanza.attribute('type'),
+        level: stanza.attribute('level'),
+        object: stanza.attribute('object'),
+        subject: stanza.attribute('subject'),
+        facility: stanza.attribute('facility'),
+        module: stanza.attribute('module'),
+        message: stanza.subText(NS, 'message'),
+        stackTrace: stanza.subText(NS, 'stackTrace')
+    }
+});
+
+exports.Tag = stanza.define({
+    name: '_logtag',
+    namespace: NS,
+    element: 'tag',
+    fields: {
+        name: stanza.attribute('name'),
+        value: stanza.attribute('value'),
+        type: stanza.attribute('type')
+    }
+});
+
+
+stanza.extend(exports.Log, exports.Tag, 'tags');
+stanza.extend(Message, exports.Log);
+
+},{"./message":70,"jxt":195}],69:[function(_dereq_,module,exports){
+'use strict';
+
+var stanza = _dereq_('jxt');
+var util = _dereq_('./util');
+var Message = _dereq_('./message');
+var Iq = _dereq_('./iq');
+var Forwarded = _dereq_('./forwarded');
+var RSM = _dereq_('./rsm');
+var JID = _dereq_('../jid');
 
 
 exports.MAMQuery = stanza.define({
@@ -3669,7 +4042,7 @@ exports.Result = stanza.define({
 });
 
 exports.Archived = stanza.define({
-    name: 'mamArchived',
+    name: '_mamArchived',
     namespace: 'urn:xmpp:mam:tmp',
     element: 'archived',
     fields: {
@@ -3736,12 +4109,11 @@ stanza.extend(Message, exports.Result);
 stanza.extend(exports.Result, Forwarded);
 stanza.extend(exports.MAMQuery, RSM);
 
-},{"../jid":4,"./forwarded":51,"./iq":54,"./message":58,"./rsm":67,"./util":75,"jxt":161}],58:[function(require,module,exports){
-"use strict";
+},{"../jid":3,"./forwarded":60,"./iq":65,"./message":70,"./rsm":86,"./util":96,"jxt":195}],70:[function(_dereq_,module,exports){
+'use strict';
 
-var _ = require('underscore');
-var stanza = require('jxt');
-var util = require('./util');
+var stanza = _dereq_('jxt');
+var util = _dereq_('./util');
 
 
 module.exports = stanza.define({
@@ -3773,26 +4145,143 @@ module.exports = stanza.define({
             }
         },
         attention: stanza.boolSub('urn:xmpp:attention:0', 'attention'),
+        chatState: util.enumSub('http://jabber.org/protocol/chatstates', [
+            'active', 'composing', 'paused', 'inactive', 'gone'
+        ]),
         replace: stanza.subAttribute('urn:xmpp:message-correct:0', 'replace', 'id'),
         requestReceipt: stanza.boolSub('urn:xmpp:receipts', 'request'),
         receipt: stanza.subAttribute('urn:xmpp:receipts', 'received', 'id')
     }
 });
 
-},{"./util":75,"jxt":161,"underscore":184}],59:[function(require,module,exports){
+},{"./util":96,"jxt":195}],71:[function(_dereq_,module,exports){
+'use strict';
+var stanza = _dereq_('jxt');
+var util = _dereq_('./util');
+
+var Item = _dereq_('./pubsub').Item;
+var EventItem = _dereq_('./pubsubEvents').EventItem;
+var Message = _dereq_('./message');
+
+
+var NS = 'http://jabber.org/protocol/mood';
+
+var MOODS = [
+    'afraid',
+    'amazed',
+    'amorous',
+    'angry',
+    'annoyed',
+    'anxious',
+    'aroused',
+    'ashamed',
+    'bored',
+    'brave',
+    'calm',
+    'cautious',
+    'cold',
+    'confident',
+    'confused',
+    'contemplative',
+    'contented',
+    'cranky',
+    'crazy',
+    'creative',
+    'curious',
+    'dejected',
+    'depressed',
+    'disappointed',
+    'disgusted',
+    'dismayed',
+    'distracted',
+    'embarrassed',
+    'envious',
+    'excited',
+    'flirtatious',
+    'frustrated',
+    'grateful',
+    'grieving',
+    'grumpy',
+    'guilty',
+    'happy',
+    'hopeful',
+    'hot',
+    'humbled',
+    'humiliated',
+    'hungry',
+    'hurt',
+    'impressed',
+    'in_awe',
+    'in_love',
+    'indignant',
+    'interested',
+    'intoxicated',
+    'invincible',
+    'jealous',
+    'lonely',
+    'lucky',
+    'mean',
+    'moody',
+    'nervous',
+    'neutral',
+    'offended',
+    'outraged',
+    'playful',
+    'proud',
+    'relaxed',
+    'relieved',
+    'remorseful',
+    'restless',
+    'sad',
+    'sarcastic',
+    'serious',
+    'shocked',
+    'shy',
+    'sick',
+    'sleepy',
+    'spontaneous',
+    'stressed',
+    'strong',
+    'surprised',
+    'thankful',
+    'thirsty',
+    'tired',
+    'undefined',
+    'weak',
+    'worried'
+];
+
+
+var Mood = module.exports = stanza.define({
+    name: 'mood',
+    namespace: NS,
+    element: 'mood',
+    fields: {
+        text: stanza.subText(NS, 'text'),
+        value: util.enumSub(NS, MOODS)
+    }
+});
+
+
+stanza.extend(Item, Mood);
+stanza.extend(EventItem, Mood);
+stanza.extend(Message, Mood);
+
+},{"./message":70,"./pubsub":79,"./pubsubEvents":81,"./util":96,"jxt":195}],72:[function(_dereq_,module,exports){
 'use strict';
 
-var stanza = require('jxt');
-var Message = require('./message');
-var Presence = require('./presence');
-var Iq = require('./iq');
-var DataForm = require('./dataforms').DataForm;
-var util = require('./util');
+var stanza = _dereq_('jxt');
+var Message = _dereq_('./message');
+var Presence = _dereq_('./presence');
+var Iq = _dereq_('./iq');
+var DataForm = _dereq_('./dataforms').DataForm;
+var util = _dereq_('./util');
 
 var NS = 'http://jabber.org/protocol/muc';
 var USER_NS = NS + '#user';
 var ADMIN_NS = NS + '#admin';
 var OWNER_NS = NS + '#owner';
+var UNIQ_NS = NS + '#unique';
 
 
 var proxy = function (child, field) {
@@ -4025,6 +4514,10 @@ exports.DirectInvite = stanza.define({
     }
 });
 
+
+stanza.add(Iq, 'mucUnique', stanza.subText(UNIQ_NS, 'unique'));
+
+
 stanza.extend(UserItem, UserActor);
 stanza.extend(exports.MUC, UserItem);
 stanza.extend(exports.MUC, Invite, 'invites');
@@ -4041,14 +4534,14 @@ stanza.extend(Message, exports.DirectInvite);
 stanza.extend(Iq, exports.MUCAdmin);
 stanza.extend(Iq, exports.MUCOwner);
 
-},{"./dataforms":46,"./iq":54,"./message":58,"./presence":63,"./util":75,"jxt":161}],60:[function(require,module,exports){
-"use strict";
+},{"./dataforms":54,"./iq":65,"./message":70,"./presence":76,"./util":96,"jxt":195}],73:[function(_dereq_,module,exports){
+'use strict';
 
-var stanza = require('jxt');
-var Item = require('./pubsub').Item;
-var EventItem = require('./pubsub').EventItem;
-var Presence = require('./presence');
-var Message = require('./message');
+var stanza = _dereq_('jxt');
+var Item = _dereq_('./pubsub').Item;
+var EventItem = _dereq_('./pubsubEvents').EventItem;
+var Presence = _dereq_('./presence');
+var Message = _dereq_('./message');
 
 
 var nick = stanza.subText('http://jabber.org/protocol/nick', 'nick');
@@ -4059,11 +4552,11 @@ stanza.add(EventItem, 'nick', nick);
 stanza.add(Presence, 'nick', nick);
 stanza.add(Message, 'nick', nick);
 
-},{"./message":58,"./presence":63,"./pubsub":65,"jxt":161}],61:[function(require,module,exports){
-"use strict";
+},{"./message":70,"./presence":76,"./pubsub":79,"./pubsubEvents":81,"jxt":195}],74:[function(_dereq_,module,exports){
+'use strict';
 
-var stanza = require('jxt');
-var Message = require('./message');
+var stanza = _dereq_('jxt');
+var Message = _dereq_('./message');
 var NS = 'jabber:x:oob';
 
 var OOB = module.exports = stanza.define({
@@ -4078,9 +4571,9 @@ var OOB = module.exports = stanza.define({
 
 stanza.extend(Message, OOB, 'oobURIs');
 
-},{"./message":58,"jxt":161}],62:[function(require,module,exports){
-var stanza = require('jxt');
-var Iq = require('./iq');
+},{"./message":70,"jxt":195}],75:[function(_dereq_,module,exports){
+var stanza = _dereq_('jxt');
+var Iq = _dereq_('./iq');
 
 var NS = 'urn:xmpp:ping';
 
@@ -4094,12 +4587,11 @@ var Ping = module.exports = stanza.define({
 
 stanza.extend(Iq, Ping);
 
-},{"./iq":54,"jxt":161}],63:[function(require,module,exports){
-"use strict";
+},{"./iq":65,"jxt":195}],76:[function(_dereq_,module,exports){
+'use strict';
 
-var _ = require('underscore');
-var stanza = require('jxt');
-var util = require('./util');
+var stanza = _dereq_('jxt');
+var util = _dereq_('./util');
 
 
 module.exports = stanza.define({
@@ -4112,7 +4604,7 @@ module.exports = stanza.define({
         id: stanza.attribute('id'),
         to: util.jidAttribute('to'),
         from: util.jidAttribute('from'),
-        priority: stanza.numberSub('jabber:client', 'priority'),
+        priority: stanza.numberSub('jabber:client', 'priority', false, 0),
         show: stanza.subText('jabber:client', 'show'),
         type: {
             get: function () {
@@ -4145,7 +4637,9 @@ module.exports = stanza.define({
             get: function () {
                 var NS = 'vcard-temp:x:update';
                 var update = stanza.find(this.xml, NS, 'x');
-                if (!update.length) return '';
+                if (!update.length) {
+                    return '';
+                }
                 return stanza.getSubText(update[0], NS, 'photo');
             },
             set: function (value) {
@@ -4166,9 +4660,9 @@ module.exports = stanza.define({
     }
 });
 
-},{"./util":75,"jxt":161,"underscore":184}],64:[function(require,module,exports){
-var stanza = require('jxt');
-var Iq = require('./iq');
+},{"./util":96,"jxt":195}],77:[function(_dereq_,module,exports){
+var stanza = _dereq_('jxt');
+var Iq = _dereq_('./iq');
 
 
 var PrivateStorage = module.exports = stanza.define({
@@ -4179,22 +4673,44 @@ var PrivateStorage = module.exports = stanza.define({
 
 stanza.extend(Iq, PrivateStorage);
 
-},{"./iq":54,"jxt":161}],65:[function(require,module,exports){
-"use strict";
+},{"./iq":65,"jxt":195}],78:[function(_dereq_,module,exports){
+'use strict';
 
-var _ = require('underscore');
-var stanza = require('jxt');
-var util = require('./util');
-var Iq = require('./iq');
-var Message = require('./message');
-var Form = require('./dataforms').DataForm;
-var RSM = require('./rsm');
-var JID = require('../jid');
+var stanza = _dereq_('jxt');
+var util = _dereq_('./util');
+var Presence = _dereq_('./presence');
+
+var NS = 'urn:xmpp:psa';
+var CONDITIONS = [
+    'server-unavailable', 'connection-paused'
+];
+
+
+var PSA = module.exports = stanza.define({
+    name: 'state',
+    namespace: NS,
+    element: 'state-annotation',
+    fields: {
+        from: util.jidAttribute('from'),
+        condition: util.enumSub(NS, CONDITIONS),
+        description: stanza.subText(NS, 'description')
+    }
+});
+
+
+stanza.extend(Presence, PSA);
+
+},{"./presence":76,"./util":96,"jxt":195}],79:[function(_dereq_,module,exports){
+'use strict';
+
+var stanza = _dereq_('jxt');
+var util = _dereq_('./util');
+var Iq = _dereq_('./iq');
+var DataForm = _dereq_('./dataforms').DataForm;
+var RSM = _dereq_('./rsm');
 
 
 var NS = 'http://jabber.org/protocol/pubsub';
-var OwnerNS = 'http://jabber.org/protocol/pubsub#owner';
-var EventNS = 'http://jabber.org/protocol/pubsub#event';
 
 
 exports.Pubsub = stanza.define({
@@ -4206,57 +4722,18 @@ exports.Pubsub = stanza.define({
             get: function () {
                 var conf = stanza.find(this.xml, this._NS, 'publish-options');
                 if (conf.length && conf[0].childNodes.length) {
-                    return new Form({}, conf[0].childNodes[0]);
+                    return new DataForm({}, conf[0].childNodes[0]);
                 }
             },
             set: function (value) {
                 var conf = stanza.findOrCreate(this.xml, this._NS, 'publish-options');
                 if (value) {
-                    var form = new Form(value);
+                    var form = new DataForm(value);
                     conf.appendChild(form.xml);
                 }
             }
         }
     }
-});
-
-exports.PubsubOwner = stanza.define({
-    name: 'pubsubOwner',
-    namespace: OwnerNS,
-    element: 'pubsub',
-    fields: {
-        create: stanza.subAttribute(OwnerNS, 'create', 'node'),
-        purge: stanza.subAttribute(OwnerNS, 'purge', 'node'),
-        del: stanza.subAttribute(OwnerNS, 'delete', 'node'),
-        redirect: {
-            get: function () {
-                var del = stanza.find(this.xml, this._NS, 'delete');
-                if (del.length) {
-                    return stanza.getSubAttribute(del[0], this._NS, 'redirect', 'uri');
-                }
-                return '';
-            },
-            set: function (value) {
-                var del = stanza.findOrCreate(this.xml, this._NS, 'delete');
-                stanza.setSubAttribute(del, this._NS, 'redirect', 'uri', value);
-            }
-        }
-    }
-});
-
-exports.Configure = stanza.define({
-    name: 'config',
-    namespace: OwnerNS,
-    element: 'configure',
-    fields: {
-        node: stanza.attribute('node')
-    }
-});
-
-exports.Event = stanza.define({
-    name: 'event',
-    namespace: EventNS,
-    element: 'event'
 });
 
 exports.Subscribe = stanza.define({
@@ -4277,7 +4754,28 @@ exports.Subscription = stanza.define({
         node: stanza.attribute('node'),
         jid: util.jidAttribute('jid'),
         subid: stanza.attribute('subid'),
-        type: stanza.attribute('subscription')
+        type: stanza.attribute('subscription'),
+        configurable: stanza.boolSub('subscribe-options'),
+        configurationRequired: {
+            get: function () {
+                var options = stanza.find(this.xml, NS, 'subscribe-options');
+                if (options.length) {
+                    return stanza.getBoolSub(options[0], NS, 'required');
+                }
+                return false;
+            }
+        }
+    }
+});
+
+exports.SubscriptionOptions = stanza.define({
+    name: 'subscriptionOptions',
+    namespace: NS,
+    element: 'options',
+    fields: {
+        node: stanza.attribute('node'),
+        jid: util.jidAttribute('jid'),
+        subid: stanza.attribute('subid')
     }
 });
 
@@ -4330,9 +4828,141 @@ exports.Item = stanza.define({
     }
 });
 
+
+stanza.extend(exports.Pubsub, exports.Subscribe);
+stanza.extend(exports.Pubsub, exports.Unsubscribe);
+stanza.extend(exports.Pubsub, exports.Publish);
+stanza.extend(exports.Pubsub, exports.Retrieve);
+stanza.extend(exports.Pubsub, exports.Subscription);
+stanza.extend(exports.Pubsub, exports.SubscriptionOptions);
+stanza.extend(exports.Pubsub, RSM);
+
+stanza.extend(exports.Publish, exports.Item, 'items');
+stanza.extend(exports.Retrieve, exports.Item, 'items');
+
+stanza.extend(exports.SubscriptionOptions, DataForm);
+
+stanza.extend(Iq, exports.Pubsub);
+
+},{"./dataforms":54,"./iq":65,"./rsm":86,"./util":96,"jxt":195}],80:[function(_dereq_,module,exports){
+'use strict';
+
+var stanza = _dereq_('jxt');
+var util = _dereq_('./util');
+var ErrorStanza = _dereq_('./error');
+
+
+var ERRNS = 'http://jabber.org/protocol/pubsub#errors';
+var CONDITIONS = [
+    'closed-node',
+    'configuration-required',
+    'invalid-jid',
+    'invalid-options',
+    'invalid-payload',
+    'invalid-subid',
+    'item-forbidden',
+    'item-required',
+    'jid-required',
+    'max-items-exceeded',
+    'max-nodes-exceeded',
+    'nodeid-required',
+    'not-in-roster-group',
+    'not-subscribed',
+    'payload-too-big',
+    'payload-required',
+    'pending-subscription',
+    'presence-subscription-required',
+    'subid-required',
+    'too-many-subscriptions',
+    'unsupported',
+    'unsupported-access-model'
+];
+
+
+stanza.add(ErrorStanza, 'pubsubCondition', util.enumSub(ERRNS, CONDITIONS));
+
+},{"./error":57,"./util":96,"jxt":195}],81:[function(_dereq_,module,exports){
+'use strict';
+
+var stanza = _dereq_('jxt');
+var util = _dereq_('./util');
+var Message = _dereq_('./message');
+var DataForm = _dereq_('./dataforms').DataForm;
+
+
+var NS = 'http://jabber.org/protocol/pubsub#event';
+
+
+exports.Event = stanza.define({
+    name: 'event',
+    namespace: NS,
+    element: 'event'
+});
+
+exports.EventPurge = stanza.define({
+    name: 'purged',
+    namespace: NS,
+    element: 'purge',
+    fields: {
+        node: stanza.attribute('node'),
+    }
+});
+
+exports.EventDelete = stanza.define({
+    name: 'deleted',
+    namespace: NS,
+    element: 'delete',
+    fields: {
+        node: stanza.attribute('node'),
+        redirect: stanza.subAttribute(NS, 'redirect', 'uri')
+    }
+});
+
+exports.EventSubscription = stanza.define({
+    name: 'subscriptionChanged',
+    namespace: NS,
+    element: 'subscription',
+    fields: {
+        node: stanza.attribute('node'),
+        jid: util.jidAttribute('jid'),
+        type: stanza.attribute('subscription'),
+        subid: stanza.attribute('subid'),
+        expiry: {
+            get: function () {
+                var text = stanza.getAttribute(this.xml, 'expiry');
+                if (text === 'presence') {
+                    return text;
+                } else if (text) {
+                    return new Date(text);
+                }
+            },
+            set: function (value) {
+                if (!value) {
+                    return;
+                }
+
+                if (typeof value !== 'string') {
+                    value = value.toISOString();
+                }
+
+                stanza.setAttribute(this.xml, 'expiry', value);
+            }
+        }
+    }
+});
+
+exports.EventConfiguration = stanza.define({
+    name: 'configurationChanged',
+    namespace: NS,
+    element: 'configuration',
+    fields: {
+        node: stanza.attribute('node')
+    }
+});
+
 exports.EventItems = stanza.define({
     name: 'updated',
-    namespace: EventNS,
+    namespace: NS,
     element: 'items',
     fields: {
         node: stanza.attribute('node'),
@@ -4341,14 +4971,14 @@ exports.EventItems = stanza.define({
                 var results = [];
                 var retracted = stanza.find(this.xml, this._NS, 'retract');
 
-                _.forEach(retracted, function (xml) {
+                retracted.forEach(function (xml) {
                     results.push(xml.getAttribute('id'));
                 });
                 return results;
             },
             set: function (value) {
                 var self = this;
-                _.forEach(value, function (id) {
+                value.forEach(function (id) {
                     var retracted = stanza.createElement(self._NS, 'retract', self._NS);
                     retracted.setAttribute('id', id);
                     this.xml.appendChild(retracted);
@@ -4359,8 +4989,8 @@ exports.EventItems = stanza.define({
 });
 
 exports.EventItem = stanza.define({
-    name: 'eventItem',
-    namespace: EventNS,
+    name: '_eventItem',
+    namespace: NS,
     element: 'item',
     fields: {
         id: stanza.attribute('id'),
@@ -4370,34 +5000,188 @@ exports.EventItem = stanza.define({
 });
 
 
-stanza.extend(exports.Pubsub, exports.Subscribe);
-stanza.extend(exports.Pubsub, exports.Unsubscribe);
-stanza.extend(exports.Pubsub, exports.Publish);
-stanza.extend(exports.Pubsub, exports.Retrieve);
-stanza.extend(exports.Pubsub, exports.Subscription);
-stanza.extend(exports.PubsubOwner, exports.Configure);
-stanza.extend(exports.Publish, exports.Item, 'items');
-stanza.extend(exports.Retrieve, exports.Item, 'items');
-stanza.extend(exports.Configure, Form);
-stanza.extend(exports.Pubsub, RSM);
-stanza.extend(exports.Event, exports.EventItems);
+stanza.extend(exports.EventConfiguration, DataForm);
+
 stanza.extend(exports.EventItems, exports.EventItem, 'published');
+
+stanza.extend(exports.Event, exports.EventItems);
+stanza.extend(exports.Event, exports.EventSubscription);
+stanza.extend(exports.Event, exports.EventConfiguration);
+stanza.extend(exports.Event, exports.EventDelete);
+stanza.extend(exports.Event, exports.EventPurge);
+
 stanza.extend(Message, exports.Event);
-stanza.extend(Iq, exports.Pubsub);
+
+},{"./dataforms":54,"./message":70,"./util":96,"jxt":195}],82:[function(_dereq_,module,exports){
+'use strict';
+
+var stanza = _dereq_('jxt');
+var Iq = _dereq_('./iq');
+var DataForm = _dereq_('./dataforms').DataForm;
+
+
+var NS = 'http://jabber.org/protocol/pubsub#owner';
+
+
+exports.PubsubOwner = stanza.define({
+    name: 'pubsubOwner',
+    namespace: NS,
+    element: 'pubsub',
+    fields: {
+        create: stanza.subAttribute(NS, 'create', 'node'),
+        purge: stanza.subAttribute(NS, 'purge', 'node'),
+        del: stanza.subAttribute(NS, 'delete', 'node'),
+        redirect: {
+            get: function () {
+                var del = stanza.find(this.xml, this._NS, 'delete');
+                if (del.length) {
+                    return stanza.getSubAttribute(del[0], this._NS, 'redirect', 'uri');
+                }
+                return '';
+            },
+            set: function (value) {
+                var del = stanza.findOrCreate(this.xml, this._NS, 'delete');
+                stanza.setSubAttribute(del, this._NS, 'redirect', 'uri', value);
+            }
+        }
+    }
+});
+
+exports.Configure = stanza.define({
+    name: 'config',
+    namespace: NS,
+    element: 'configure',
+    fields: {
+        node: stanza.attribute('node')
+    }
+});
+
+
+stanza.extend(exports.Configure, DataForm);
+stanza.extend(exports.PubsubOwner, exports.Configure);
+
 stanza.extend(Iq, exports.PubsubOwner);
 
-},{"../jid":4,"./dataforms":46,"./iq":54,"./message":58,"./rsm":67,"./util":75,"jxt":161,"underscore":184}],66:[function(require,module,exports){
-"use strict";
+},{"./dataforms":54,"./iq":65,"jxt":195}],83:[function(_dereq_,module,exports){
+'use strict';
 
-var _ = require('underscore');
-var stanza = require('jxt');
-var Iq = require('./iq');
-var JID = require('../jid');
+var _ = _dereq_('underscore');
+var stanza = _dereq_('jxt');
+var Item = _dereq_('./pubsub').Item;
+var EventItem = _dereq_('./pubsubEvents').EventItem;
+var Presence = _dereq_('./presence');
+
+
+var NS = 'urn:xmpp:reach:0';
+
+
+var ReachURI = module.exports = stanza.define({
+    name: '_reachAddr',
+    namespace: NS,
+    element: 'addr',
+    fields: {
+        uri: stanza.attribute('uri'),
+        $desc: {
+            get: function () {
+                return stanza.getSubLangText(this.xml, NS, 'desc', this.lang);
+            }
+        },
+        desc: {
+            get: function () {
+                var descs = this.$desc;
+                return descs[this.lang] || '';
+            },
+            set: function (value) {
+                stanza.setSubLangText(this.xml, NS, 'desc', value, this.lang);
+            }
+        }
+    }
+});
+
+
+var reachability = {
+    get: function () {
+        var reach = stanza.find(this.xml, NS, 'reach');
+        var results = [];
+        if (reach.length) {
+            var addrs = stanza.find(reach[0], NS, 'addr');
+            _.forEach(addrs, function (addr) {
+                results.push(new ReachURI({}, addr));
+            });
+        }
+        return results;
+    },
+    set: function (value) {
+        var reach = stanza.findOrCreate(this.xml, NS, 'reach');
+        stanza.setAttribute(reach, 'xmlns', NS);
+        _.forEach(value, function (info) {
+            var addr = new ReachURI(info);
+            reach.appendChild(addr.xml);
+        });
+    }
+};
+
+
+stanza.add(Item, 'reach', reachability);
+stanza.add(EventItem, 'reach', reachability);
+stanza.add(Presence, 'reach', reachability);
+
+},{"./presence":76,"./pubsub":79,"./pubsubEvents":81,"jxt":195,"underscore":218}],84:[function(_dereq_,module,exports){
+var stanza = _dereq_('jxt');
+
+var Iq = _dereq_('./iq');
+var DataForm = _dereq_('./dataforms').DataForm;
+var OOB = _dereq_('./oob');
+
+var NS = 'jabber:iq:register';
+
+
+var Register = module.exports = stanza.define({
+    name: 'register',
+    namespace: NS,
+    element: 'query',
+    fields: {
+        instructions: stanza.subText(NS, 'instructions'),
+        registered: stanza.boolSub(NS, 'registered'),
+        remove: stanza.boolSub(NS, 'remove'),
+        username: stanza.subText(NS, 'username'),
+        nick: stanza.subText(NS, 'nick'),
+        password: stanza.subText(NS, 'password'),
+        name: stanza.subText(NS, 'name'),
+        first: stanza.subText(NS, 'first'),
+        last: stanza.subText(NS, 'last'),
+        email: stanza.subText(NS, 'email'),
+        address: stanza.subText(NS, 'address'),
+        city: stanza.subText(NS, 'city'),
+        state: stanza.subText(NS, 'state'),
+        zip: stanza.subText(NS, 'zip'),
+        phone: stanza.subText(NS, 'phone'),
+        url: stanza.subText(NS, 'url'),
+        date: stanza.subText(NS, 'date'),
+        misc: stanza.subText(NS, 'misc'),
+        text: stanza.subText(NS, 'text'),
+        key: stanza.subText(NS, 'key')
+    }
+});
+
+
+stanza.extend(Iq, Register);
+stanza.extend(Register, DataForm);
+stanza.extend(Register, OOB);
+
+},{"./dataforms":54,"./iq":65,"./oob":74,"jxt":195}],85:[function(_dereq_,module,exports){
+'use strict';
+
+var stanza = _dereq_('jxt');
+var util = _dereq_('./util');
+var Iq = _dereq_('./iq');
+
+var NS = 'jabber:iq:roster';
 
 
 var Roster = module.exports = stanza.define({
     name: 'roster',
-    namespace: 'jabber:iq:roster',
+    namespace: NS,
     element: 'query',
     fields: {
         ver: {
@@ -4408,59 +5192,37 @@ var Roster = module.exports = stanza.define({
                 var force = (value === '');
                 stanza.setAttribute(this.xml, 'ver', value, force);
             }
-        },
-        items: {
-            get: function () {
-                var self = this;
-
-                var items = stanza.find(this.xml, this._NS, 'item');
-                if (!items.length) {
-                    return [];
-                }
-                var results = [];
-                items.forEach(function (item) {
-                    var data = {
-                        jid: new JID(stanza.getAttribute(item, 'jid', '')),
-                        name: stanza.getAttribute(item, 'name', undefined),
-                        subscription: stanza.getAttribute(item, 'subscription', 'none'),
-                        ask: stanza.getAttribute(item, 'ask', undefined),
-                        groups: []
-                    };
-                    var groups = stanza.find(item, self._NS, 'group');
-                    groups.forEach(function (group) {
-                        data.groups.push(group.textContent);
-                    });
-                    results.push(data);
-                });
-                return results;
-            },
-            set: function (values) {
-                var self = this;
-                values.forEach(function (value) {
-                    var item = stanza.createElement(self._NS, 'item', self._NS);
-                    stanza.setAttribute(item, 'jid', value.jid.toString());
-                    stanza.setAttribute(item, 'name', value.name);
-                    stanza.setAttribute(item, 'subscription', value.subscription);
-                    stanza.setAttribute(item, 'ask', value.ask);
-                    (value.groups || []).forEach(function (name) {
-                        var group = stanza.createElement(self._NS, 'group', self._NS);
-                        group.textContent = name;
-                        item.appendChild(group);
-                    });
-                    self.xml.appendChild(item);
-                });
-            }
         }
     }
 });
 
+var RosterItem = stanza.define({
+    name: '_rosterItem',
+    namespace: NS,
+    element: 'item',
+    fields: {
+        jid: util.jidAttribute('jid'),
+        name: stanza.attribute('name'),
+        subscription: stanza.attribute('subscription', 'none'),
+        subscriptionRequested: {
+            get: function () {
+                var ask = stanza.getAttribute(this.xml, 'ask');
+                return ask === 'subscribe';
+            }
+        },
+        preApproved: stanza.boolAttribute(NS, 'approved'),
+        groups: stanza.multiSubText(NS, 'group')
+    }
+});
+
+
 stanza.extend(Iq, Roster);
+stanza.extend(Roster, RosterItem, 'items');
 
-},{"../jid":4,"./iq":54,"jxt":161,"underscore":184}],67:[function(require,module,exports){
-"use strict";
+},{"./iq":65,"./util":96,"jxt":195}],86:[function(_dereq_,module,exports){
+'use strict';
 
-var stanza = require('jxt');
-var util = require('./util');
+var stanza = _dereq_('jxt');
 
 
 var NS = 'http://jabber.org/protocol/rsm';
@@ -4484,7 +5246,7 @@ module.exports = stanza.define({
                 }
             }
         },
-        count: stanza.numberSub(NS, 'count'),
+        count: stanza.numberSub(NS, 'count', false, 0),
         first: stanza.subText(NS, 'first'),
         firstIndex: stanza.subAttribute(NS, 'first', 'index'),
         index: stanza.subText(NS, 'index'),
@@ -4493,13 +5255,11 @@ module.exports = stanza.define({
     }
 });
 
-},{"./util":75,"jxt":161}],68:[function(require,module,exports){
-"use strict";
+},{"jxt":195}],87:[function(_dereq_,module,exports){
+'use strict';
 
-var _ = require('underscore');
-var stanza = require('jxt');
-var util = require('./util');
-var jingle = require('./jingle');
+var stanza = _dereq_('jxt');
+var jingle = _dereq_('./jingle');
 
 
 var NS = 'urn:xmpp:jingle:apps:rtp:1';
@@ -4507,6 +5267,7 @@ var FBNS = 'urn:xmpp:jingle:apps:rtp:rtcp-fb:0';
 var HDRNS = 'urn:xmpp:jingle:apps:rtp:rtp-hdrext:0';
 var INFONS = 'urn:xmpp:jingle:apps:rtp:info:1';
 var SSMANS = 'urn:xmpp:jingle:apps:rtp:ssma:0';
+var GROUPNS = 'urn:xmpp:jingle:apps:grouping:0';
 
 
 var Feedback = {
@@ -4570,7 +5331,9 @@ exports.RTP = stanza.define({
         encryption: {
             get: function () {
                 var enc = stanza.find(this.xml, NS, 'encryption');
-                if (!enc.length) return [];
+                if (!enc.length) {
+                    return [];
+                }
                 enc = enc[0];
 
                 var self = this;
@@ -4588,7 +5351,9 @@ exports.RTP = stanza.define({
                     this.xml.removeChild(enc);
                 }
 
-                if (!values.length) return;
+                if (!values.length) {
+                    return;
+                }
 
                 stanza.setBoolSubAttribute(this.xml, NS, 'encryption', 'required', true);
                 enc = stanza.find(this.xml, NS, 'encryption')[0];
@@ -4687,26 +5452,11 @@ exports.Crypto = stanza.define({
 
 exports.ContentGroup = stanza.define({
     name: '_group',
-    namespace: 'urn:xmpp:jingle:apps:grouping:0',
+    namespace: GROUPNS,
     element: 'group',
     fields: {
         semantics: stanza.attribute('semantics'),
-        contents: {
-            get: function () {
-                var self = this;
-                return stanza.getMultiSubText(this.xml, this._NS, 'content', function (sub) {
-                    return stanza.getAttribute(sub, 'name');
-                });
-            },
-            set: function (value) {
-                var self = this;
-                stanza.setMultiSubText(this.xml, this._NS, 'content', value, function (val) {
-                    var child = stanza.createElement(self._NS, 'content', self._NS);
-                    stanza.setAttribute(child, 'name', val);
-                    self.xml.appendChild(child);
-                });
-            }
-        }
+        contents: stanza.multiSubAttribute(GROUPNS, 'content', 'name')
     }
 });
 
@@ -4716,22 +5466,7 @@ exports.SourceGroup = stanza.define({
     element: 'ssrc-group',
     fields: {
         semantics: stanza.attribute('semantics'),
-        sources: {
-            get: function () {
-                var self = this;
-                return stanza.getMultiSubText(this.xml, this._NS, 'source', function (sub) {
-                    return stanza.getAttribute(sub, 'ssrc');
-                });
-            },
-            set: function (value) {
-                var self = this;
-                stanza.setMultiSubText(this.xml, this._NS, 'source', value, function (val) {
-                    var child = stanza.createElement(self._NS, 'source', self._NS);
-                    stanza.setAttribute(child, 'ssrc', val);
-                    self.xml.appendChild(child);
-                });
-            }
-        }
+        sources: stanza.multiSubAttribute(SSMANS, 'source', 'ssrc')
     }
 });
 
@@ -4801,13 +5536,12 @@ stanza.add(jingle.Jingle, 'ringing', stanza.boolSub(INFONS, 'ringing'));
 stanza.add(jingle.Jingle, 'hold', stanza.boolSub(INFONS, 'hold'));
 stanza.add(jingle.Jingle, 'active', stanza.boolSub(INFONS, 'active'));
 
-},{"./jingle":55,"./util":75,"jxt":161,"underscore":184}],69:[function(require,module,exports){
-"use strict";
+},{"./jingle":66,"jxt":195}],88:[function(_dereq_,module,exports){
+'use strict';
 
-var _ = require('underscore');
-var stanza = require('jxt');
-var util = require('./util');
-var StreamFeatures = require('./streamFeatures');
+var stanza = _dereq_('jxt');
+var util = _dereq_('./util');
+var StreamFeatures = _dereq_('./streamFeatures');
 
 var NS = 'urn:ietf:params:xml:ns:xmpp-sasl';
 var CONDITIONS = [
@@ -4894,33 +5628,7 @@ exports.Failure = stanza.define({
                 this._lang = value;
             }
         },
-        condition: {
-            get: function () {
-                var self = this;
-                var result = [];
-                CONDITIONS.forEach(function (condition) {
-                    var exists = stanza.find(self.xml, NS, condition);
-                    if (exists.length) {
-                        result.push(exists[0].tagName);
-                    }
-                });
-                return result[0] || '';
-            },
-            set: function (value) {
-                var self = this;
-                this._CONDITIONS.forEach(function (condition) {
-                    var exists = stanza.find(self.xml, NS, condition);
-                    if (exists.length) {
-                        self.xml.removeChild(exists[0]);
-                    }
-                });
-                if (value) {
-                    var condition = stanza.createElementNS(NS, value);
-                    condition.setAttribute('xmlns', NS);
-                    this.xml.appendChild(condition);
-                }
-            }
-        },
+        condition: util.enumSub(NS, CONDITIONS),
         $text: {
             get: function () {
                 return stanza.getSubLangText(this.xml, NS, 'text', this.lang);
@@ -4941,10 +5649,69 @@ exports.Failure = stanza.define({
 
 stanza.extend(StreamFeatures, exports.Mechanisms);
 
-},{"./streamFeatures":73,"./util":75,"jxt":161,"underscore":184}],70:[function(require,module,exports){
-var stanza = require('jxt');
-var util = require('./util');
-var StreamFeatures = require('./streamFeatures');
+},{"./streamFeatures":94,"./util":96,"jxt":195}],89:[function(_dereq_,module,exports){
+var stanza = _dereq_('jxt');
+var Iq = _dereq_('./iq');
+var StreamFeatures = _dereq_('./streamFeatures');
+
+var NS = 'urn:ietf:params:xml:ns:xmpp-session';
+
+var Session = module.exports = stanza.define({
+    name: 'session',
+    namespace: NS,
+    element: 'session',
+    fields: {
+        required: stanza.boolSub(NS, 'required'),
+        optional: stanza.boolSub(NS, 'optional')
+    }
+});
+
+stanza.extend(StreamFeatures, Session);
+stanza.extend(Iq, Session);
+
+},{"./iq":65,"./streamFeatures":94,"jxt":195}],90:[function(_dereq_,module,exports){
+var stanza = _dereq_('jxt');
+var Message = _dereq_('./message');
+var Presence = _dereq_('./presence');
+
+
+var NS = 'http://jabber.org/protocol/shim';
+
+
+var SHIM = module.exports = {
+    get: function () {
+        var headerSet = stanza.find(this.xml, NS, 'headers');
+        if (headerSet.length) {
+            return stanza.getMultiSubText(headerSet[0], NS, 'header', function (header) {
+                var name = stanza.getAttribute(header, 'name');
+                if (name) {
+                    return {
+                        name: name,
+                        value: stanza.getText(header)
+                    };
+                }
+            });
+        }
+        return [];
+    },
+    set: function (values) {
+        var headerSet = stanza.findOrCreate(this.xml, NS, 'headers');
+        stanza.setMultiSubText(headerSet, NS, 'header', values, function (val) {
+            var header = stanza.createElement(NS, 'header', NS);
+            stanza.setAttribute(header, 'name', val.name);
+            stanza.setText(header, val.value);
+            headerSet.appendChild(header);
+        });
+    }
+};
+
+
+stanza.add(Message, 'headers', SHIM);
+stanza.add(Presence, 'headers', SHIM);
+
+},{"./message":70,"./presence":76,"jxt":195}],91:[function(_dereq_,module,exports){
+var stanza = _dereq_('jxt');
+var StreamFeatures = _dereq_('./streamFeatures');
 
 
 var NS = 'urn:xmpp:sm:3';
@@ -4986,7 +5753,7 @@ exports.Resume = stanza.define({
     element: 'resume',
     topLevel: true,
     fields: {
-        h: stanza.numberAttribute('h'),
+        h: stanza.numberAttribute('h', false, 0),
         previd: stanza.attribute('previd')
     }
 });
@@ -4998,7 +5765,7 @@ exports.Resumed = stanza.define({
     element: 'resumed',
     topLevel: true,
     fields: {
-        h: stanza.numberAttribute('h'),
+        h: stanza.numberAttribute('h', false, 0),
         previd: stanza.attribute('previd')
     }
 });
@@ -5018,7 +5785,7 @@ exports.Ack = stanza.define({
     element: 'a',
     topLevel: true,
     fields: {
-        h: stanza.numberAttribute('h')
+        h: stanza.numberAttribute('h', false, 0)
     }
 });
 
@@ -5033,11 +5800,11 @@ exports.Request = stanza.define({
 
 stanza.extend(StreamFeatures, exports.SMFeature);
 
-},{"./streamFeatures":73,"./util":75,"jxt":161}],71:[function(require,module,exports){
-"use strict";
+},{"./streamFeatures":94,"jxt":195}],92:[function(_dereq_,module,exports){
+'use strict';
 
-var stanza = require('jxt');
-var util = require('./util');
+var stanza = _dereq_('jxt');
+var util = _dereq_('./util');
 
 
 module.exports = stanza.define({
@@ -5053,11 +5820,11 @@ module.exports = stanza.define({
     }
 });
 
-},{"./util":75,"jxt":161}],72:[function(require,module,exports){
-"use strict";
+},{"./util":96,"jxt":195}],93:[function(_dereq_,module,exports){
+'use strict';
 
-var _ = require('underscore');
-var stanza = require('jxt');
+var stanza = _dereq_('jxt');
+var util = _dereq_('./util');
 
 
 var ERR_NS = 'urn:ietf:params:xml:ns:xmpp-streams';
@@ -5087,33 +5854,7 @@ module.exports = stanza.define({
                 this._lang = value;
             }
         },
-        condition: {
-            get: function () {
-                var self = this;
-                var result = [];
-                CONDITIONS.forEach(function (condition) {
-                    var exists = stanza.find(self.xml, ERR_NS, condition);
-                    if (exists.length) {
-                        result.push(exists[0].tagName);
-                    }
-                });
-                return result[0] || '';
-            },
-            set: function (value) {
-                var self = this;
-                CONDITIONS.forEach(function (condition) {
-                    var exists = stanza.find(self.xml, ERR_NS, condition);
-                    if (exists.length) {
-                        self.xml.removeChild(exists[0]);
-                    }
-                });
-                if (value) {
-                    var condition = stanza.createElement(ERR_NS, value);
-                    condition.setAttribute('xmlns', ERR_NS);
-                    this.xml.appendChild(condition);
-                }
-            }
-        },
+        condition: util.enumSub(ERR_NS, CONDITIONS),
         seeOtherHost: {
             get: function () {
                 return stanza.getSubText(this.xml, ERR_NS, 'see-other-host');
@@ -5140,23 +5881,17 @@ module.exports = stanza.define({
     }
 });
 
-},{"jxt":161,"underscore":184}],73:[function(require,module,exports){
-"use strict";
+},{"./util":96,"jxt":195}],94:[function(_dereq_,module,exports){
+'use strict';
 
-var stanza = require('jxt');
+var stanza = _dereq_('jxt');
+
 
 var StreamFeatures = module.exports = stanza.define({
     name: 'streamFeatures',
     namespace: 'http://etherx.jabber.org/streams',
     element: 'features',
-    topLevel: true,
-    fields: {
-        features: {
-            get: function () {
-                return this._extensions;
-            }
-        }
-    }
+    topLevel: true
 });
 
 var RosterVerFeature = stanza.define({
@@ -5175,12 +5910,13 @@ var SubscriptionPreApprovalFeature = stanza.define({
 stanza.extend(StreamFeatures, RosterVerFeature);
 stanza.extend(StreamFeatures, SubscriptionPreApprovalFeature);
 
-},{"jxt":161}],74:[function(require,module,exports){
-"use strict";
+},{"jxt":195}],95:[function(_dereq_,module,exports){
+'use strict';
 
-var stanza = require('jxt');
-var util = require('./util');
-var Iq = require('./iq');
+var stanza = _dereq_('jxt');
+var util = _dereq_('./util');
+var Iq = _dereq_('./iq');
+
 
 var EntityTime = module.exports = stanza.define({
     name: 'time',
@@ -5188,52 +5924,19 @@ var EntityTime = module.exports = stanza.define({
     element: 'time',
     fields: {
         utc: stanza.dateSub('urn:xmpp:time', 'utc'),
-        tzo: {
-            get: function () {
-                var split, hrs, min;
-                var sign = -1;
-                var formatted = stanza.getSubText(this.xml, this._NS, 'tzo');
-
-                if (!formatted) {
-                    return 0;
-                }
-                if (formatted.charAt(0) === '-') {
-                    sign = 1;
-                    formatted = formatted.slice(1);
-                }
-                split = formatted.split(':');
-                hrs = parseInt(split[0], 10);
-                min = parseInt(split[1], 10);
-                return (hrs * 60 + min) * sign;
-            },
-            set: function (value) {
-                var hrs, min;
-                var formatted = '-';
-                if (typeof value === 'number') {
-                    if (value < 0) {
-                        value = -value;
-                        formatted = '+';
-                    }
-                    hrs = value / 60;
-                    min = value % 60;
-                    formatted += (hrs < 10 ? '0' : '') + hrs + ':' + (min < 10 ? '0' : '') + min;
-                } else {
-                    formatted = value;
-                }
-                stanza.setSubText(this.xml, this._NS, 'tzo', formatted);
-            }
-        }
+        tzo: util.tzoSub('urn:xmpp:time', 'tzo', 0)
     }
 });
 
 
 stanza.extend(Iq, EntityTime);
 
-},{"./iq":54,"./util":75,"jxt":161}],75:[function(require,module,exports){
-"use strict";
+},{"./iq":65,"./util":96,"jxt":195}],96:[function(_dereq_,module,exports){
+'use strict';
 
-var stanza = require('jxt');
-var JID = require('../jid');
+var _ = _dereq_('underscore');
+var stanza = _dereq_('jxt');
+var JID = _dereq_('../jid');
 
 
 exports.jidAttribute = stanza.field(
@@ -5254,11 +5957,159 @@ exports.jidSub = stanza.field(
     }
 );
 
-},{"../jid":4,"jxt":161}],76:[function(require,module,exports){
-"use strict";
+exports.tzoSub = stanza.field(
+    function (xml, NS, sub, defaultVal) {
+        var split, hrs, min;
+        var sign = -1;
+        var formatted = stanza.getSubText(xml, NS, sub);
 
-var stanza = require('jxt');
-var Iq = require('./iq');
+        if (!formatted) {
+            return defaultVal;
+        }
+
+        if (formatted.charAt(0) === '-') {
+            sign = 1;
+            formatted = formatted.slice(1);
+        }
+
+        split = formatted.split(':');
+        hrs = parseInt(split[0], 10);
+        min = parseInt(split[1], 10);
+        return (hrs * 60 + min) * sign;
+    },
+    function (xml, NS, sub, value) {
+        var hrs, min;
+        var formatted = '-';
+        if (typeof value === 'number') {
+            if (value < 0) {
+                value = -value;
+                formatted = '+';
+            }
+            hrs = value / 60;
+            min = value % 60;
+            formatted += (hrs < 10 ? '0' : '') + hrs + ':' + (min < 10 ? '0' : '') + min;
+        } else {
+            formatted = value;
+        }
+        stanza.setSubText(xml, NS, sub, formatted);
+    }
+);
+
+exports.enumSub = function (NS, enumValues) {
+    return {
+        get: function () {
+            var self = this;
+            var result = [];
+            enumValues.forEach(function (enumVal) {
+                var exists = stanza.find(self.xml, NS, enumVal);
+                if (exists.length) {
+                    result.push(exists[0].tagName);
+                }
+            });
+            return result[0] || '';
+        },
+        set: function (value) {
+            var self = this;
+            enumValues.forEach(function (enumVal) {
+                var exists = stanza.find(self.xml, NS, enumVal);
+                if (exists.length) {
+                    self.xml.removeChild(exists[0]);
+                }
+            });
+
+            if (value) {
+                var condition = stanza.createElement(NS, value);
+                this.xml.appendChild(condition);
+            }
+        }
+    };
+};
+
+exports.subExtension = function (name, NS, sub, ChildJXT) {
+    return {
+        get: function () {
+            if (!this._extensions[name]) {
+                var wrapper = stanza.find(this.xml, NS, sub);
+                if (!wrapper.length) {
+                    wrapper= stanza.createElement(NS, sub, this._NS);
+                    this.xml.appendChild(wrapper);
+                } else {
+                    wrapper = wrapper[0];
+                }
+
+                var existing = stanza.find(wrapper, ChildJXT.prototype._NS, ChildJXT.prototype._EL);
+                if (!existing.length) {
+                    this._extensions[name] = new ChildJXT({}, null, {xml: wrapper});
+                    wrapper.appendChild(this._extensions[name].xml);
+                } else {
+                    this._extensions[name] = new ChildJXT(null, existing[0], {xml: wrapper});
+                }
+                this._extensions[name].parent = this;
+            }
+            return this._extensions[name];
+        },
+        set: function (value) {
+            var wrapper = stanza.find(this.xml, NS, sub);
+            if (wrapper.length && !value) {
+                this.xml.removeChild(wrapper[0]);
+            }
+
+            if (value) {
+                var child = this[name];
+                if (value === true) {
+                    value = {};
+                }
+                _.extend(child, value);
+            }
+        }
+    };
+};
+
+exports.subMultiExtension = function (NS, sub, ChildJXT) {
+    return {
+        get: function () {
+            var self = this;
+            var results = [];
+            var existing = stanza.find(this.xml, NS, sub);
+            if (!existing.length) {
+                return results;
+            }
+            existing = existing[0];
+            var data = stanza.find(existing, ChildJXT.prototype._NS, ChildJXT.prototype._EL);
+
+            data.forEach(function (xml) {
+                results.push(new ChildJXT({}, xml, self));
+            });
+            return results;
+        },
+        set: function (values) {
+            var self = this;
+            var existing = stanza.find(this.xml, NS, sub);
+            if (existing.length) {
+                self.xml.removeChild(existing[0]);
+            }
+
+            if (!values.length) {
+                return;
+            }
+
+            existing = stanza.createElement(NS, sub, this._NS);
+
+            values.forEach(function (value) {
+                var content = new ChildJXT(value, null, self);
+                existing.appendChild(content.xml);
+            });
+
+            self.xml.appendChild(existing);
+        }
+    };
+};
+
+},{"../jid":3,"jxt":195,"underscore":218}],97:[function(_dereq_,module,exports){
+'use strict';
+
+var stanza = _dereq_('jxt');
+var Iq = _dereq_('./iq');
 var NS = 'vcard-temp';
 
 
@@ -5364,9 +6215,9 @@ stanza.extend(VCardTemp, Name);
 stanza.extend(VCardTemp, Photo);
 stanza.extend(Iq, VCardTemp);
 
-},{"./iq":54,"jxt":161}],77:[function(require,module,exports){
-var stanza = require('jxt');
-var Iq = require('./iq');
+},{"./iq":65,"jxt":195}],98:[function(_dereq_,module,exports){
+var stanza = _dereq_('jxt');
+var Iq = _dereq_('./iq');
 
 var NS = 'jabber:iq:version';
 
@@ -5383,70 +6234,287 @@ var Version = module.exports = stanza.define({
 
 stanza.extend(Iq, Version);
 
-},{"./iq":54,"jxt":161}],78:[function(require,module,exports){
-var stanza = require('jxt');
-var Iq = require('./iq');
+},{"./iq":65,"jxt":195}],99:[function(_dereq_,module,exports){
+var stanza = _dereq_('jxt');
+var Iq = _dereq_('./iq');
 
 
 stanza.add(Iq, 'visible', stanza.boolSub('urn:xmpp:invisible:0', 'visible'));
 stanza.add(Iq, 'invisible', stanza.boolSub('urn:xmpp:invisible:0', 'invisible'));
 
-},{"./iq":54,"jxt":161}],79:[function(require,module,exports){
-"use strict";
+},{"./iq":65,"jxt":195}],100:[function(_dereq_,module,exports){
+(function (process){
+'use strict';
 
-var _ = require('underscore');
-var util = require('util');
-var stanza = require('jxt');
-var WildEmitter = require('wildemitter');
-var async = require('async');
-var Stream = require('./stanza/stream');
-var StreamError = require('./stanza/streamError');
-var Message = require('./stanza/message');
-var Presence = require('./stanza/presence');
-var Iq = require('./stanza/iq');
+var _ = _dereq_('underscore');
+var util = _dereq_('util');
+var Promise = _dereq_('bluebird');
+var request = Promise.promisify(_dereq_('request'));
 
-var WS = (require('faye-websocket') && require('faye-websocket').Client) ?
-                                       require('faye-websocket').Client :
-                                       window.WebSocket;
+var WildEmitter = _dereq_('wildemitter');
+var stanza = _dereq_('jxt');
+var BOSH = _dereq_('../stanza/bosh');
+var StreamError = _dereq_('../stanza/streamError');
 
 
+function ConnectionError() {}
+util.inherits(ConnectionError, Error);
 
-function WSConnection(sm) {
+
+function retryRequest(opts, timeout, allowedRetries, retries) {
+    retries = retries || 0;
+
+    var req = request(opts).cancellable().timeout((timeout || 20) * 1000);
+
+    return req.spread(function (req, body) {
+        if (req.statusCode < 200 || req.statusCode >= 400) {
+            throw new ConnectionError('HTTP Status Error');
+        }
+        return body;
+    }).catch(Promise.TimeoutError, function () {
+        throw new ConnectionError('Dead Connection, exceeded timeout limit');
+    }).catch(Promise.CancellationError, function () {
+        return; // We only cancel on manual disconnect, so let things die silently
+    }).catch(function () {
+        if (retries < allowedRetries) {
+            return Promise.delay(100).then(function () {
+                return retryRequest(opts, timeout, allowedRetries, retries + 1);
+            });
+        } else {
+            throw new ConnectionError('Dead Connection, exceeded retry limit');
+        }
+    });
+}
+
+
+function BOSHConnection(sm) {
     var self = this;
 
     WildEmitter.call(this);
 
     self.sm = sm;
 
-    self.sendQueue = async.queue(function (data, cb) {
-        if (self.conn) {
-            self.sm.track(data);
+    self.sendQueue = [];
+    self.requests = [];
+    self.maxRequests = 2;
+    self.sid = '';
 
-            if (typeof data !== 'string') {
-                data = data.toString();
+    self.on('raw:incoming', function (data) {
+        data = data.trim();
+        if (data === '') {
+            return;
+        }
+
+        var bosh, err;
+
+        try {
+            bosh = stanza.parse(data, BOSH);
+        } catch (e) {
+            err = new StreamError({
+                condition: 'invalid-xml'
+            });
+            self.emit('stream:error', err, e);
+            self.send(err);
+            return self.disconnect();
+        }
+
+        if (!self.hasStream) {
+            self.hasStream = true;
+            self.stream = {
+                id: bosh.sid,
+                lang: bosh.lang || 'en',
+                version: bosh.version || '1.0',
+                to: bosh.to,
+                from: bosh.from
+            };
+            self.sid = bosh.sid;
+            self.maxRequests = bosh.requests;
+        }
+
+        var payload = bosh.payload;
+        payload.forEach(function (stanzaObj) {
+            if (!stanzaObj.lang) {
+                stanzaObj.lang = self.stream.lang;
             }
 
-            self.emit('raw:outgoing', data);
-            self.conn.send(data);
+            self.emit('stream:data', stanzaObj);
+        });
+
+        if (bosh.type === 'terminate') {
+            self.rid = undefined;
+            self.sid = undefined;
+            self.emit('bosh:terminate', bosh);
+            self.emit('stream:end');
+            self.emit('disconnected', self);
         }
-        cb();
-    }, 1);
+    });
+}
+
+util.inherits(BOSHConnection, WildEmitter);
+
+BOSHConnection.prototype.connect = function (opts) {
+    var self = this;
+
+    self.config = _.extend({
+        rid: Math.ceil(Math.random() * 9999999999),
+        wait: 30,
+        maxRetries: 5
+    }, opts);
+
+    self.hasStream = false;
+    self.sm.started = false;
+    self.url = opts.boshURL;
+
+    self.rid = self.config.rid;
+
+    self.requests = [];
+
+    self.rid++;
+    self.request(new BOSH({
+        version: self.config.version || '1.0',
+        to: self.config.server,
+        lang: self.config.lang || 'en',
+        wait: self.config.wait,
+        ver: '1.6',
+        hold: 1
+    }));
+};
+
+BOSHConnection.prototype.disconnect = function () {
+    if (this.hasStream) {
+        this.rid++;
+        this.request(new BOSH({
+            type: 'terminate'
+        }));
+    } else {
+        this.requests.forEach(function (ticket) {
+            ticket.request.cancel();
+        });
+        this.stream = undefined;
+        this.sid = undefined;
+        this.rid = undefined;
+        this.emit('disconnected', this);
+    }
+};
+
+BOSHConnection.prototype.restart = function () {
+    var self = this;
+    self.rid++;
+    self.request(new BOSH({
+        to: self.config.server,
+        lang: self.config.lang || 'en',
+        restart: 'true'
+    }));
+};
+
+BOSHConnection.prototype.send = function (data) {
+    var self = this;
+    if (self.hasStream) {
+        self.sendQueue.push(data);
+        process.nextTick(self.longPoll.bind(self));
+    }
+};
+
+BOSHConnection.prototype.longPoll = function () {
+    var canReceive = this.requests.length === 0;
+    var canSend = this.sendQueue.length > 0 && this.requests.length < this.maxRequests;
+
+    if (!this.sid || (!canReceive && !canSend)) {
+        return;
+    }
+
+    var stanzas = this.sendQueue;
+    this.sendQueue = [];
+    this.rid++;
+
+    this.request(new BOSH({
+        payload: stanzas
+    }));
+};
+
+BOSHConnection.prototype.request = function (bosh) {
+    var self = this;
+
+    var ticket = {id: self.rid, request: null};
+    bosh.rid = self.rid;
+    bosh.sid = self.sid;
+
+    var body = bosh.toString();
+    self.emit('raw:outgoing', body);
+
+    self.requests.push(ticket);
+
+    var req = retryRequest({
+        uri: self.url,
+        body: body,
+        method: 'POST',
+        strictSSL: true
+    }, self.config.wait * 1.5, this.config.maxRetries);
+
+    ticket.request = req;
+
+    return req.then(function (body) {
+        self.emit('raw:incoming', body);
+    }).catch(ConnectionError, function (err) {
+        self.hasStream = false;
+        var serr = new StreamError({
+            condition: 'connection-timeout'
+        });
+        self.emit('stream:error', serr, err);
+        self.disconnect();
+    }).catch(function (err) {
+        var serr = new StreamError({
+            condition: 'undefined-condition'
+        });
+        self.emit('stream:error', serr, err);
+        self.send(serr);
+        self.disconnect();
+    }).finally(function () {
+        self.requests = _.filter(self.requests, function (item) {
+            return item.id !== ticket.id;
+        });
+        if (bosh.type !== 'terminate') {
+            // Delay next auto-request by two ticks since we're likely
+            // to send data anyway next tick.
+            process.nextTick(function () {
+                process.nextTick(self.longPoll.bind(self));
+            });
+        }
+    });
+};
+
+module.exports = BOSHConnection;
+
+}).call(this,_dereq_("FWaASH"))
+},{"../stanza/bosh":50,"../stanza/streamError":93,"FWaASH":154,"bluebird":107,"jxt":195,"request":142,"underscore":218,"util":156,"wildemitter":219}],101:[function(_dereq_,module,exports){
+'use strict';
+
+var WSConnection = _dereq_('./websocket');
+var _ = _dereq_('underscore');
+var util = _dereq_('util');
+var stanza = _dereq_('jxt');
+var Stream = _dereq_('../stanza/stream');
+var StreamError = _dereq_('../stanza/streamError');
+
+
+
+function OldWSConnection(sm) {
+    WSConnection.call(this, sm);
+
+    var self = this;
+
 
     function wrap(data) {
         return [self.streamStart, data, self.streamEnd].join('');
     }
 
+
     self.on('connected', function () {
-        self.send([
-            '<stream:stream',
-            'xmlns:stream="http://etherx.jabber.org/streams"',
-            'xmlns="jabber:client"',
-            'version="' + (self.config.version || '1.0') + '"',
-            'xml:lang="' + (self.config.lang || 'en') + '"',
-            'to="' + self.config.server + '">'
-        ].join(' '));
+        self.streamStart = '<stream:stream xmlns:stream="http://etherx.jabber.org/streams">';
+        self.streamEnd = '</stream:stream>';
     });
 
+    self.off('raw:incoming');
     self.on('raw:incoming', function (data) {
         var streamData, ended, err;
 
@@ -5503,24 +6571,113 @@ function WSConnection(sm) {
             }
 
             self.emit('stream:data', stanzaObj);
-            self.emit(stanzaObj._eventname || stanzaObj._name, stanzaObj);
-            if (stanzaObj._name === 'message' || stanzaObj._name === 'presence' || stanzaObj._name === 'iq') {
-                self.sm.handle(stanzaObj);
-                self.emit('stanza', stanzaObj);
-            } else if (stanzaObj._name === 'smAck') {
-                return self.sm.process(stanzaObj);
-            } else if (stanzaObj._name === 'smRequest') {
-                return self.sm.ack();
-            }
-
-            if (stanzaObj.id) {
-                self.emit('id:' + stanzaObj.id, stanzaObj);
-            }
         });
 
         if (ended) {
             self.emit('stream:end');
         }
+    });
+}
+
+util.inherits(OldWSConnection, WSConnection);
+
+
+OldWSConnection.prototype.startHeader = function () {
+    return [
+        '<stream:stream',
+        'xmlns:stream="http://etherx.jabber.org/streams"',
+        'xmlns="jabber:client"',
+        'version="' + (this.config.version || '1.0') + '"',
+        'xml:lang="' + (this.config.lang || 'en') + '"',
+        'to="' + this.config.server + '">'
+    ].join(' ');
+};
+
+OldWSConnection.prototype.closeHeader = function () {
+    return '</stream:stream>';
+};
+
+
+module.exports = OldWSConnection;
+
+},{"../stanza/stream":92,"../stanza/streamError":93,"./websocket":102,"jxt":195,"underscore":218,"util":156}],102:[function(_dereq_,module,exports){
+'use strict';
+
+var util = _dereq_('util');
+var stanza = _dereq_('jxt');
+var WildEmitter = _dereq_('wildemitter');
+var async = _dereq_('async');
+var framing = _dereq_('../stanza/framing');
+var StreamError = _dereq_('../stanza/streamError');
+
+var WS = (_dereq_('faye-websocket') && _dereq_('faye-websocket').Client) ?
+                                       _dereq_('faye-websocket').Client :
+                                       window.WebSocket;
+
+var WS_OPEN = 1;
+
+
+
+function WSConnection(sm) {
+    var self = this;
+
+    WildEmitter.call(this);
+
+    self.sm = sm;
+    self.closing = false;
+
+    self.sendQueue = async.queue(function (data, cb) {
+        if (self.conn) {
+            if (typeof data !== 'string') {
+                data = data.toString();
+            }
+
+            self.emit('raw:outgoing', data);
+            if (self.conn.readyState === WS_OPEN) {
+                self.conn.send(data);
+            }
+        }
+        cb();
+    }, 1);
+
+    self.on('connected', function () {
+        self.send(self.startHeader());
+    });
+
+    self.on('raw:incoming', function (data) {
+        var stanzaObj, err;
+
+        data = data.trim();
+        if (data === '') {
+            return;
+        }
+
+        try {
+            stanzaObj = stanza.parse(data);
+        } catch (e) {
+            err = new StreamError({
+                condition: 'invalid-xml'
+            });
+            self.emit('stream:error', err, e);
+            self.send(err);
+            return self.disconnect();
+        }
+
+        if (stanzaObj._name === 'openStream') {
+            self.hasStream = true;
+            self.stream = stanzaObj;
+            return self.emit('stream:start', stanzaObj.toJSON());
+        }
+        if (stanzaObj._name === 'closeStream') {
+            self.emit('stream:end');
+            return self.disconnect();
+        }
+
+        if (!stanzaObj.lang) {
+            stanzaObj.lang = self.stream.lang;
+        }
+
+        self.emit('stream:data', stanzaObj);
     });
 }
 
@@ -5532,14 +6689,12 @@ WSConnection.prototype.connect = function (opts) {
     self.config = opts;
 
     self.hasStream = false;
-    self.streamStart = '<stream:stream xmlns:stream="http://etherx.jabber.org/streams">';
-    self.streamEnd = '</stream:stream>';
+    self.closing = false;
 
     self.conn = new WS(opts.wsURL, 'xmpp');
     self.conn.onerror = function (e) {
         e.preventDefault();
         self.emit('disconnected', self);
-        return false;
     };
 
     self.conn.onclose = function () {
@@ -5556,34 +6711,36 @@ WSConnection.prototype.connect = function (opts) {
     };
 };
 
+WSConnection.prototype.startHeader = function () {
+    return new framing.Open({
+        version: this.config.version || '1.0',
+        lang: this.config.lang || 'en',
+        to: this.config.server
+    });
+};
+
+WSConnection.prototype.closeHeader = function () {
+    return new framing.Close();
+};
+
 WSConnection.prototype.disconnect = function () {
-    if (this.conn) {
-        if (this.hasStream) {
-            this.conn.send('</stream:stream>');
-            this.emit('raw:outgoing', '</stream:stream>');
-            this.emit('stream:end');
-        }
-        this.hasStream = false;
-        this.conn.close();
-        this.stream = undefined;
-        this.conn = undefined;
-        this.sm.failed();
+    if (this.conn && !this.closing) {
+        this.closing = true;
+        this.send(this.closeHeader());
     } else {
-        this.emit('disconnected', this);
+        this.hasStream = false;
+        this.stream = undefined;
+        if (this.conn.readyState === WS_OPEN) {
+            this.conn.close();
+        }
+        this.conn = undefined;
     }
 };
 
 WSConnection.prototype.restart = function () {
     var self = this;
     self.hasStream = false;
-    self.send([
-        '<stream:stream',
-        'xmlns:stream="http://etherx.jabber.org/streams"',
-        'xmlns="jabber:client"',
-        'version="' + (self.config.version || '1.0') + '"',
-        'xml:lang="' + (self.config.lang || 'en') + '"',
-        'to="' + self.config.server + '">'
-    ].join(' '));
+    self.send(this.startHeader());
 };
 
 WSConnection.prototype.send = function (data) {
@@ -5593,8 +6750,17 @@ WSConnection.prototype.send = function (data) {
 
 module.exports = WSConnection;
 
-},{"./stanza/iq":54,"./stanza/message":58,"./stanza/presence":63,"./stanza/stream":71,"./stanza/streamError":72,"async":80,"faye-websocket":134,"jxt":161,"underscore":184,"util":124,"wildemitter":185}],80:[function(require,module,exports){
-var process=require("__browserify_process");/*global setImmediate: false, setTimeout: false, console: false */
+},{"../stanza/framing":61,"../stanza/streamError":93,"async":103,"faye-websocket":143,"jxt":195,"util":156,"wildemitter":219}],103:[function(_dereq_,module,exports){
+(function (process){
+/*!
+ * async
+ * https://github.com/caolan/async
+ *
+ * Copyright 2010-2014 Caolan McMahon
+ * Released under the MIT license
+ */
+/*jshint onevar: false, indent:4 */
+/*global setImmediate: false, setTimeout: false, console: false */
 (function () {
 
     var async = {};
@@ -5622,6 +6788,12 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
     }
 
     //// cross-browser compatiblity functions ////
+
+    var _toString = Object.prototype.toString;
+
+    var _isArray = Array.isArray || function (obj) {
+        return _toString.call(obj) === '[object Array]';
+    };
 
     var _each = function (arr, iterator) {
         if (arr.forEach) {
@@ -5687,7 +6859,10 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
     else {
         async.nextTick = process.nextTick;
         if (typeof setImmediate !== 'undefined') {
-            async.setImmediate = setImmediate;
+            async.setImmediate = function (fn) {
+              // not a direct alias for IE10 compatibility
+              setImmediate(fn);
+            };
         }
         else {
             async.setImmediate = async.nextTick;
@@ -5701,19 +6876,20 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
         }
         var completed = 0;
         _each(arr, function (x) {
-            iterator(x, only_once(function (err) {
-                if (err) {
-                    callback(err);
-                    callback = function () {};
-                }
-                else {
-                    completed += 1;
-                    if (completed >= arr.length) {
-                        callback(null);
-                    }
-                }
-            }));
+            iterator(x, only_once(done) );
         });
+        function done(err) {
+          if (err) {
+              callback(err);
+              callback = function () {};
+          }
+          else {
+              completed += 1;
+              if (completed >= arr.length) {
+                  callback();
+              }
+          }
+        }
     };
     async.forEach = async.each;
 
@@ -5732,7 +6908,7 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
                 else {
                     completed += 1;
                     if (completed >= arr.length) {
-                        callback(null);
+                        callback();
                     }
                     else {
                         iterate();
@@ -5812,18 +6988,26 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
 
 
     var _asyncMap = function (eachfn, arr, iterator, callback) {
-        var results = [];
         arr = _map(arr, function (x, i) {
             return {index: i, value: x};
         });
-        eachfn(arr, function (x, callback) {
-            iterator(x.value, function (err, v) {
-                results[x.index] = v;
-                callback(err);
+        if (!callback) {
+            eachfn(arr, function (x, callback) {
+                iterator(x.value, function (err) {
+                    callback(err);
+                });
             });
-        }, function (err) {
-            callback(err, results);
-        });
+        } else {
+            var results = [];
+            eachfn(arr, function (x, callback) {
+                iterator(x.value, function (err, v) {
+                    results[x.index] = v;
+                    callback(err);
+                });
+            }, function (err) {
+                callback(err, results);
+            });
+        }
     };
     async.map = doParallel(_asyncMap);
     async.mapSeries = doSeries(_asyncMap);
@@ -5989,8 +7173,9 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
     async.auto = function (tasks, callback) {
         callback = callback || function () {};
         var keys = _keys(tasks);
-        if (!keys.length) {
-            return callback(null);
+        var remainingTasks = keys.length
+        if (!remainingTasks) {
+            return callback();
         }
 
         var results = {};
@@ -6008,20 +7193,24 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
             }
         };
         var taskComplete = function () {
+            remainingTasks--
             _each(listeners.slice(0), function (fn) {
                 fn();
             });
         };
 
         addListener(function () {
-            if (_keys(results).length === keys.length) {
-                callback(null, results);
+            if (!remainingTasks) {
+                var theCallback = callback;
+                // prevent final callback from calling itself if it errors
                 callback = function () {};
+
+                theCallback(null, results);
             }
         });
 
         _each(keys, function (k) {
-            var task = (tasks[k] instanceof Function) ? [tasks[k]]: tasks[k];
+            var task = _isArray(tasks[k]) ? tasks[k]: [tasks[k]];
             var taskCallback = function (err) {
                 var args = Array.prototype.slice.call(arguments, 1);
                 if (args.length <= 1) {
@@ -6063,9 +7252,40 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
         });
     };
 
+    async.retry = function(times, task, callback) {
+        var DEFAULT_TIMES = 5;
+        var attempts = [];
+        // Use defaults if times not passed
+        if (typeof times === 'function') {
+            callback = task;
+            task = times;
+            times = DEFAULT_TIMES;
+        }
+        // Make sure times is a number
+        times = parseInt(times, 10) || DEFAULT_TIMES;
+        var wrappedTask = function(wrappedCallback, wrappedResults) {
+            var retryAttempt = function(task, finalAttempt) {
+                return function(seriesCallback) {
+                    task(function(err, result){
+                        seriesCallback(!err || finalAttempt, {err: err, result: result});
+                    }, wrappedResults);
+                };
+            };
+            while (times) {
+                attempts.push(retryAttempt(task, !(times-=1)));
+            }
+            async.series(attempts, function(done, data){
+                data = data[data.length - 1];
+                (wrappedCallback || callback)(data.err, data.result);
+            });
+        }
+        // If a callback is passed, run this as a controll flow
+        return callback ? wrappedTask() : wrappedTask
+    };
+
     async.waterfall = function (tasks, callback) {
         callback = callback || function () {};
-        if (tasks.constructor !== Array) {
+        if (!_isArray(tasks)) {
           var err = new Error('First argument to waterfall must be an array of functions');
           return callback(err);
         }
@@ -6098,7 +7318,7 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
 
     var _parallel = function(eachfn, tasks, callback) {
         callback = callback || function () {};
-        if (tasks.constructor === Array) {
+        if (_isArray(tasks)) {
             eachfn.map(tasks, function (fn, callback) {
                 if (fn) {
                     fn(function (err) {
@@ -6138,7 +7358,7 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
 
     async.series = function (tasks, callback) {
         callback = callback || function () {};
-        if (tasks.constructor === Array) {
+        if (_isArray(tasks)) {
             async.mapSeries(tasks, function (fn, callback) {
                 if (fn) {
                     fn(function (err) {
@@ -6226,7 +7446,8 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
             if (err) {
                 return callback(err);
             }
-            if (test()) {
+            var args = Array.prototype.slice.call(arguments, 1);
+            if (test.apply(null, args)) {
                 async.doWhilst(iterator, test, callback);
             }
             else {
@@ -6254,7 +7475,8 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
             if (err) {
                 return callback(err);
             }
-            if (!test()) {
+            var args = Array.prototype.slice.call(arguments, 1);
+            if (!test.apply(null, args)) {
                 async.doUntil(iterator, test, callback);
             }
             else {
@@ -6268,8 +7490,19 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
             concurrency = 1;
         }
         function _insert(q, data, pos, callback) {
-          if(data.constructor !== Array) {
+          if (!q.started){
+            q.started = true;
+          }
+          if (!_isArray(data)) {
               data = [data];
+          }
+          if(data.length == 0) {
+             // call drain immediately if there are no tasks
+             return async.setImmediate(function() {
+                 if (q.drain) {
+                     q.drain();
+                 }
+             });
           }
           _each(data, function(task) {
               var item = {
@@ -6283,7 +7516,7 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
                 q.tasks.push(item);
               }
 
-              if (q.saturated && q.tasks.length === concurrency) {
+              if (q.saturated && q.tasks.length === q.concurrency) {
                   q.saturated();
               }
               async.setImmediate(q.process);
@@ -6297,14 +7530,20 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
             saturated: null,
             empty: null,
             drain: null,
+            started: false,
+            paused: false,
             push: function (data, callback) {
               _insert(q, data, false, callback);
+            },
+            kill: function () {
+              q.drain = null;
+              q.tasks = [];
             },
             unshift: function (data, callback) {
               _insert(q, data, true, callback);
             },
             process: function () {
-                if (workers < q.concurrency && q.tasks.length) {
+                if (!q.paused && workers < q.concurrency && q.tasks.length) {
                     var task = q.tasks.shift();
                     if (q.empty && q.tasks.length === 0) {
                         q.empty();
@@ -6329,8 +7568,86 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
             },
             running: function () {
                 return workers;
+            },
+            idle: function() {
+                return q.tasks.length + workers === 0;
+            },
+            pause: function () {
+                if (q.paused === true) { return; }
+                q.paused = true;
+                q.process();
+            },
+            resume: function () {
+                if (q.paused === false) { return; }
+                q.paused = false;
+                q.process();
             }
         };
+        return q;
+    };
+    
+    async.priorityQueue = function (worker, concurrency) {
+        
+        function _compareTasks(a, b){
+          return a.priority - b.priority;
+        };
+        
+        function _binarySearch(sequence, item, compare) {
+          var beg = -1,
+              end = sequence.length - 1;
+          while (beg < end) {
+            var mid = beg + ((end - beg + 1) >>> 1);
+            if (compare(item, sequence[mid]) >= 0) {
+              beg = mid;
+            } else {
+              end = mid - 1;
+            }
+          }
+          return beg;
+        }
+        
+        function _insert(q, data, priority, callback) {
+          if (!q.started){
+            q.started = true;
+          }
+          if (!_isArray(data)) {
+              data = [data];
+          }
+          if(data.length == 0) {
+             // call drain immediately if there are no tasks
+             return async.setImmediate(function() {
+                 if (q.drain) {
+                     q.drain();
+                 }
+             });
+          }
+          _each(data, function(task) {
+              var item = {
+                  data: task,
+                  priority: priority,
+                  callback: typeof callback === 'function' ? callback : null
+              };
+              
+              q.tasks.splice(_binarySearch(q.tasks, item, _compareTasks) + 1, 0, item);
+
+              if (q.saturated && q.tasks.length === q.concurrency) {
+                  q.saturated();
+              }
+              async.setImmediate(q.process);
+          });
+        }
+        
+        // Start with a normal queue
+        var q = async.queue(worker, concurrency);
+        
+        // Override push to accept second parameter representing priority
+        q.push = function (data, priority, callback) {
+          _insert(q, data, priority, callback);
+        };
+        
+        // Remove unshift function
+        delete q.unshift;
+
         return q;
     };
 
@@ -6344,8 +7661,9 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
             saturated: null,
             empty: null,
             drain: null,
+            drained: true,
             push: function (data, callback) {
-                if(data.constructor !== Array) {
+                if (!_isArray(data)) {
                     data = [data];
                 }
                 _each(data, function(task) {
@@ -6353,6 +7671,7 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
                         data: task,
                         callback: typeof callback === 'function' ? callback : null
                     });
+                    cargo.drained = false;
                     if (cargo.saturated && tasks.length === payload) {
                         cargo.saturated();
                     }
@@ -6362,13 +7681,14 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
             process: function process() {
                 if (working) return;
                 if (tasks.length === 0) {
-                    if(cargo.drain) cargo.drain();
+                    if(cargo.drain && !cargo.drained) cargo.drain();
+                    cargo.drained = true;
                     return;
                 }
 
                 var ts = typeof payload === 'number'
                             ? tasks.splice(0, payload)
-                            : tasks.splice(0);
+                            : tasks.splice(0, tasks.length);
 
                 var ds = _map(ts, function (task) {
                     return task.data;
@@ -6436,7 +7756,9 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
             var callback = args.pop();
             var key = hasher.apply(null, args);
             if (key in memo) {
-                callback.apply(null, memo[key]);
+                async.nextTick(function () {
+                    callback.apply(null, memo[key]);
+                });
             }
             else if (key in queues) {
                 queues[key].push(callback);
@@ -6480,8 +7802,8 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
         return async.mapSeries(counter, iterator, callback);
     };
 
-    async.compose = function (/* functions... */) {
-        var fns = Array.prototype.reverse.call(arguments);
+    async.seq = function (/* functions... */) {
+        var fns = arguments;
         return function () {
             var that = this;
             var args = Array.prototype.slice.call(arguments);
@@ -6497,6 +7819,10 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
                 callback.apply(that, [err].concat(results));
             });
         };
+    };
+
+    async.compose = function (/* functions... */) {
+      return async.seq.apply(null, Array.prototype.reverse.call(arguments));
     };
 
     var _applyEach = function (eachfn, fns /*args...*/) {
@@ -6533,15 +7859,15 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
         next();
     };
 
+    // Node.js
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = async;
+    }
     // AMD / RequireJS
-    if (typeof define !== 'undefined' && define.amd) {
+    else if (typeof define !== 'undefined' && define.amd) {
         define([], function () {
             return async;
         });
-    }
-    // Node.js
-    else if (typeof module !== 'undefined' && module.exports) {
-        module.exports = async;
     }
     // included directly via <script> tag
     else {
@@ -6550,8 +7876,10 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
 
 }());
 
-},{"__browserify_process":136}],81:[function(require,module,exports){
-var Buffer=require("__browserify_Buffer").Buffer;(function () {
+}).call(this,_dereq_("FWaASH"))
+},{"FWaASH":154}],104:[function(_dereq_,module,exports){
+(function (Buffer){
+(function () {
   "use strict";
 
   function atob(str) {
@@ -6561,9 +7889,10 @@ var Buffer=require("__browserify_Buffer").Buffer;(function () {
   module.exports = atob;
 }());
 
-},{"__browserify_Buffer":135}],82:[function(require,module,exports){
+}).call(this,_dereq_("buffer").Buffer)
+},{"buffer":144}],105:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -6582,45 +7911,43 @@ var Buffer=require("__browserify_Buffer").Buffer;(function () {
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
 module.exports = function(Promise, Promise$_CreatePromiseArray, PromiseArray) {
 
-    var SomePromiseArray = require("./some_promise_array.js")(PromiseArray);
-    var ASSERT = require("./assert.js");
-
-    function Promise$_Any(promises, useBound, caller) {
-        var ret = Promise$_CreatePromiseArray(
-            promises,
-            SomePromiseArray,
-            caller,
-            useBound === true && promises._isBound()
-                ? promises._boundTo
-                : void 0
-       );
-        var promise = ret.promise();
-        if (promise.isRejected()) {
-            return promise;
-        }
-        ret.setHowMany(1);
-        ret.setUnwrap();
-        ret.init();
+var SomePromiseArray = _dereq_("./some_promise_array.js")(PromiseArray);
+function Promise$_Any(promises, useBound) {
+    var ret = Promise$_CreatePromiseArray(
+        promises,
+        SomePromiseArray,
+        useBound === true && promises._isBound()
+            ? promises._boundTo
+            : void 0
+   );
+    var promise = ret.promise();
+    if (promise.isRejected()) {
         return promise;
     }
+    ret.setHowMany(1);
+    ret.setUnwrap();
+    ret.init();
+    return promise;
+}
 
-    Promise.any = function Promise$Any(promises) {
-        return Promise$_Any(promises, false, Promise.any);
-    };
+Promise.any = function Promise$Any(promises) {
+    return Promise$_Any(promises, false);
+};
 
-    Promise.prototype.any = function Promise$any() {
-        return Promise$_Any(this, true, this.any);
-    };
+Promise.prototype.any = function Promise$any() {
+    return Promise$_Any(this, true);
+};
 
 };
 
-},{"./assert.js":83,"./some_promise_array.js":116}],83:[function(require,module,exports){
+},{"./some_promise_array.js":137}],106:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -6639,64 +7966,14 @@ module.exports = function(Promise, Promise$_CreatePromiseArray, PromiseArray) {
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
-module.exports = (function(){
-    var AssertionError = (function() {
-        function AssertionError(a) {
-            this.constructor$(a);
-            this.message = a;
-            this.name = "AssertionError";
-        }
-        AssertionError.prototype = new Error();
-        AssertionError.prototype.constructor = AssertionError;
-        AssertionError.prototype.constructor$ = Error;
-        return AssertionError;
-    })();
-
-    return function assert(boolExpr, message) {
-        if (boolExpr === true) return;
-
-        var ret = new AssertionError(message);
-        if (Error.captureStackTrace) {
-            Error.captureStackTrace(ret, assert);
-        }
-        if (console && console.error) {
-            console.error(ret.stack + "");
-        }
-        throw ret;
-
-    };
-})();
-
-},{}],84:[function(require,module,exports){
-/**
- * Copyright (c) 2013 Petka Antonov
- * 
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:</p>
- * 
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- * 
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
-"use strict";
-var ASSERT = require("./assert.js");
-var schedule = require("./schedule.js");
-var Queue = require("./queue.js");
-var errorObj = require("./util.js").errorObj;
-var tryCatch1 = require("./util.js").tryCatch1;
+var schedule = _dereq_("./schedule.js");
+var Queue = _dereq_("./queue.js");
+var errorObj = _dereq_("./util.js").errorObj;
+var tryCatch1 = _dereq_("./util.js").tryCatch1;
+var process = _dereq_("./global.js").process;
 
 function Async() {
     this._isTickUsed = false;
@@ -6714,11 +7991,21 @@ Async.prototype.haveItemsQueued = function Async$haveItemsQueued() {
 };
 
 Async.prototype.invokeLater = function Async$invokeLater(fn, receiver, arg) {
+    if (process !== void 0 &&
+        process.domain != null &&
+        !fn.domain) {
+        fn = process.domain.bind(fn);
+    }
     this._lateBuffer.push(fn, receiver, arg);
     this._queueTick();
 };
 
 Async.prototype.invoke = function Async$invoke(fn, receiver, arg) {
+    if (process !== void 0 &&
+        process.domain != null &&
+        !fn.domain) {
+        fn = process.domain.bind(fn);
+    }
     var functionBuffer = this._functionBuffer;
     functionBuffer.push(fn, receiver, arg);
     this._length = functionBuffer.length();
@@ -6747,7 +8034,12 @@ Async.prototype._consumeLateBuffer = function Async$_consumeLateBuffer() {
         var res = tryCatch1(fn, receiver, arg);
         if (res === errorObj) {
             this._queueTick();
-            throw res.e;
+            if (fn.domain != null) {
+                fn.domain.emit("error", res.e);
+            }
+            else {
+                throw res.e;
+            }
         }
     }
 };
@@ -6766,9 +8058,9 @@ Async.prototype._reset = function Async$_reset() {
 
 module.exports = new Async();
 
-},{"./assert.js":83,"./queue.js":109,"./schedule.js":112,"./util.js":120}],85:[function(require,module,exports){
+},{"./global.js":119,"./queue.js":130,"./schedule.js":133,"./util.js":141}],107:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -6787,13 +8079,14 @@ module.exports = new Async();
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
-var Promise = require("./promise.js")();
+var Promise = _dereq_("./promise.js")();
 module.exports = Promise;
-},{"./promise.js":101}],86:[function(require,module,exports){
+},{"./promise.js":123}],108:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -6812,44 +8105,43 @@ module.exports = Promise;
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
 module.exports = function(Promise) {
-    Promise.prototype.call = function Promise$call(propertyName) {
-        var $_len = arguments.length;var args = new Array($_len - 1); for(var $_i = 1; $_i < $_len; ++$_i) {args[$_i - 1] = arguments[$_i];}
+Promise.prototype.call = function Promise$call(propertyName) {
+    var $_len = arguments.length;var args = new Array($_len - 1); for(var $_i = 1; $_i < $_len; ++$_i) {args[$_i - 1] = arguments[$_i];}
 
-        return this._then(function(obj) {
-                return obj[propertyName].apply(obj, args);
-            },
-            void 0,
-            void 0,
-            void 0,
-            void 0,
-            this.call
-       );
-    };
-
-    function Promise$getter(obj) {
-        var prop = typeof this === "string"
-            ? this
-            : ("" + this);
-        return obj[prop];
-    }
-    Promise.prototype.get = function Promise$get(propertyName) {
-        return this._then(
-            Promise$getter,
-            void 0,
-            void 0,
-            propertyName,
-            void 0,
-            this.get
-       );
-    };
+    return this._then(function(obj) {
+            return obj[propertyName].apply(obj, args);
+        },
+        void 0,
+        void 0,
+        void 0,
+        void 0
+   );
 };
 
-},{}],87:[function(require,module,exports){
+function Promise$getter(obj) {
+    var prop = typeof this === "string"
+        ? this
+        : ("" + this);
+    return obj[prop];
+}
+Promise.prototype.get = function Promise$get(propertyName) {
+    return this._then(
+        Promise$getter,
+        void 0,
+        void 0,
+        propertyName,
+        void 0
+   );
+};
+};
+
+},{}],109:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -6868,67 +8160,63 @@ module.exports = function(Promise) {
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
 module.exports = function(Promise, INTERNAL) {
-    var errors = require("./errors.js");
-    var async = require("./async.js");
-    var ASSERT = require("./assert.js");
-    var CancellationError = errors.CancellationError;
-    var SYNC_TOKEN = {};
+var errors = _dereq_("./errors.js");
+var async = _dereq_("./async.js");
+var CancellationError = errors.CancellationError;
 
-    Promise.prototype._cancel = function Promise$_cancel() {
-        if (!this.isCancellable()) return this;
-        var parent;
-        if ((parent = this._cancellationParent) !== void 0) {
-            parent.cancel(SYNC_TOKEN);
-            return;
-        }
-        var err = new CancellationError();
-        this._attachExtraTrace(err);
-        this._rejectUnchecked(err);
-    };
-
-    Promise.prototype.cancel = function Promise$cancel(token) {
-        if (!this.isCancellable()) return this;
-        if (token === SYNC_TOKEN) {
-            this._cancel();
-            return this;
-        }
-        async.invokeLater(this._cancel, this, void 0);
-        return this;
-    };
-
-    Promise.prototype.cancellable = function Promise$cancellable() {
-        if (this._cancellable()) return this;
-        this._setCancellable();
-        this._cancellationParent = void 0;
-        return this;
-    };
-
-    Promise.prototype.uncancellable = function Promise$uncancellable() {
-        var ret = new Promise(INTERNAL);
-        ret._setTrace(this.uncancellable, this);
-        ret._follow(this);
-        ret._unsetCancellable();
-        if (this._isBound()) ret._setBoundTo(this._boundTo);
-        return ret;
-    };
-
-    Promise.prototype.fork =
-    function Promise$fork(didFulfill, didReject, didProgress) {
-        var ret = this._then(didFulfill, didReject, didProgress,
-            void 0, void 0, this.fork);
-
-        ret._setCancellable();
-        ret._cancellationParent = void 0;
-        return ret;
-    };
+Promise.prototype._cancel = function Promise$_cancel() {
+    if (!this.isCancellable()) return this;
+    var parent;
+    var promiseToReject = this;
+    while ((parent = promiseToReject._cancellationParent) !== void 0 &&
+        parent.isCancellable()) {
+        promiseToReject = parent;
+    }
+    var err = new CancellationError();
+    promiseToReject._attachExtraTrace(err);
+    promiseToReject._rejectUnchecked(err);
 };
 
-},{"./assert.js":83,"./async.js":84,"./errors.js":91}],88:[function(require,module,exports){
+Promise.prototype.cancel = function Promise$cancel() {
+    if (!this.isCancellable()) return this;
+    async.invokeLater(this._cancel, this, void 0);
+    return this;
+};
+
+Promise.prototype.cancellable = function Promise$cancellable() {
+    if (this._cancellable()) return this;
+    this._setCancellable();
+    this._cancellationParent = void 0;
+    return this;
+};
+
+Promise.prototype.uncancellable = function Promise$uncancellable() {
+    var ret = new Promise(INTERNAL);
+    ret._setTrace(this);
+    ret._follow(this);
+    ret._unsetCancellable();
+    if (this._isBound()) ret._setBoundTo(this._boundTo);
+    return ret;
+};
+
+Promise.prototype.fork =
+function Promise$fork(didFulfill, didReject, didProgress) {
+    var ret = this._then(didFulfill, didReject, didProgress,
+                         void 0, void 0);
+
+    ret._setCancellable();
+    ret._cancellationParent = void 0;
+    return ret;
+};
+};
+
+},{"./async.js":106,"./errors.js":113}],110:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -6947,15 +8235,15 @@ module.exports = function(Promise, INTERNAL) {
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
 module.exports = function() {
-var ASSERT = require("./assert.js");
-var inherits = require("./util.js").inherits;
-var defineProperty = require("./es5.js").defineProperty;
+var inherits = _dereq_("./util.js").inherits;
+var defineProperty = _dereq_("./es5.js").defineProperty;
 
 var rignore = new RegExp(
-    "\\b(?:[\\w.]*Promise(?:Array|Spawn)?\\$_\\w+|" +
+    "\\b(?:[a-zA-Z0-9.]+\\$_\\w+|" +
     "tryCatch(?:1|2|Apply)|new \\w*PromiseArray|" +
     "\\w*PromiseArray\\.\\w*PromiseArray|" +
     "setTimeout|CatchFilter\\$_\\w+|makeNodePromisified|processImmediate|" +
@@ -6964,7 +8252,6 @@ var rignore = new RegExp(
 
 var rtraceline = null;
 var formatStack = null;
-var areNamesMangled = false;
 
 function formatNonError(obj) {
     var str;
@@ -7001,9 +8288,7 @@ function snip(str) {
 }
 
 function CapturedTrace(ignoreUntil, isTopLevel) {
-    if (!areNamesMangled) {
-    }
-    this.captureStackTrace(ignoreUntil, isTopLevel);
+    this.captureStackTrace(CapturedTrace, isTopLevel);
 
 }
 inherits(CapturedTrace, Error);
@@ -7029,14 +8314,11 @@ function CapturedTrace$PossiblyUnhandledRejection(reason) {
             console.error(message);
         }
         else if (typeof console.log === "function" ||
-            typeof console.error === "object") {
+            typeof console.log === "object") {
             console.log(message);
         }
     }
 };
-
-areNamesMangled = CapturedTrace.prototype.captureStackTrace.name !==
-    "CapturedTrace$captureStackTrace";
 
 CapturedTrace.combine = function CapturedTrace$Combine(current, prev) {
     var curLast = current.length - 1;
@@ -7055,7 +8337,6 @@ CapturedTrace.combine = function CapturedTrace$Combine(current, prev) {
     var lines = current.concat(prev);
 
     var ret = [];
-
 
     for (var i = 0, len = lines.length; i < len; ++i) {
 
@@ -7097,7 +8378,7 @@ var captureStackTrace = (function stackDetection() {
     }
     var err = new Error();
 
-    if (!areNamesMangled && typeof err.stack === "string" &&
+    if (typeof err.stack === "string" &&
         typeof "".startsWith === "function" &&
         (err.stack.startsWith("stackDetection@")) &&
         stackDetection.name === "stackDetection") {
@@ -7123,20 +8404,12 @@ var captureStackTrace = (function stackDetection() {
             return formatNonError(error);
         };
 
-        return function captureStackTrace(o, fn) {
-            var name = fn.name;
+        return function captureStackTrace(o) {
             var stack = new Error().stack;
             var split = stack.split(rline);
-            var i, len = split.length;
-            for (i = 0; i < len; i += 2) {
-                if (split[i] === name) {
-                    break;
-                }
-            }
-            split = split.slice(i + 2);
-            len = split.length - 2;
+            var len = split.length;
             var ret = "";
-            for (i = 0; i < len; i += 2) {
+            for (var i = 0; i < len; i += 2) {
                 ret += split[i];
                 ret += "@";
                 ret += split[i + 1];
@@ -7165,9 +8438,9 @@ var captureStackTrace = (function stackDetection() {
 return CapturedTrace;
 };
 
-},{"./assert.js":83,"./es5.js":93,"./util.js":120}],89:[function(require,module,exports){
+},{"./es5.js":115,"./util.js":141}],111:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -7186,13 +8459,16 @@ return CapturedTrace;
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
 module.exports = function(NEXT_FILTER) {
-var util = require("./util.js");
+var util = _dereq_("./util.js");
+var errors = _dereq_("./errors.js");
 var tryCatch1 = util.tryCatch1;
 var errorObj = util.errorObj;
-var keys = require("./es5.js").keys;
+var keys = _dereq_("./es5.js").keys;
+var TypeError = errors.TypeError;
 
 function CatchFilter(instances, callback, promise) {
     this._instances = instances;
@@ -7235,7 +8511,10 @@ CatchFilter.prototype.doFilter = function CatchFilter$_doFilter(e) {
         } else if (typeof item === "function" && !itemIsErrorType) {
             var shouldHandle = CatchFilter$_safePredicate(item, e);
             if (shouldHandle === errorObj) {
-                this._promise._attachExtraTrace(errorObj.e);
+                var trace = errors.canAttach(errorObj.e)
+                    ? errorObj.e
+                    : new Error(errorObj.e + "");
+                this._promise._attachExtraTrace(trace);
                 e = errorObj.e;
                 break;
             } else if (shouldHandle) {
@@ -7255,9 +8534,9 @@ CatchFilter.prototype.doFilter = function CatchFilter$_doFilter(e) {
 return CatchFilter;
 };
 
-},{"./es5.js":93,"./util.js":120}],90:[function(require,module,exports){
+},{"./errors.js":113,"./es5.js":115,"./util.js":141}],112:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -7276,10 +8555,10 @@ return CatchFilter;
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
-var util = require("./util.js");
-var ASSERT = require("./assert.js");
+var util = _dereq_("./util.js");
 var isPrimitive = util.isPrimitive;
 var wrapsPrimitiveReceiver = util.wrapsPrimitiveReceiver;
 
@@ -7314,12 +8593,10 @@ function Promise$thenReturn(value) {
             void 0,
             void 0,
             void 0,
-            void 0,
-            this.thenReturn
+            void 0
        );
     }
-    return this._then(returner, void 0, void 0,
-                        value, void 0, this.thenReturn);
+    return this._then(returner, void 0, void 0, value, void 0);
 };
 
 Promise.prototype["throw"] =
@@ -7331,18 +8608,16 @@ function Promise$thenThrow(reason) {
             void 0,
             void 0,
             void 0,
-            void 0,
-            this.thenThrow
+            void 0
        );
     }
-    return this._then(thrower, void 0, void 0,
-                        reason, void 0, this.thenThrow);
+    return this._then(thrower, void 0, void 0, reason, void 0);
 };
 };
 
-},{"./assert.js":83,"./util.js":120}],91:[function(require,module,exports){
+},{"./util.js":141}],113:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -7361,48 +8636,19 @@ function Promise$thenThrow(reason) {
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
-var global = require("./global.js");
-var Objectfreeze = require("./es5.js").freeze;
-var util = require("./util.js");
+var global = _dereq_("./global.js");
+var Objectfreeze = _dereq_("./es5.js").freeze;
+var util = _dereq_("./util.js");
 var inherits = util.inherits;
-var isObject = util.isObject;
 var notEnumerableProp = util.notEnumerableProp;
 var Error = global.Error;
 
-function isStackAttached(val) {
-    return (val & 1) > 0;
-}
-
-function isHandled(val) {
-    return (val & 2) > 0;
-}
-
-function withStackAttached(val) {
-    return (val | 1);
-}
-
-function withHandledMarked(val) {
-    return (val | 2);
-}
-
-function withHandledUnmarked(val) {
-    return (val & (~2));
-}
-
-function ensureNotHandled(reason) {
-    var field;
-    if (isObject(reason) &&
-        ((field = reason["__promiseHandled__"]) !== void 0)) {
-        reason["__promiseHandled__"] = withHandledUnmarked(field);
-    }
-    return reason;
-}
-
 function markAsOriginatingFromRejection(e) {
     try {
-        notEnumerableProp(e, "__rejectionError__", RejectionError);
+        notEnumerableProp(e, "isAsync", true);
     }
     catch(ignore) {}
 }
@@ -7410,17 +8656,7 @@ function markAsOriginatingFromRejection(e) {
 function originatesFromRejection(e) {
     if (e == null) return false;
     return ((e instanceof RejectionError) ||
-        e["__rejectionError__"] === RejectionError);
-}
-
-function attachDefaultState(obj) {
-    try {
-        notEnumerableProp(obj, "__promiseHandled__", 0);
-        return true;
-    }
-    catch(e) {
-        return false;
-    }
+        e["isAsync"] === true);
 }
 
 function isError(obj) {
@@ -7428,18 +8664,12 @@ function isError(obj) {
 }
 
 function canAttach(obj) {
-    if (isError(obj)) {
-        var handledState = obj["__promiseHandled__"];
-        if (handledState === void 0) {
-            return attachDefaultState(obj);
-        }
-        return !isStackAttached(handledState);
-    }
-    return false;
+    return isError(obj);
 }
 
 function subError(nameProperty, defaultMessage) {
     function SubError(message) {
+        if (!(this instanceof SubError)) return new SubError(message);
         this.message = typeof message === "string" ? message : defaultMessage;
         this.name = nameProperty;
         if (Error.captureStackTrace) {
@@ -7465,6 +8695,7 @@ function RejectionError(message) {
     this.name = "RejectionError";
     this.message = message;
     this.cause = message;
+    this.isAsync = true;
 
     if (message instanceof Error) {
         this.message = message.message;
@@ -7497,19 +8728,12 @@ module.exports = {
     TimeoutError: errorTypes.TimeoutError,
     originatesFromRejection: originatesFromRejection,
     markAsOriginatingFromRejection: markAsOriginatingFromRejection,
-    attachDefaultState: attachDefaultState,
-    ensureNotHandled: ensureNotHandled,
-    withHandledUnmarked: withHandledUnmarked,
-    withHandledMarked: withHandledMarked,
-    withStackAttached: withStackAttached,
-    isStackAttached: isStackAttached,
-    isHandled: isHandled,
     canAttach: canAttach
 };
 
-},{"./es5.js":93,"./global.js":97,"./util.js":120}],92:[function(require,module,exports){
+},{"./es5.js":115,"./global.js":119,"./util.js":141}],114:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -7528,10 +8752,11 @@ module.exports = {
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
 module.exports = function(Promise) {
-var TypeError = require('./errors.js').TypeError;
+var TypeError = _dereq_('./errors.js').TypeError;
 
 function apiRejection(msg) {
     var error = new TypeError(msg);
@@ -7546,9 +8771,9 @@ function apiRejection(msg) {
 return apiRejection;
 };
 
-},{"./errors.js":91}],93:[function(require,module,exports){
+},{"./errors.js":113}],115:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -7567,6 +8792,7 @@ return apiRejection;
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 var isES5 = (function(){
     "use strict";
@@ -7589,7 +8815,7 @@ else {
     var str = {}.toString;
     var proto = {}.constructor.prototype;
 
-    function ObjectKeys(o) {
+    var ObjectKeys = function ObjectKeys(o) {
         var ret = [];
         for (var key in o) {
             if (has.call(o, key)) {
@@ -7599,16 +8825,16 @@ else {
         return ret;
     }
 
-    function ObjectDefineProperty(o, key, desc) {
+    var ObjectDefineProperty = function ObjectDefineProperty(o, key, desc) {
         o[key] = desc.value;
         return o;
     }
 
-    function ObjectFreeze(obj) {
+    var ObjectFreeze = function ObjectFreeze(obj) {
         return obj;
     }
 
-    function ObjectGetPrototypeOf(obj) {
+    var ObjectGetPrototypeOf = function ObjectGetPrototypeOf(obj) {
         try {
             return Object(obj).constructor.prototype;
         }
@@ -7617,7 +8843,7 @@ else {
         }
     }
 
-    function ArrayIsArray(obj) {
+    var ArrayIsArray = function ArrayIsArray(obj) {
         try {
             return str.call(obj) === "[object Array]";
         }
@@ -7636,9 +8862,9 @@ else {
     };
 }
 
-},{}],94:[function(require,module,exports){
+},{}],116:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -7657,43 +8883,41 @@ else {
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
 module.exports = function(Promise) {
-    var ASSERT = require("./assert.js");
-    var isArray = require("./util.js").isArray;
+var isArray = _dereq_("./util.js").isArray;
 
-    function Promise$_filter(booleans) {
-        var values = this._settledValue;
-        var len = values.length;
-        var ret = new Array(len);
-        var j = 0;
+function Promise$_filter(booleans) {
+    var values = this instanceof Promise ? this._settledValue : this;
+    var len = values.length;
+    var ret = new Array(len);
+    var j = 0;
 
-        for (var i = 0; i < len; ++i) {
-            if (booleans[i]) ret[j++] = values[i];
+    for (var i = 0; i < len; ++i) {
+        if (booleans[i]) ret[j++] = values[i];
 
-        }
-        ret.length = j;
-        return ret;
     }
+    ret.length = j;
+    return ret;
+}
 
-    var ref = {ref: null};
-    Promise.filter = function Promise$Filter(promises, fn) {
-        return Promise.map(promises, fn, ref)
-            ._then(Promise$_filter, void 0, void 0,
-                    ref.ref, void 0, Promise.filter);
-    };
-
-    Promise.prototype.filter = function Promise$filter(fn) {
-        return this.map(fn, ref)
-            ._then(Promise$_filter, void 0, void 0,
-                    ref.ref, void 0, this.filter);
-    };
+var ref = {ref: null};
+Promise.filter = function Promise$Filter(promises, fn) {
+    return Promise.map(promises, fn, ref)
+                  ._then(Promise$_filter, void 0, void 0, ref.ref, void 0);
 };
 
-},{"./assert.js":83,"./util.js":120}],95:[function(require,module,exports){
+Promise.prototype.filter = function Promise$filter(fn) {
+    return this.map(fn, ref)
+               ._then(Promise$_filter, void 0, void 0, ref.ref, void 0);
+};
+};
+
+},{"./util.js":141}],117:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -7712,96 +8936,113 @@ module.exports = function(Promise) {
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
+"use strict";
 module.exports = function(Promise, NEXT_FILTER) {
-    var util = require("./util.js");
-    var ensureNotHandled = require("./errors.js").ensureNotHandled;
-    var wrapsPrimitiveReceiver = util.wrapsPrimitiveReceiver;
-    var isPrimitive = util.isPrimitive;
-    var thrower = util.thrower;
+var util = _dereq_("./util.js");
+var wrapsPrimitiveReceiver = util.wrapsPrimitiveReceiver;
+var isPrimitive = util.isPrimitive;
+var thrower = util.thrower;
 
 
-    function returnThis() {
-        return this;
-    }
-    function throwThis() {
-        ensureNotHandled(this);
-        throw this;
-    }
-    function makeReturner(r) {
-        return function Promise$_returner() {
-            return r;
-        };
-    }
-    function makeThrower(r) {
-        return function Promise$_thrower() {
-            ensureNotHandled(r);
-            throw r;
-        };
-    }
-    function promisedFinally(ret, reasonOrValue, isFulfilled) {
-        var useConstantFunction =
-                        wrapsPrimitiveReceiver && isPrimitive(reasonOrValue);
-
-        if (isFulfilled) {
-            return ret._then(
-                useConstantFunction
-                    ? returnThis
-                    : makeReturner(reasonOrValue),
-                thrower, void 0, reasonOrValue, void 0, promisedFinally);
-        }
-        else {
-            return ret._then(
-                useConstantFunction
-                    ? throwThis
-                    : makeThrower(reasonOrValue),
-                thrower, void 0, reasonOrValue, void 0, promisedFinally);
-        }
-    }
-
-    function finallyHandler(reasonOrValue) {
-        var promise = this.promise;
-        var handler = this.handler;
-
-        var ret = promise._isBound()
-                        ? handler.call(promise._boundTo)
-                        : handler();
-
-        if (ret !== void 0) {
-            var maybePromise = Promise._cast(ret, finallyHandler, void 0);
-            if (Promise.is(maybePromise)) {
-                return promisedFinally(maybePromise, reasonOrValue,
-                                        promise.isFulfilled());
-            }
-        }
-
-        if (promise.isRejected()) {
-            ensureNotHandled(reasonOrValue);
-            NEXT_FILTER.e = reasonOrValue;
-            return NEXT_FILTER;
-        }
-        else {
-            return reasonOrValue;
-        }
-    }
-
-    Promise.prototype.lastly = Promise.prototype["finally"] =
-    function Promise$finally(handler) {
-        if (typeof handler !== "function") return this.then();
-
-        var promiseAndHandler = {
-            promise: this,
-            handler: handler
-        };
-
-        return this._then(finallyHandler, finallyHandler, void 0,
-                promiseAndHandler, void 0, this.lastly);
+function returnThis() {
+    return this;
+}
+function throwThis() {
+    throw this;
+}
+function return$(r) {
+    return function Promise$_returner() {
+        return r;
     };
+}
+function throw$(r) {
+    return function Promise$_thrower() {
+        throw r;
+    };
+}
+function promisedFinally(ret, reasonOrValue, isFulfilled) {
+    var then;
+    if (wrapsPrimitiveReceiver && isPrimitive(reasonOrValue)) {
+        then = isFulfilled ? return$(reasonOrValue) : throw$(reasonOrValue);
+    }
+    else {
+        then = isFulfilled ? returnThis : throwThis;
+    }
+    return ret._then(then, thrower, void 0, reasonOrValue, void 0);
+}
+
+function finallyHandler(reasonOrValue) {
+    var promise = this.promise;
+    var handler = this.handler;
+
+    var ret = promise._isBound()
+                    ? handler.call(promise._boundTo)
+                    : handler();
+
+    if (ret !== void 0) {
+        var maybePromise = Promise._cast(ret, void 0);
+        if (maybePromise instanceof Promise) {
+            return promisedFinally(maybePromise, reasonOrValue,
+                                    promise.isFulfilled());
+        }
+    }
+
+    if (promise.isRejected()) {
+        NEXT_FILTER.e = reasonOrValue;
+        return NEXT_FILTER;
+    }
+    else {
+        return reasonOrValue;
+    }
+}
+
+function tapHandler(value) {
+    var promise = this.promise;
+    var handler = this.handler;
+
+    var ret = promise._isBound()
+                    ? handler.call(promise._boundTo, value)
+                    : handler(value);
+
+    if (ret !== void 0) {
+        var maybePromise = Promise._cast(ret, void 0);
+        if (maybePromise instanceof Promise) {
+            return promisedFinally(maybePromise, value, true);
+        }
+    }
+    return value;
+}
+
+Promise.prototype._passThroughHandler =
+function Promise$_passThroughHandler(handler, isFinally) {
+    if (typeof handler !== "function") return this.then();
+
+    var promiseAndHandler = {
+        promise: this,
+        handler: handler
+    };
+
+    return this._then(
+            isFinally ? finallyHandler : tapHandler,
+            isFinally ? finallyHandler : void 0, void 0,
+            promiseAndHandler, void 0);
 };
 
-},{"./errors.js":91,"./util.js":120}],96:[function(require,module,exports){
+Promise.prototype.lastly =
+Promise.prototype["finally"] = function Promise$finally(handler) {
+    return this._passThroughHandler(handler, true);
+};
+
+Promise.prototype.tap = function Promise$tap(handler) {
+    return this._passThroughHandler(handler, false);
+};
+};
+
+},{"./util.js":141}],118:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -7820,41 +9061,47 @@ module.exports = function(Promise, NEXT_FILTER) {
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
 module.exports = function(Promise, apiRejection, INTERNAL) {
-    var PromiseSpawn = require("./promise_spawn.js")(Promise, INTERNAL);
-    var errors = require("./errors.js");
-    var TypeError = errors.TypeError;
+var PromiseSpawn = _dereq_("./promise_spawn.js")(Promise, INTERNAL);
+var errors = _dereq_("./errors.js");
+var TypeError = errors.TypeError;
+var deprecated = _dereq_("./util.js").deprecated;
 
-    Promise.coroutine = function Promise$Coroutine(generatorFunction) {
-        if (typeof generatorFunction !== "function") {
-            throw new TypeError("generatorFunction must be a function");
-        }
-        var PromiseSpawn$ = PromiseSpawn;
-        return function anonymous() {
-            var generator = generatorFunction.apply(this, arguments);
-            var spawn = new PromiseSpawn$(void 0, void 0, anonymous);
-            spawn._generator = generator;
-            spawn._next(void 0);
-            return spawn.promise();
-        };
-    };
-
-    Promise.spawn = function Promise$Spawn(generatorFunction) {
-        if (typeof generatorFunction !== "function") {
-            return apiRejection("generatorFunction must be a function");
-        }
-        var spawn = new PromiseSpawn(generatorFunction, this, Promise.spawn);
-        var ret = spawn.promise();
-        spawn._run(Promise.spawn);
-        return ret;
+Promise.coroutine = function Promise$Coroutine(generatorFunction) {
+    if (typeof generatorFunction !== "function") {
+        throw new TypeError("generatorFunction must be a function");
+    }
+    var PromiseSpawn$ = PromiseSpawn;
+    return function () {
+        var generator = generatorFunction.apply(this, arguments);
+        var spawn = new PromiseSpawn$(void 0, void 0);
+        spawn._generator = generator;
+        spawn._next(void 0);
+        return spawn.promise();
     };
 };
 
-},{"./errors.js":91,"./promise_spawn.js":105}],97:[function(require,module,exports){
-var process=require("__browserify_process"),global=typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {};/**
- * Copyright (c) 2013 Petka Antonov
+Promise.coroutine.addYieldHandler = PromiseSpawn.addYieldHandler;
+
+Promise.spawn = function Promise$Spawn(generatorFunction) {
+    deprecated("Promise.spawn is deprecated. Use Promise.coroutine instead.");
+    if (typeof generatorFunction !== "function") {
+        return apiRejection("generatorFunction must be a function");
+    }
+    var spawn = new PromiseSpawn(generatorFunction, this);
+    var ret = spawn.promise();
+    spawn._run(Promise.spawn);
+    return ret;
+};
+};
+
+},{"./errors.js":113,"./promise_spawn.js":126,"./util.js":141}],119:[function(_dereq_,module,exports){
+(function (global){
+/**
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -7873,31 +9120,22 @@ var process=require("__browserify_process"),global=typeof self !== "undefined" ?
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
-"use strict";
-module.exports = (function(){
-    if (typeof this !== "undefined") {
-        return this;
-    }
-    if (typeof process !== "undefined" &&
-        typeof global !== "undefined" &&
-        typeof process.execPath === "string") {
-        return global;
-    }
-    if (typeof window !== "undefined" &&
-        typeof document !== "undefined" &&
-        typeof navigator !== "undefined" && navigator !== null &&
-        typeof navigator.appName === "string") {
-            if(window.wrappedJSObject !== undefined){
-                return window.wrappedJSObject;
-            }
-        return window;
-    }
+module.exports = (function() {
+    if (this !== void 0) return this;
+    try {return global;}
+    catch(e) {}
+    try {return window;}
+    catch(e) {}
+    try {return self;}
+    catch(e) {}
 })();
 
-},{"__browserify_process":136}],98:[function(require,module,exports){
+}).call(this,typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{}],120:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -7916,118 +9154,166 @@ module.exports = (function(){
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
-module.exports = function(
-    Promise, Promise$_CreatePromiseArray, PromiseArray, apiRejection) {
+module.exports = function(Promise, PromiseArray, INTERNAL, apiRejection) {
 
-    var ASSERT = require("./assert.js");
+var all = Promise.all;
+var util = _dereq_("./util.js");
+var canAttach = _dereq_("./errors.js").canAttach;
+var isArray = util.isArray;
+var _cast = Promise._cast;
 
-    function Promise$_mapper(values) {
-        var fn = this;
-        var receiver = void 0;
+function unpack(values) {
+    return Promise$_Map(values, this[0], this[1], this[2]);
+}
 
-        if (typeof fn !== "function")  {
-            receiver = fn.receiver;
-            fn = fn.fn;
+function Promise$_Map(promises, fn, useBound, ref) {
+    if (typeof fn !== "function") {
+        return apiRejection("fn must be a function");
+    }
+
+    var receiver = void 0;
+    if (useBound === true) {
+        if (promises._isBound()) {
+            receiver = promises._boundTo;
         }
-        var shouldDefer = false;
+    }
+    else if (useBound !== false) {
+        receiver = useBound;
+    }
 
-        var ret = new Array(values.length);
+    var shouldUnwrapItems = ref !== void 0;
+    if (shouldUnwrapItems) ref.ref = promises;
 
-        if (receiver === void 0) {
-            for (var i = 0, len = values.length; i < len; ++i) {
-                var value = fn(values[i], i, len);
-                if (!shouldDefer) {
-                    var maybePromise = Promise._cast(value,
-                            Promise$_mapper, void 0);
-                    if (maybePromise instanceof Promise) {
-                        if (maybePromise.isFulfilled()) {
-                            ret[i] = maybePromise._settledValue;
-                            continue;
-                        }
-                        else {
-                            shouldDefer = true;
-                        }
-                        value = maybePromise;
-                    }
+    if (promises instanceof Promise) {
+        var pack = [fn, receiver, ref];
+        return promises._then(unpack, void 0, void 0, pack, void 0);
+    }
+    else if (!isArray(promises)) {
+        return apiRejection("expecting an array, a promise or a thenable");
+    }
+
+    var promise = new Promise(INTERNAL);
+    if (receiver !== void 0) promise._setBoundTo(receiver);
+    promise._setTrace(void 0);
+
+    var mapping = new Mapping(promise,
+                                fn,
+                                promises,
+                                receiver,
+                                shouldUnwrapItems);
+    mapping.init();
+    return promise;
+}
+
+var pending = {};
+function Mapping(promise, callback, items, receiver, shouldUnwrapItems) {
+    this.shouldUnwrapItems = shouldUnwrapItems;
+    this.index = 0;
+    this.items = items;
+    this.callback = callback;
+    this.receiver = receiver;
+    this.promise = promise;
+    this.result = new Array(items.length);
+}
+util.inherits(Mapping, PromiseArray);
+
+Mapping.prototype.init = function Mapping$init() {
+    var items = this.items;
+    var len = items.length;
+    var result = this.result;
+    var isRejected = false;
+    for (var i = 0; i < len; ++i) {
+        var maybePromise = _cast(items[i], void 0);
+        if (maybePromise instanceof Promise) {
+            if (maybePromise.isPending()) {
+                result[i] = pending;
+                maybePromise._proxyPromiseArray(this, i);
+            }
+            else if (maybePromise.isFulfilled()) {
+                result[i] = maybePromise.value();
+            }
+            else {
+                maybePromise._unsetRejectionIsUnhandled();
+                if (!isRejected) {
+                    this.reject(maybePromise.reason());
+                    isRejected = true;
                 }
-                ret[i] = value;
             }
         }
         else {
-            for (var i = 0, len = values.length; i < len; ++i) {
-                var value = fn.call(receiver, values[i], i, len);
-                if (!shouldDefer) {
-                    var maybePromise = Promise._cast(value,
-                            Promise$_mapper, void 0);
-                    if (maybePromise instanceof Promise) {
-                        if (maybePromise.isFulfilled()) {
-                            ret[i] = maybePromise._settledValue;
-                            continue;
-                        }
-                        else {
-                            shouldDefer = true;
-                        }
-                        value = maybePromise;
-                    }
-                }
-                ret[i] = value;
-            }
+            result[i] = maybePromise;
         }
-        return shouldDefer
-            ? Promise$_CreatePromiseArray(ret, PromiseArray,
-                Promise$_mapper, void 0).promise()
-            : ret;
     }
-
-    function Promise$_Map(promises, fn, useBound, caller, ref) {
-        if (typeof fn !== "function") {
-            return apiRejection("fn must be a function");
-        }
-
-        if (useBound === true && promises._isBound()) {
-            fn = {
-                fn: fn,
-                receiver: promises._boundTo
-            };
-        }
-
-        var ret = Promise$_CreatePromiseArray(
-            promises,
-            PromiseArray,
-            caller,
-            useBound === true && promises._isBound()
-                ? promises._boundTo
-                : void 0
-       ).promise();
-
-        if (ref !== void 0) {
-            ref.ref = ret;
-        }
-
-        return ret._then(
-            Promise$_mapper,
-            void 0,
-            void 0,
-            fn,
-            void 0,
-            caller
-       );
-    }
-
-    Promise.prototype.map = function Promise$map(fn, ref) {
-        return Promise$_Map(this, fn, true, this.map, ref);
-    };
-
-    Promise.map = function Promise$Map(promises, fn, ref) {
-        return Promise$_Map(promises, fn, false, Promise.map, ref);
-    };
+    if (!isRejected) this.iterate();
 };
 
-},{"./assert.js":83}],99:[function(require,module,exports){
+Mapping.prototype.isResolved = function Mapping$isResolved() {
+    return this.promise === null;
+};
+
+Mapping.prototype._promiseProgressed =
+function Mapping$_promiseProgressed(value) {
+    if (this.isResolved()) return;
+    this.promise._progress(value);
+};
+
+Mapping.prototype._promiseFulfilled =
+function Mapping$_promiseFulfilled(value, index) {
+    if (this.isResolved()) return;
+    this.result[index] = value;
+    if (this.shouldUnwrapItems) this.items[index] = value;
+    if (this.index === index) this.iterate();
+};
+
+Mapping.prototype._promiseRejected =
+function Mapping$_promiseRejected(reason) {
+    this.reject(reason);
+};
+
+Mapping.prototype.reject = function Mapping$reject(reason) {
+    if (this.isResolved()) return;
+    var trace = canAttach(reason) ? reason : new Error(reason + "");
+    this.promise._attachExtraTrace(trace);
+    this.promise._reject(reason, trace);
+};
+
+Mapping.prototype.iterate = function Mapping$iterate() {
+    var i = this.index;
+    var items = this.items;
+    var result = this.result;
+    var len = items.length;
+    var result = this.result;
+    var receiver = this.receiver;
+    var callback = this.callback;
+
+    for (; i < len; ++i) {
+        var value = result[i];
+        if (value === pending) {
+            this.index = i;
+            return;
+        }
+        try { result[i] = callback.call(receiver, value, i, len); }
+        catch (e) { return this.reject(e); }
+    }
+    this.promise._follow(all(result));
+    this.items = this.result = this.callback = this.promise = null;
+};
+
+Promise.prototype.map = function Promise$map(fn, ref) {
+    return Promise$_Map(this, fn, true, ref);
+};
+
+Promise.map = function Promise$Map(promises, fn, ref) {
+    return Promise$_Map(promises, fn, false, ref);
+};
+};
+
+},{"./errors.js":113,"./util.js":141}],121:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -8046,53 +9332,54 @@ module.exports = function(
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
 module.exports = function(Promise) {
-    var util = require("./util.js");
-    var async = require("./async.js");
-    var ASSERT = require("./assert.js");
-    var tryCatch2 = util.tryCatch2;
-    var tryCatch1 = util.tryCatch1;
-    var errorObj = util.errorObj;
+var util = _dereq_("./util.js");
+var async = _dereq_("./async.js");
+var tryCatch2 = util.tryCatch2;
+var tryCatch1 = util.tryCatch1;
+var errorObj = util.errorObj;
 
-    function thrower(r) {
-        throw r;
-    }
+function thrower(r) {
+    throw r;
+}
 
-    function Promise$_successAdapter(val, receiver) {
-        var nodeback = this;
-        var ret = tryCatch2(nodeback, receiver, null, val);
-        if (ret === errorObj) {
-            async.invokeLater(thrower, void 0, ret.e);
-        }
+function Promise$_successAdapter(val, receiver) {
+    var nodeback = this;
+    var ret = val === void 0
+        ? tryCatch1(nodeback, receiver, null)
+        : tryCatch2(nodeback, receiver, null, val);
+    if (ret === errorObj) {
+        async.invokeLater(thrower, void 0, ret.e);
     }
-    function Promise$_errorAdapter(reason, receiver) {
-        var nodeback = this;
-        var ret = tryCatch1(nodeback, receiver, reason);
-        if (ret === errorObj) {
-            async.invokeLater(thrower, void 0, ret.e);
-        }
+}
+function Promise$_errorAdapter(reason, receiver) {
+    var nodeback = this;
+    var ret = tryCatch1(nodeback, receiver, reason);
+    if (ret === errorObj) {
+        async.invokeLater(thrower, void 0, ret.e);
     }
+}
 
-    Promise.prototype.nodeify = function Promise$nodeify(nodeback) {
-        if (typeof nodeback == "function") {
-            this._then(
-                Promise$_successAdapter,
-                Promise$_errorAdapter,
-                void 0,
-                nodeback,
-                this._isBound() ? this._boundTo : null,
-                this.nodeify
-           );
-        }
-        return this;
-    };
+Promise.prototype.nodeify = function Promise$nodeify(nodeback) {
+    if (typeof nodeback == "function") {
+        this._then(
+            Promise$_successAdapter,
+            Promise$_errorAdapter,
+            void 0,
+            nodeback,
+            this._isBound() ? this._boundTo : null
+        );
+    }
+    return this;
+};
 };
 
-},{"./assert.js":83,"./async.js":84,"./util.js":120}],100:[function(require,module,exports){
+},{"./async.js":106,"./util.js":141}],122:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -8111,103 +9398,102 @@ module.exports = function(Promise) {
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
 module.exports = function(Promise, isPromiseArrayProxy) {
-    var ASSERT = require("./assert.js");
-    var util = require("./util.js");
-    var async = require("./async.js");
-    var tryCatch1 = util.tryCatch1;
-    var errorObj = util.errorObj;
+var util = _dereq_("./util.js");
+var async = _dereq_("./async.js");
+var errors = _dereq_("./errors.js");
+var tryCatch1 = util.tryCatch1;
+var errorObj = util.errorObj;
 
-    Promise.prototype.progressed = function Promise$progressed(handler) {
-        return this._then(void 0, void 0, handler,
-                            void 0, void 0, this.progressed);
-    };
-
-    Promise.prototype._progress = function Promise$_progress(progressValue) {
-        if (this._isFollowingOrFulfilledOrRejected()) return;
-        this._progressUnchecked(progressValue);
-
-    };
-
-    Promise.prototype._progressHandlerAt =
-    function Promise$_progressHandlerAt(index) {
-        if (index === 0) return this._progressHandler0;
-        return this[index + 2 - 5];
-    };
-
-    Promise.prototype._doProgressWith =
-    function Promise$_doProgressWith(progression) {
-        var progressValue = progression.value;
-        var handler = progression.handler;
-        var promise = progression.promise;
-        var receiver = progression.receiver;
-
-        this._pushContext();
-        var ret = tryCatch1(handler, receiver, progressValue);
-        this._popContext();
-
-        if (ret === errorObj) {
-            if (ret.e != null &&
-                ret.e.name === "StopProgressPropagation") {
-                ret.e["__promiseHandled__"] = 2;
-            }
-            else {
-                promise._attachExtraTrace(ret.e);
-                promise._progress(ret.e);
-            }
-        }
-        else if (Promise.is(ret)) {
-            ret._then(promise._progress, null, null, promise, void 0,
-                this._progress);
-        }
-        else {
-            promise._progress(ret);
-        }
-    };
-
-
-    Promise.prototype._progressUnchecked =
-    function Promise$_progressUnchecked(progressValue) {
-        if (!this.isPending()) return;
-        var len = this._length();
-
-        for (var i = 0; i < len; i += 5) {
-            var handler = this._progressHandlerAt(i);
-            var promise = this._promiseAt(i);
-            if (!Promise.is(promise)) {
-                var receiver = this._receiverAt(i);
-                if (typeof handler === "function") {
-                    handler.call(receiver, progressValue, promise);
-                }
-                else if (Promise.is(receiver) && receiver._isProxied()) {
-                    receiver._progressUnchecked(progressValue);
-                }
-                else if (isPromiseArrayProxy(receiver, promise)) {
-                    receiver._promiseProgressed(progressValue, promise);
-                }
-                continue;
-            }
-
-            if (typeof handler === "function") {
-                async.invoke(this._doProgressWith, this, {
-                    handler: handler,
-                    promise: promise,
-                    receiver: this._receiverAt(i),
-                    value: progressValue
-                });
-            }
-            else {
-                async.invoke(promise._progress, promise, progressValue);
-            }
-        }
-    };
+Promise.prototype.progressed = function Promise$progressed(handler) {
+    return this._then(void 0, void 0, handler, void 0, void 0);
 };
 
-},{"./assert.js":83,"./async.js":84,"./util.js":120}],101:[function(require,module,exports){
-var process=require("__browserify_process");/**
- * Copyright (c) 2013 Petka Antonov
+Promise.prototype._progress = function Promise$_progress(progressValue) {
+    if (this._isFollowingOrFulfilledOrRejected()) return;
+    this._progressUnchecked(progressValue);
+
+};
+
+Promise.prototype._progressHandlerAt =
+function Promise$_progressHandlerAt(index) {
+    if (index === 0) return this._progressHandler0;
+    return this[index + 2 - 5];
+};
+
+Promise.prototype._doProgressWith =
+function Promise$_doProgressWith(progression) {
+    var progressValue = progression.value;
+    var handler = progression.handler;
+    var promise = progression.promise;
+    var receiver = progression.receiver;
+
+    this._pushContext();
+    var ret = tryCatch1(handler, receiver, progressValue);
+    this._popContext();
+
+    if (ret === errorObj) {
+        if (ret.e != null &&
+            ret.e.name !== "StopProgressPropagation") {
+            var trace = errors.canAttach(ret.e)
+                ? ret.e : new Error(ret.e + "");
+            promise._attachExtraTrace(trace);
+            promise._progress(ret.e);
+        }
+    }
+    else if (ret instanceof Promise) {
+        ret._then(promise._progress, null, null, promise, void 0);
+    }
+    else {
+        promise._progress(ret);
+    }
+};
+
+
+Promise.prototype._progressUnchecked =
+function Promise$_progressUnchecked(progressValue) {
+    if (!this.isPending()) return;
+    var len = this._length();
+    var progress = this._progress;
+    for (var i = 0; i < len; i += 5) {
+        var handler = this._progressHandlerAt(i);
+        var promise = this._promiseAt(i);
+        if (!(promise instanceof Promise)) {
+            var receiver = this._receiverAt(i);
+            if (typeof handler === "function") {
+                handler.call(receiver, progressValue, promise);
+            }
+            else if (receiver instanceof Promise && receiver._isProxied()) {
+                receiver._progressUnchecked(progressValue);
+            }
+            else if (isPromiseArrayProxy(receiver, promise)) {
+                receiver._promiseProgressed(progressValue, promise);
+            }
+            continue;
+        }
+
+        if (typeof handler === "function") {
+            async.invoke(this._doProgressWith, this, {
+                handler: handler,
+                promise: promise,
+                receiver: this._receiverAt(i),
+                value: progressValue
+            });
+        }
+        else {
+            async.invoke(progress, promise, progressValue);
+        }
+    }
+};
+};
+
+},{"./async.js":106,"./errors.js":113,"./util.js":141}],123:[function(_dereq_,module,exports){
+(function (process){
+/**
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -8226,29 +9512,26 @@ var process=require("__browserify_process");/**
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
 module.exports = function() {
-var global = require("./global.js");
-var ASSERT = require("./assert.js");
-var util = require("./util.js");
-var async = require("./async.js");
-var errors = require("./errors.js");
+var global = _dereq_("./global.js");
+var util = _dereq_("./util.js");
+var async = _dereq_("./async.js");
+var errors = _dereq_("./errors.js");
 
 var INTERNAL = function(){};
 var APPLY = {};
 var NEXT_FILTER = {e: null};
 
-var PromiseArray = require("./promise_array.js")(Promise, INTERNAL);
-var CapturedTrace = require("./captured_trace.js")();
-var CatchFilter = require("./catch_filter.js")(NEXT_FILTER);
-var PromiseResolver = require("./promise_resolver.js");
+var PromiseArray = _dereq_("./promise_array.js")(Promise, INTERNAL);
+var CapturedTrace = _dereq_("./captured_trace.js")();
+var CatchFilter = _dereq_("./catch_filter.js")(NEXT_FILTER);
+var PromiseResolver = _dereq_("./promise_resolver.js");
 
 var isArray = util.isArray;
-var notEnumerableProp = util.notEnumerableProp;
-var isObject = util.isObject;
 
-var ensurePropertyExpansion = util.ensurePropertyExpansion;
 var errorObj = util.errorObj;
 var tryCatch1 = util.tryCatch1;
 var tryCatch2 = util.tryCatch2;
@@ -8260,14 +9543,9 @@ var TimeoutError = errors.TimeoutError;
 var RejectionError = errors.RejectionError;
 var originatesFromRejection = errors.originatesFromRejection;
 var markAsOriginatingFromRejection = errors.markAsOriginatingFromRejection;
-var ensureNotHandled = errors.ensureNotHandled;
-var withHandledMarked = errors.withHandledMarked;
-var withStackAttached = errors.withStackAttached;
-var isStackAttached = errors.isStackAttached;
-var isHandled = errors.isHandled;
 var canAttach = errors.canAttach;
 var thrower = util.thrower;
-var apiRejection = require("./errors_api_rejection")(Promise);
+var apiRejection = _dereq_("./errors_api_rejection")(Promise);
 
 
 var makeSelfResolutionError = function Promise$_makeSelfResolutionError() {
@@ -8305,7 +9583,7 @@ function Promise(resolver) {
 
 Promise.prototype.bind = function Promise$bind(thisArg) {
     var ret = new Promise(INTERNAL);
-    if (debugging) ret._setTrace(this.bind, this);
+    ret._setTrace(this);
     ret._follow(this);
     ret._setBoundTo(thisArg);
     if (this._cancellable()) {
@@ -8344,51 +9622,32 @@ function Promise$catch(fn) {
         catchInstances.length = j;
         fn = arguments[i];
 
-        this._resetTrace(this.caught);
+        this._resetTrace();
         var catchFilter = new CatchFilter(catchInstances, fn, this);
         return this._then(void 0, catchFilter.doFilter, void 0,
-            catchFilter, void 0, this.caught);
+            catchFilter, void 0);
     }
-    return this._then(void 0, fn, void 0, void 0, void 0, this.caught);
+    return this._then(void 0, fn, void 0, void 0, void 0);
 };
 
 Promise.prototype.then =
 function Promise$then(didFulfill, didReject, didProgress) {
     return this._then(didFulfill, didReject, didProgress,
-        void 0, void 0, this.then);
+        void 0, void 0);
 };
 
 
 Promise.prototype.done =
 function Promise$done(didFulfill, didReject, didProgress) {
     var promise = this._then(didFulfill, didReject, didProgress,
-        void 0, void 0, this.done);
+        void 0, void 0);
     promise._setIsFinal();
 };
 
 Promise.prototype.spread = function Promise$spread(didFulfill, didReject) {
     return this._then(didFulfill, didReject, void 0,
-        APPLY, void 0, this.spread);
+        APPLY, void 0);
 };
-
-Promise.prototype.isFulfilled = function Promise$isFulfilled() {
-    return (this._bitField & 268435456) > 0;
-};
-
-
-Promise.prototype.isRejected = function Promise$isRejected() {
-    return (this._bitField & 134217728) > 0;
-};
-
-Promise.prototype.isPending = function Promise$isPending() {
-    return !this.isResolved();
-};
-
-
-Promise.prototype.isResolved = function Promise$isResolved() {
-    return (this._bitField & 402653184) > 0;
-};
-
 
 Promise.prototype.isCancellable = function Promise$isCancellable() {
     return !this.isResolved() &&
@@ -8414,38 +9673,34 @@ Promise.prototype.toJSON = function Promise$toJSON() {
 };
 
 Promise.prototype.all = function Promise$all() {
-    return Promise$_all(this, true, this.all);
+    return Promise$_all(this, true);
 };
 
 
 Promise.is = isPromise;
 
-function Promise$_all(promises, useBound, caller) {
+function Promise$_all(promises, useBound) {
     return Promise$_CreatePromiseArray(
         promises,
         PromiseArray,
-        caller,
         useBound === true && promises._isBound()
             ? promises._boundTo
             : void 0
    ).promise();
 }
 Promise.all = function Promise$All(promises) {
-    return Promise$_all(promises, false, Promise.all);
+    return Promise$_all(promises, false);
 };
 
 Promise.join = function Promise$Join() {
     var $_len = arguments.length;var args = new Array($_len); for(var $_i = 0; $_i < $_len; ++$_i) {args[$_i] = arguments[$_i];}
-    return Promise$_CreatePromiseArray(
-        args, PromiseArray, Promise.join, void 0).promise();
+    return Promise$_CreatePromiseArray(args, PromiseArray, void 0).promise();
 };
 
 Promise.resolve = Promise.fulfilled =
-function Promise$Resolve(value, caller) {
+function Promise$Resolve(value) {
     var ret = new Promise(INTERNAL);
-    if (debugging) ret._setTrace(typeof caller === "function"
-        ? caller
-        : Promise.resolve, void 0);
+    ret._setTrace(void 0);
     if (ret._tryFollow(value)) {
         return ret;
     }
@@ -8457,11 +9712,16 @@ function Promise$Resolve(value, caller) {
 
 Promise.reject = Promise.rejected = function Promise$Reject(reason) {
     var ret = new Promise(INTERNAL);
-    if (debugging) ret._setTrace(Promise.reject, void 0);
+    ret._setTrace(void 0);
     markAsOriginatingFromRejection(reason);
     ret._cleanValues();
     ret._setRejected();
     ret._settledValue = reason;
+    if (!canAttach(reason)) {
+        var trace = new Error(reason + "");
+        ret._setCarriedStackTrace(trace);
+    }
+    ret._ensurePossibleRejectionHandled();
     return ret;
 };
 
@@ -8470,14 +9730,15 @@ Promise.prototype.error = function Promise$_error(fn) {
 };
 
 Promise.prototype._resolveFromSyncValue =
-function Promise$_resolveFromSyncValue(value, caller) {
+function Promise$_resolveFromSyncValue(value) {
     if (value === errorObj) {
         this._cleanValues();
         this._setRejected();
         this._settledValue = value.e;
+        this._ensurePossibleRejectionHandled();
     }
     else {
-        var maybePromise = Promise._cast(value, caller, void 0);
+        var maybePromise = Promise._cast(value, void 0);
         if (maybePromise instanceof Promise) {
             this._follow(maybePromise);
         }
@@ -8504,14 +9765,13 @@ Promise.method = function Promise$_Method(fn) {
             value = tryCatchApply(fn, args, this); break;
         }
         var ret = new Promise(INTERNAL);
-        if (debugging) ret._setTrace(Promise$_method, void 0);
-        ret._resolveFromSyncValue(value, Promise$_method);
+        ret._setTrace(void 0);
+        ret._resolveFromSyncValue(value);
         return ret;
     };
 };
 
-Promise["try"] = Promise.attempt = function Promise$_Try(fn, args, ctx) {
-
+Promise.attempt = Promise["try"] = function Promise$_Try(fn, args, ctx) {
     if (typeof fn !== "function") {
         return apiRejection("fn must be a function");
     }
@@ -8520,45 +9780,43 @@ Promise["try"] = Promise.attempt = function Promise$_Try(fn, args, ctx) {
         : tryCatch1(fn, ctx, args);
 
     var ret = new Promise(INTERNAL);
-    if (debugging) ret._setTrace(Promise.attempt, void 0);
-    ret._resolveFromSyncValue(value, Promise.attempt);
+    ret._setTrace(void 0);
+    ret._resolveFromSyncValue(value);
     return ret;
 };
 
-Promise.defer = Promise.pending = function Promise$Defer(caller) {
+Promise.defer = Promise.pending = function Promise$Defer() {
     var promise = new Promise(INTERNAL);
-    if (debugging) promise._setTrace(typeof caller === "function"
-                              ? caller : Promise.defer, void 0);
+    promise._setTrace(void 0);
     return new PromiseResolver(promise);
 };
 
 Promise.bind = function Promise$Bind(thisArg) {
     var ret = new Promise(INTERNAL);
-    if (debugging) ret._setTrace(Promise.bind, void 0);
+    ret._setTrace(void 0);
     ret._setFulfilled();
     ret._setBoundTo(thisArg);
     return ret;
 };
 
-Promise.cast = function Promise$_Cast(obj, caller) {
-    if (typeof caller !== "function") {
-        caller = Promise.cast;
-    }
-    var ret = Promise._cast(obj, caller, void 0);
+Promise.cast = function Promise$_Cast(obj) {
+    var ret = Promise._cast(obj, void 0);
     if (!(ret instanceof Promise)) {
-        return Promise.resolve(ret, caller);
+        return Promise.resolve(ret);
     }
     return ret;
 };
 
 Promise.onPossiblyUnhandledRejection =
 function Promise$OnPossiblyUnhandledRejection(fn) {
-    if (typeof fn === "function") {
-        CapturedTrace.possiblyUnhandledRejection = fn;
-    }
-    else {
-        CapturedTrace.possiblyUnhandledRejection = void 0;
-    }
+        CapturedTrace.possiblyUnhandledRejection = typeof fn === "function"
+                                                    ? fn : void 0;
+};
+
+var unhandledRejectionHandled;
+Promise.onUnhandledRejectionHandled =
+function Promise$onUnhandledRejectionHandled(fn) {
+    unhandledRejectionHandled = typeof fn === "function" ? fn : void 0;
 };
 
 var debugging = false || !!(
@@ -8587,7 +9845,7 @@ Promise.prototype._setProxyHandlers =
 function Promise$_setProxyHandlers(receiver, promiseSlotValue) {
     var index = this._length();
 
-    if (index >= 4194303 - 5) {
+    if (index >= 524287 - 5) {
         index = 0;
         this._setLength(0);
     }
@@ -8622,8 +9880,7 @@ function Promise$_then(
     didReject,
     didProgress,
     receiver,
-    internalData,
-    caller
+    internalData
 ) {
     var haveInternalData = internalData !== void 0;
     var ret = haveInternalData ? internalData : new Promise(INTERNAL);
@@ -8631,8 +9888,7 @@ function Promise$_then(
     if (debugging && !haveInternalData) {
         var haveSameContext = this._peekContext() === this._traceParent;
         ret._traceParent = haveSameContext ? this._traceParent : this;
-        ret._setTrace(typeof caller === "function" ?
-            caller : this._then, this);
+        ret._setTrace(this);
     }
 
     if (!haveInternalData && this._isBound()) {
@@ -8655,7 +9911,7 @@ function Promise$_then(
 };
 
 Promise.prototype._length = function Promise$_length() {
-    return this._bitField & 4194303;
+    return this._bitField & 524287;
 };
 
 Promise.prototype._isFollowingOrFulfilledOrRejected =
@@ -8668,12 +9924,8 @@ Promise.prototype._isFollowing = function Promise$_isFollowing() {
 };
 
 Promise.prototype._setLength = function Promise$_setLength(len) {
-    this._bitField = (this._bitField & -4194304) |
-        (len & 4194303);
-};
-
-Promise.prototype._cancellable = function Promise$_cancellable() {
-    return (this._bitField & 67108864) > 0;
+    this._bitField = (this._bitField & -524288) |
+        (len & 524287);
 };
 
 Promise.prototype._setFulfilled = function Promise$_setFulfilled() {
@@ -8696,12 +9948,74 @@ Promise.prototype._isFinal = function Promise$_isFinal() {
     return (this._bitField & 33554432) > 0;
 };
 
+Promise.prototype._cancellable = function Promise$_cancellable() {
+    return (this._bitField & 67108864) > 0;
+};
+
 Promise.prototype._setCancellable = function Promise$_setCancellable() {
     this._bitField = this._bitField | 67108864;
 };
 
 Promise.prototype._unsetCancellable = function Promise$_unsetCancellable() {
     this._bitField = this._bitField & (~67108864);
+};
+
+Promise.prototype._setRejectionIsUnhandled =
+function Promise$_setRejectionIsUnhandled() {
+    this._bitField = this._bitField | 2097152;
+};
+
+Promise.prototype._unsetRejectionIsUnhandled =
+function Promise$_unsetRejectionIsUnhandled() {
+    this._bitField = this._bitField & (~2097152);
+    if (this._isUnhandledRejectionNotified()) {
+        this._unsetUnhandledRejectionIsNotified();
+        this._notifyUnhandledRejectionIsHandled();
+    }
+};
+
+Promise.prototype._isRejectionUnhandled =
+function Promise$_isRejectionUnhandled() {
+    return (this._bitField & 2097152) > 0;
+};
+
+Promise.prototype._setUnhandledRejectionIsNotified =
+function Promise$_setUnhandledRejectionIsNotified() {
+    this._bitField = this._bitField | 524288;
+};
+
+Promise.prototype._unsetUnhandledRejectionIsNotified =
+function Promise$_unsetUnhandledRejectionIsNotified() {
+    this._bitField = this._bitField & (~524288);
+};
+
+Promise.prototype._isUnhandledRejectionNotified =
+function Promise$_isUnhandledRejectionNotified() {
+    return (this._bitField & 524288) > 0;
+};
+
+Promise.prototype._setCarriedStackTrace =
+function Promise$_setCarriedStackTrace(capturedTrace) {
+    this._bitField = this._bitField | 1048576;
+    this._fulfillmentHandler0 = capturedTrace;
+};
+
+Promise.prototype._unsetCarriedStackTrace =
+function Promise$_unsetCarriedStackTrace() {
+    this._bitField = this._bitField & (~1048576);
+    this._fulfillmentHandler0 = void 0;
+};
+
+Promise.prototype._isCarryingStackTrace =
+function Promise$_isCarryingStackTrace() {
+    return (this._bitField & 1048576) > 0;
+};
+
+Promise.prototype._getCarriedStackTrace =
+function Promise$_getCarriedStackTrace() {
+    return this._isCarryingStackTrace()
+        ? this._fulfillmentHandler0
+        : void 0;
 };
 
 Promise.prototype._receiverAt = function Promise$_receiverAt(index) {
@@ -8737,11 +10051,13 @@ function Promise$_rejectionHandlerAt(index) {
 
 Promise.prototype._unsetAt = function Promise$_unsetAt(index) {
      if (index === 0) {
-        this._fulfillmentHandler0 =
         this._rejectionHandler0 =
         this._progressHandler0 =
         this._promise0 =
         this._receiver0 = void 0;
+        if (!this._isCarryingStackTrace()) {
+            this._fulfillmentHandler0 = void 0;
+        }
     }
     else {
         this[index - 5 + 0] =
@@ -8755,11 +10071,9 @@ Promise.prototype._unsetAt = function Promise$_unsetAt(index) {
 Promise.prototype._resolveFromResolver =
 function Promise$_resolveFromResolver(resolver) {
     var promise = this;
-    var localDebugging = debugging;
-    if (localDebugging) {
-        this._setTrace(this._resolveFromResolver, void 0);
-        this._pushContext();
-    }
+    this._setTrace(void 0);
+    this._pushContext();
+
     function Promise$_resolver(val) {
         if (promise._tryFollow(val)) {
             return;
@@ -8767,15 +10081,18 @@ function Promise$_resolveFromResolver(resolver) {
         promise._fulfill(val);
     }
     function Promise$_rejecter(val) {
-        promise._attachExtraTrace(val);
+        var trace = canAttach(val) ? val : new Error(val + "");
+        promise._attachExtraTrace(trace);
         markAsOriginatingFromRejection(val);
-        promise._reject(val);
+        promise._reject(val, trace === val ? void 0 : trace);
     }
     var r = tryCatch2(resolver, void 0, Promise$_resolver, Promise$_rejecter);
-    if (localDebugging) this._popContext();
+    this._popContext();
 
     if (r !== void 0 && r === errorObj) {
-        promise._reject(r.e);
+        var e = r.e;
+        var trace = canAttach(e) ? e : new Error(e + "");
+        promise._reject(e, trace);
     }
 };
 
@@ -8788,7 +10105,7 @@ Promise.prototype._addCallbacks = function Promise$_addCallbacks(
 ) {
     var index = this._length();
 
-    if (index >= 4194303 - 5) {
+    if (index >= 524287 - 5) {
         index = 0;
         this._setLength(0);
     }
@@ -8796,7 +10113,8 @@ Promise.prototype._addCallbacks = function Promise$_addCallbacks(
     if (index === 0) {
         this._promise0 = promise;
         if (receiver !== void 0) this._receiver0 = receiver;
-        if (typeof fulfill === "function") this._fulfillmentHandler0 = fulfill;
+        if (typeof fulfill === "function" && !this._isCarryingStackTrace())
+            this._fulfillmentHandler0 = fulfill;
         if (typeof reject === "function") this._rejectionHandler0 = reject;
         if (typeof progress === "function") this._progressHandler0 = progress;
     }
@@ -8835,37 +10153,21 @@ Promise.prototype._spreadSlowCase =
 function Promise$_spreadSlowCase(targetFn, promise, values, boundTo) {
     var promiseForAll =
             Promise$_CreatePromiseArray
-                (values, PromiseArray, this._spreadSlowCase, boundTo)
+                (values, PromiseArray, boundTo)
             .promise()
             ._then(function() {
                 return targetFn.apply(boundTo, arguments);
-            }, void 0, void 0, APPLY, void 0, this._spreadSlowCase);
+            }, void 0, void 0, APPLY, void 0);
 
     promise._follow(promiseForAll);
-};
-
-Promise.prototype._markHandled = function Promise$_markHandled(value) {
-    if( typeof value === "object" &&
-        value !== null) {
-        var handledState = value["__promiseHandled__"];
-
-        if (handledState === void 0) {
-            notEnumerableProp(value, "__promiseHandled__", 2);
-        }
-        else {
-            value["__promiseHandled__"] =
-                withHandledMarked(handledState);
-        }
-    }
 };
 
 Promise.prototype._callSpread =
 function Promise$_callSpread(handler, promise, value, localDebugging) {
     var boundTo = this._isBound() ? this._boundTo : void 0;
     if (isArray(value)) {
-        var caller = this._settlePromiseFromHandler;
         for (var i = 0, len = value.length; i < len; ++i) {
-            if (isPromise(Promise._cast(value[i], caller, void 0))) {
+            if (isPromise(Promise._cast(value[i], void 0))) {
                 this._spreadSlowCase(handler, promise, value, boundTo);
                 return;
             }
@@ -8898,7 +10200,7 @@ function Promise$_settlePromiseFromHandler(
         handler.call(receiver, value, promise);
         return;
     }
-    if (this.isRejected()) this._markHandled(value);
+
     var localDebugging = debugging;
     var x = this._callHandler(handler, receiver,
                                 promise, value, localDebugging);
@@ -8908,16 +10210,21 @@ function Promise$_settlePromiseFromHandler(
     if (x === errorObj || x === promise || x === NEXT_FILTER) {
         var err = x === promise
                     ? makeSelfResolutionError()
-                    : ensureNotHandled(x.e);
-        if (x !== NEXT_FILTER) promise._attachExtraTrace(err);
-        promise._rejectUnchecked(err);
+                    : x.e;
+        var trace = canAttach(err) ? err : new Error(err + "");
+        if (x !== NEXT_FILTER) promise._attachExtraTrace(trace);
+        promise._rejectUnchecked(err, trace);
     }
     else {
-        var castValue = Promise._cast(x,
-                    localDebugging ? this._settlePromiseFromHandler : void 0,
-                    promise);
-
+        var castValue = Promise._cast(x, promise);
         if (isPromise(castValue)) {
+            if (castValue.isRejected() &&
+                !castValue._isCarryingStackTrace() &&
+                !canAttach(castValue._settledValue)) {
+                var trace = new Error(castValue._settledValue + "");
+                promise._attachExtraTrace(trace);
+                castValue._setCarriedStackTrace(trace);
+            }
             promise._follow(castValue);
             if (castValue._cancellable()) {
                 promise._cancellationParent = castValue;
@@ -8929,8 +10236,6 @@ function Promise$_settlePromiseFromHandler(
         }
     }
 };
-
-
 
 Promise.prototype._follow =
 function Promise$_follow(promise) {
@@ -8947,8 +10252,11 @@ function Promise$_follow(promise) {
         this._fulfillUnchecked(promise._settledValue);
     }
     else {
-        this._rejectUnchecked(promise._settledValue);
+        this._rejectUnchecked(promise._settledValue,
+            promise._getCarriedStackTrace());
     }
+
+    if (promise._isRejectionUnhandled()) promise._unsetRejectionIsUnhandled();
 
     if (debugging &&
         promise._traceParent == null) {
@@ -8962,7 +10270,7 @@ function Promise$_tryFollow(value) {
         value === this) {
         return false;
     }
-    var maybePromise = Promise._cast(value, this._tryFollow, void 0);
+    var maybePromise = Promise._cast(value, void 0);
     if (!isPromise(maybePromise)) {
         return false;
     }
@@ -8970,20 +10278,13 @@ function Promise$_tryFollow(value) {
     return true;
 };
 
-Promise.prototype._resetTrace = function Promise$_resetTrace(caller) {
+Promise.prototype._resetTrace = function Promise$_resetTrace() {
     if (debugging) {
-        var context = this._peekContext();
-        var isTopLevel = context === void 0;
-        this._trace = new CapturedTrace(
-            typeof caller === "function"
-            ? caller
-            : this._resetTrace,
-            isTopLevel
-       );
+        this._trace = new CapturedTrace(this._peekContext() === void 0);
     }
 };
 
-Promise.prototype._setTrace = function Promise$_setTrace(caller, parent) {
+Promise.prototype._setTrace = function Promise$_setTrace(parent) {
     if (debugging) {
         var context = this._peekContext();
         this._traceParent = context;
@@ -8993,12 +10294,7 @@ Promise.prototype._setTrace = function Promise$_setTrace(caller, parent) {
             this._trace = parent._trace;
         }
         else {
-            this._trace = new CapturedTrace(
-                typeof caller === "function"
-                ? caller
-                : this._setTrace,
-                isTopLevel
-           );
+            this._trace = new CapturedTrace(isTopLevel);
         }
     }
     return this;
@@ -9006,8 +10302,7 @@ Promise.prototype._setTrace = function Promise$_setTrace(caller, parent) {
 
 Promise.prototype._attachExtraTrace =
 function Promise$_attachExtraTrace(error) {
-    if (debugging &&
-        canAttach(error)) {
+    if (debugging) {
         var promise = this;
         var stack = error.stack;
         stack = typeof stack === "string"
@@ -9034,24 +10329,6 @@ function Promise$_attachExtraTrace(error) {
         else {
             error.stack = stack.join("\n");
         }
-        error["__promiseHandled__"] =
-            withStackAttached(error["__promiseHandled__"]);
-    }
-};
-
-Promise.prototype._notifyUnhandledRejection =
-function Promise$_notifyUnhandledRejection(reason) {
-    if (!isHandled(reason["__promiseHandled__"])) {
-        reason["__promiseHandled__"] =
-            withHandledMarked(reason["__promiseHandled__"]);
-        CapturedTrace.possiblyUnhandledRejection(reason, this);
-    }
-};
-
-Promise.prototype._unhandledRejection =
-function Promise$_unhandledRejection(reason) {
-    if (!isHandled(reason["__promiseHandled__"])) {
-        async.invokeLater(this._notifyUnhandledRejection, this, reason);
     }
 };
 
@@ -9064,12 +10341,12 @@ Promise.prototype._cleanValues = function Promise$_cleanValues() {
 Promise.prototype._fulfill = function Promise$_fulfill(value) {
     if (this._isFollowingOrFulfilledOrRejected()) return;
     this._fulfillUnchecked(value);
-
 };
 
-Promise.prototype._reject = function Promise$_reject(reason) {
+Promise.prototype._reject =
+function Promise$_reject(reason, carriedStackTrace) {
     if (this._isFollowingOrFulfilledOrRejected()) return;
-    this._rejectUnchecked(reason);
+    this._rejectUnchecked(reason, carriedStackTrace);
 };
 
 Promise.prototype._settlePromiseAt = function Promise$_settlePromiseAt(index) {
@@ -9088,28 +10365,25 @@ Promise.prototype._settlePromiseAt = function Promise$_settlePromiseAt(index) {
         var done = false;
         var isFulfilled = this.isFulfilled();
         if (receiver !== void 0) {
-            if (receiver instanceof Promise && receiver._isProxied()) {
+            if (receiver instanceof Promise &&
+                receiver._isProxied()) {
                 receiver._unsetProxied();
 
                 if (isFulfilled) receiver._fulfillUnchecked(value);
-                else receiver._rejectUnchecked(value);
-
+                else receiver._rejectUnchecked(value,
+                    this._getCarriedStackTrace());
                 done = true;
             }
             else if (isPromiseArrayProxy(receiver, promise)) {
-
                 if (isFulfilled) receiver._promiseFulfilled(value, promise);
                 else receiver._promiseRejected(value, promise);
-
                 done = true;
             }
         }
 
         if (!done) {
-
             if (isFulfilled) promise._fulfill(value);
-            else promise._reject(value);
-
+            else promise._reject(value, this._getCarriedStackTrace());
         }
     }
 
@@ -9159,6 +10433,7 @@ Promise.prototype._gc = function Promise$gc() {
 };
 
 Promise.prototype._queueSettleAt = function Promise$_queueSettleAt(index) {
+    if (this._isRejectionUnhandled()) this._unsetRejectionIsUnhandled();
     async.invoke(this._settlePromiseAt, this, index);
 };
 
@@ -9168,7 +10443,7 @@ function Promise$_fulfillUnchecked(value) {
     if (value === this) {
         var err = makeSelfResolutionError();
         this._attachExtraTrace(err);
-        return this._rejectUnchecked(err);
+        return this._rejectUnchecked(err, void 0);
     }
     this._cleanValues();
     this._setFulfilled();
@@ -9176,19 +10451,18 @@ function Promise$_fulfillUnchecked(value) {
     var len = this._length();
 
     if (len > 0) {
-        async.invoke(this._fulfillPromises, this, len);
+        async.invoke(this._settlePromises, this, len);
     }
 };
 
-Promise.prototype._fulfillPromises = function Promise$_fulfillPromises(len) {
-    len = this._length();
-    for (var i = 0; i < len; i+= 5) {
-        this._settlePromiseAt(i);
-    }
+Promise.prototype._rejectUncheckedCheckError =
+function Promise$_rejectUncheckedCheckError(reason) {
+    var trace = canAttach(reason) ? reason : new Error(reason + "");
+    this._rejectUnchecked(reason, trace === reason ? void 0 : trace);
 };
 
 Promise.prototype._rejectUnchecked =
-function Promise$_rejectUnchecked(reason) {
+function Promise$_rejectUnchecked(reason, trace) {
     if (!this.isPending()) return;
     if (reason === this) {
         var err = makeSelfResolutionError();
@@ -9198,68 +10472,64 @@ function Promise$_rejectUnchecked(reason) {
     this._cleanValues();
     this._setRejected();
     this._settledValue = reason;
+
     if (this._isFinal()) {
-        async.invokeLater(thrower, void 0, reason);
+        async.invokeLater(thrower, void 0, trace === void 0 ? reason : trace);
         return;
     }
     var len = this._length();
+
+    if (trace !== void 0) this._setCarriedStackTrace(trace);
+
     if (len > 0) {
-        async.invoke(this._rejectPromises, this, len);
+        async.invoke(this._rejectPromises, this, null);
     }
     else {
-        this._ensurePossibleRejectionHandled(reason);
+        this._ensurePossibleRejectionHandled();
     }
 };
 
-Promise.prototype._rejectPromises = function Promise$_rejectPromises(len) {
-    len = this._length();
-    var rejectionWasHandled = false;
-    for (var i = 0; i < len; i+= 5) {
-        var handler = this._rejectionHandlerAt(i);
-        if (!rejectionWasHandled) {
-            if(typeof handler === "function") rejectionWasHandled = true;
-            else {
-                var promise = this._promiseAt(i);
-                if (isPromise(promise) && promise._length() > 0) {
-                    rejectionWasHandled = true;
-                }
-                else {
-                    var receiver = this._receiverAt(i);
-                    if (isPromise(receiver) && receiver._length() > 0 ||
-                        isPromiseArrayProxy(receiver, promise)) {
-                        rejectionWasHandled = true;
-                    }
-                }
-            }
-        }
-        this._settlePromiseAt(i);
-    }
+Promise.prototype._rejectPromises = function Promise$_rejectPromises() {
+    this._settlePromises();
+    this._unsetCarriedStackTrace();
+};
 
-    if (!rejectionWasHandled) {
-        this._ensurePossibleRejectionHandled(this._settledValue);
+Promise.prototype._settlePromises = function Promise$_settlePromises() {
+    var len = this._length();
+    for (var i = 0; i < len; i+= 5) {
+        this._settlePromiseAt(i);
     }
 };
 
 Promise.prototype._ensurePossibleRejectionHandled =
-function Promise$_ensurePossibleRejectionHandled(reason) {
+function Promise$_ensurePossibleRejectionHandled() {
+    this._setRejectionIsUnhandled();
     if (CapturedTrace.possiblyUnhandledRejection !== void 0) {
-        if (isObject(reason)) {
-            var handledState = reason["__promiseHandled__"];
-            var newReason = reason;
+        async.invokeLater(this._notifyUnhandledRejection, this, void 0);
+    }
+};
 
-            if (handledState === void 0) {
-                newReason = ensurePropertyExpansion(reason,
-                    "__promiseHandled__", 0);
-                handledState = 0;
-            }
-            else if (isHandled(handledState)) {
-                return;
-            }
+Promise.prototype._notifyUnhandledRejectionIsHandled =
+function Promise$_notifyUnhandledRejectionIsHandled() {
+    if (typeof unhandledRejectionHandled === "function") {
+        async.invokeLater(unhandledRejectionHandled, void 0, this);
+    }
+};
 
-            if (!isStackAttached(handledState))  {
-                this._attachExtraTrace(newReason);
-            }
-            async.invoke(this._unhandledRejection, this, newReason);
+Promise.prototype._notifyUnhandledRejection =
+function Promise$_notifyUnhandledRejection() {
+    if (this._isRejectionUnhandled()) {
+        var reason = this._settledValue;
+        var trace = this._getCarriedStackTrace();
+
+        this._setUnhandledRejectionIsNotified();
+
+        if (trace !== void 0) {
+            this._unsetCarriedStackTrace();
+            reason = trace;
+        }
+        if (typeof CapturedTrace.possiblyUnhandledRejection === "function") {
+            CapturedTrace.possiblyUnhandledRejection(reason, this);
         }
     }
 };
@@ -9285,14 +10555,14 @@ Promise.prototype._popContext = function Promise$_popContext() {
 };
 
 function Promise$_CreatePromiseArray(
-    promises, PromiseArrayConstructor, caller, boundTo) {
+    promises, PromiseArrayConstructor, boundTo) {
 
     var list = null;
     if (isArray(promises)) {
         list = promises;
     }
     else {
-        list = Promise._cast(promises, caller, void 0);
+        list = Promise._cast(promises, void 0);
         if (list !== promises) {
             list._setBoundTo(boundTo);
         }
@@ -9301,13 +10571,7 @@ function Promise$_CreatePromiseArray(
         }
     }
     if (list !== null) {
-        return new PromiseArrayConstructor(
-            list,
-            typeof caller === "function"
-                ? caller
-                : Promise$_CreatePromiseArray,
-            boundTo
-       );
+        return new PromiseArrayConstructor(list, boundTo);
     }
     return {
         promise: function() {return apiRejection("expecting an array, a promise or a thenable");}
@@ -9315,7 +10579,6 @@ function Promise$_CreatePromiseArray(
 }
 
 var old = global.Promise;
-
 Promise.noConflict = function() {
     if (global.Promise === Promise) {
         global.Promise = old;
@@ -9329,39 +10592,43 @@ if (!CapturedTrace.isSupported()) {
 }
 
 Promise._makeSelfResolutionError = makeSelfResolutionError;
-require("./finally.js")(Promise, NEXT_FILTER);
-require("./direct_resolve.js")(Promise);
-require("./thenables.js")(Promise);
+_dereq_("./finally.js")(Promise, NEXT_FILTER);
+_dereq_("./direct_resolve.js")(Promise);
+_dereq_("./thenables.js")(Promise, INTERNAL);
+_dereq_("./synchronous_inspection.js")(Promise);
 Promise.RangeError = RangeError;
 Promise.CancellationError = CancellationError;
 Promise.TimeoutError = TimeoutError;
 Promise.TypeError = TypeError;
 Promise.RejectionError = RejectionError;
-require('./timers.js')(Promise,INTERNAL);
-require('./synchronous_inspection.js')(Promise);
-require('./any.js')(Promise,Promise$_CreatePromiseArray,PromiseArray);
-require('./race.js')(Promise,INTERNAL);
-require('./call_get.js')(Promise);
-require('./filter.js')(Promise,Promise$_CreatePromiseArray,PromiseArray,apiRejection);
-require('./generators.js')(Promise,apiRejection,INTERNAL);
-require('./map.js')(Promise,Promise$_CreatePromiseArray,PromiseArray,apiRejection);
-require('./nodeify.js')(Promise);
-require('./promisify.js')(Promise,INTERNAL);
-require('./props.js')(Promise,PromiseArray);
-require('./reduce.js')(Promise,Promise$_CreatePromiseArray,PromiseArray,apiRejection,INTERNAL);
-require('./settle.js')(Promise,Promise$_CreatePromiseArray,PromiseArray);
-require('./some.js')(Promise,Promise$_CreatePromiseArray,PromiseArray,apiRejection);
-require('./progress.js')(Promise,isPromiseArrayProxy);
-require('./cancel.js')(Promise,INTERNAL);
+
+util.toFastProperties(Promise);
+util.toFastProperties(Promise.prototype);
+_dereq_('./timers.js')(Promise,INTERNAL);
+_dereq_('./any.js')(Promise,Promise$_CreatePromiseArray,PromiseArray);
+_dereq_('./race.js')(Promise,INTERNAL);
+_dereq_('./call_get.js')(Promise);
+_dereq_('./filter.js')(Promise,Promise$_CreatePromiseArray,PromiseArray,apiRejection);
+_dereq_('./generators.js')(Promise,apiRejection,INTERNAL);
+_dereq_('./map.js')(Promise,PromiseArray,INTERNAL,apiRejection);
+_dereq_('./nodeify.js')(Promise);
+_dereq_('./promisify.js')(Promise,INTERNAL);
+_dereq_('./props.js')(Promise,PromiseArray);
+_dereq_('./reduce.js')(Promise,Promise$_CreatePromiseArray,PromiseArray,apiRejection,INTERNAL);
+_dereq_('./settle.js')(Promise,Promise$_CreatePromiseArray,PromiseArray);
+_dereq_('./some.js')(Promise,Promise$_CreatePromiseArray,PromiseArray,apiRejection);
+_dereq_('./progress.js')(Promise,isPromiseArrayProxy);
+_dereq_('./cancel.js')(Promise,INTERNAL);
 
 Promise.prototype = Promise.prototype;
 return Promise;
 
 };
 
-},{"./any.js":82,"./assert.js":83,"./async.js":84,"./call_get.js":86,"./cancel.js":87,"./captured_trace.js":88,"./catch_filter.js":89,"./direct_resolve.js":90,"./errors.js":91,"./errors_api_rejection":92,"./filter.js":94,"./finally.js":95,"./generators.js":96,"./global.js":97,"./map.js":98,"./nodeify.js":99,"./progress.js":100,"./promise_array.js":102,"./promise_resolver.js":104,"./promisify.js":106,"./props.js":108,"./race.js":110,"./reduce.js":111,"./settle.js":113,"./some.js":115,"./synchronous_inspection.js":117,"./thenables.js":118,"./timers.js":119,"./util.js":120,"__browserify_process":136}],102:[function(require,module,exports){
+}).call(this,_dereq_("FWaASH"))
+},{"./any.js":105,"./async.js":106,"./call_get.js":108,"./cancel.js":109,"./captured_trace.js":110,"./catch_filter.js":111,"./direct_resolve.js":112,"./errors.js":113,"./errors_api_rejection":114,"./filter.js":116,"./finally.js":117,"./generators.js":118,"./global.js":119,"./map.js":120,"./nodeify.js":121,"./progress.js":122,"./promise_array.js":124,"./promise_resolver.js":125,"./promisify.js":127,"./props.js":129,"./race.js":131,"./reduce.js":132,"./settle.js":134,"./some.js":136,"./synchronous_inspection.js":138,"./thenables.js":139,"./timers.js":140,"./util.js":141,"FWaASH":154}],124:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -9380,13 +10647,13 @@ return Promise;
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
 module.exports = function(Promise, INTERNAL) {
-var ASSERT = require("./assert.js");
-var ensureNotHandled = require("./errors.js").ensureNotHandled;
-var util = require("./util.js");
-var async = require("./async.js");
+var canAttach = _dereq_("./errors.js").canAttach;
+var util = _dereq_("./util.js");
+var async = _dereq_("./async.js");
 var hasOwn = {}.hasOwnProperty;
 var isArray = util.isArray;
 
@@ -9398,10 +10665,10 @@ function toResolutionValue(val) {
     }
 }
 
-function PromiseArray(values, caller, boundTo) {
+function PromiseArray(values, boundTo) {
     var promise = this._promise = new Promise(INTERNAL);
     var parent = void 0;
-    if (Promise.is(values)) {
+    if (values instanceof Promise) {
         parent = values;
         if (values._cancellable()) {
             promise._setCancellable();
@@ -9411,7 +10678,7 @@ function PromiseArray(values, caller, boundTo) {
             promise._setBoundTo(boundTo);
         }
     }
-    promise._setTrace(caller, parent);
+    promise._setTrace(parent);
     this._values = values;
     this._length = 0;
     this._totalResolved = 0;
@@ -9430,7 +10697,7 @@ PromiseArray.prototype.promise = function PromiseArray$promise() {
 PromiseArray.prototype._init =
 function PromiseArray$_init(_, resolveValueIfEmpty) {
     var values = this._values;
-    if (Promise.is(values)) {
+    if (values instanceof Promise) {
         if (values.isFulfilled()) {
             values = values._settledValue;
             if (!isArray(values)) {
@@ -9446,12 +10713,12 @@ function PromiseArray$_init(_, resolveValueIfEmpty) {
                 this._reject,
                 void 0,
                 this,
-                resolveValueIfEmpty,
-                this.constructor
+                resolveValueIfEmpty
            );
             return;
         }
         else {
+            values._unsetRejectionIsUnhandled();
             this._reject(values._settledValue);
             return;
         }
@@ -9477,10 +10744,15 @@ function PromiseArray$_init(_, resolveValueIfEmpty) {
             newLen--;
             continue;
         }
-        var maybePromise = Promise._cast(promise, void 0, void 0);
-        if (maybePromise instanceof Promise &&
-            maybePromise.isPending()) {
-            maybePromise._proxyPromiseArray(this, i);
+        var maybePromise = Promise._cast(promise, void 0);
+        if (maybePromise instanceof Promise) {
+            if (maybePromise.isPending()) {
+                maybePromise._proxyPromiseArray(this, i);
+            }
+            else {
+                maybePromise._unsetRejectionIsUnhandled();
+                isDirectScanNeeded = true;
+            }
         }
         else {
             isDirectScanNeeded = true;
@@ -9509,7 +10781,7 @@ function PromiseArray$_init(_, resolveValueIfEmpty) {
 PromiseArray.prototype._settlePromiseAt =
 function PromiseArray$_settlePromiseAt(index) {
     var value = this._values[index];
-    if (!Promise.is(value)) {
+    if (!(value instanceof Promise)) {
         this._promiseFulfilled(value, index);
     }
     else if (value.isFulfilled()) {
@@ -9553,10 +10825,10 @@ PromiseArray.prototype._resolve = function PromiseArray$_resolve(value) {
 
 PromiseArray.prototype.__hardReject__ =
 PromiseArray.prototype._reject = function PromiseArray$_reject(reason) {
-    ensureNotHandled(reason);
     this._values = null;
-    this._promise._attachExtraTrace(reason);
-    this._promise._reject(reason);
+    var trace = canAttach(reason) ? reason : new Error(reason + "");
+    this._promise._attachExtraTrace(trace);
+    this._promise._reject(reason, trace);
 };
 
 PromiseArray.prototype._promiseProgressed =
@@ -9589,9 +10861,9 @@ function PromiseArray$_promiseRejected(reason, index) {
 return PromiseArray;
 };
 
-},{"./assert.js":83,"./async.js":84,"./errors.js":91,"./util.js":120}],103:[function(require,module,exports){
+},{"./async.js":106,"./errors.js":113,"./util.js":141}],125:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -9610,83 +10882,17 @@ return PromiseArray;
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
-var TypeError = require("./errors.js").TypeError;
-
-function PromiseInspection(promise) {
-    if (promise !== void 0) {
-        this._bitField = promise._bitField;
-        this._settledValue = promise.isResolved()
-            ? promise._settledValue
-            : void 0;
-    }
-    else {
-        this._bitField = 0;
-        this._settledValue = void 0;
-    }
-}
-PromiseInspection.prototype.isFulfilled =
-function PromiseInspection$isFulfilled() {
-    return (this._bitField & 268435456) > 0;
-};
-
-PromiseInspection.prototype.isRejected =
-function PromiseInspection$isRejected() {
-    return (this._bitField & 134217728) > 0;
-};
-
-PromiseInspection.prototype.isPending = function PromiseInspection$isPending() {
-    return (this._bitField & 402653184) === 0;
-};
-
-PromiseInspection.prototype.value = function PromiseInspection$value() {
-    if (!this.isFulfilled()) {
-        throw new TypeError("cannot get fulfillment value of a non-fulfilled promise");
-    }
-    return this._settledValue;
-};
-
-PromiseInspection.prototype.error = function PromiseInspection$error() {
-    if (!this.isRejected()) {
-        throw new TypeError("cannot get rejection reason of a non-rejected promise");
-    }
-    return this._settledValue;
-};
-
-module.exports = PromiseInspection;
-
-},{"./errors.js":91}],104:[function(require,module,exports){
-/**
- * Copyright (c) 2013 Petka Antonov
- * 
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:</p>
- * 
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- * 
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
-"use strict";
-var util = require("./util.js");
+var util = _dereq_("./util.js");
 var maybeWrapAsError = util.maybeWrapAsError;
-var errors = require("./errors.js");
+var errors = _dereq_("./errors.js");
 var TimeoutError = errors.TimeoutError;
 var RejectionError = errors.RejectionError;
-var async = require("./async.js");
+var async = _dereq_("./async.js");
 var haveGetters = util.haveGetters;
-var es5 = require("./es5.js");
+var es5 = _dereq_("./es5.js");
 
 function isUntypedError(obj) {
     return obj instanceof Error &&
@@ -9707,6 +10913,8 @@ function wrapAsRejectionError(obj) {
 
 function nodebackForPromise(promise) {
     function PromiseResolver$_callback(err, value) {
+        if (promise === null) return;
+
         if (err) {
             var wrapped = wrapAsRejectionError(maybeWrapAsError(err));
             promise._attachExtraTrace(wrapped);
@@ -9721,6 +10929,8 @@ function nodebackForPromise(promise) {
                 promise._fulfill(value);
             }
         }
+
+        promise = null;
     }
     return PromiseResolver$_callback;
 }
@@ -9758,6 +10968,9 @@ PromiseResolver.prototype.toString = function PromiseResolver$toString() {
 PromiseResolver.prototype.resolve =
 PromiseResolver.prototype.fulfill = function PromiseResolver$resolve(value) {
     var promise = this.promise;
+    if ((promise === void 0) || (promise._tryFollow === void 0)) {
+        throw new TypeError("Illegal invocation, resolver resolve/reject must be called within a resolver context. Consider using the promise constructor instead.");
+    }
     if (promise._tryFollow(value)) {
         return;
     }
@@ -9766,9 +10979,16 @@ PromiseResolver.prototype.fulfill = function PromiseResolver$resolve(value) {
 
 PromiseResolver.prototype.reject = function PromiseResolver$reject(reason) {
     var promise = this.promise;
+    if ((promise === void 0) || (promise._attachExtraTrace === void 0)) {
+        throw new TypeError("Illegal invocation, resolver resolve/reject must be called within a resolver context. Consider using the promise constructor instead.");
+    }
     errors.markAsOriginatingFromRejection(reason);
-    promise._attachExtraTrace(reason);
+    var trace = errors.canAttach(reason) ? reason : new Error(reason + "");
+    promise._attachExtraTrace(trace);
     async.invoke(promise._reject, promise, reason);
+    if (trace !== reason) {
+        async.invoke(this._setCarriedStackTrace, this, trace);
+    }
 };
 
 PromiseResolver.prototype.progress =
@@ -9792,11 +11012,18 @@ PromiseResolver.prototype.toJSON = function PromiseResolver$toJSON() {
     return this.promise.toJSON();
 };
 
+PromiseResolver.prototype._setCarriedStackTrace =
+function PromiseResolver$_setCarriedStackTrace(trace) {
+    if (this.promise.isRejected()) {
+        this.promise._setCarriedStackTrace(trace);
+    }
+};
+
 module.exports = PromiseResolver;
 
-},{"./async.js":84,"./errors.js":91,"./es5.js":93,"./util.js":120}],105:[function(require,module,exports){
+},{"./async.js":106,"./errors.js":113,"./es5.js":115,"./util.js":141}],126:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -9815,20 +11042,38 @@ module.exports = PromiseResolver;
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
 module.exports = function(Promise, INTERNAL) {
-var errors = require("./errors.js");
+var errors = _dereq_("./errors.js");
 var TypeError = errors.TypeError;
-var ensureNotHandled = errors.ensureNotHandled;
-var util = require("./util.js");
+var util = _dereq_("./util.js");
 var isArray = util.isArray;
 var errorObj = util.errorObj;
 var tryCatch1 = util.tryCatch1;
+var yieldHandlers = [];
 
-function PromiseSpawn(generatorFunction, receiver, caller) {
+function promiseFromYieldHandler(value) {
+    var _yieldHandlers = yieldHandlers;
+    var _errorObj = errorObj;
+    var _Promise = Promise;
+    var len = _yieldHandlers.length;
+    for (var i = 0; i < len; ++i) {
+        var result = tryCatch1(_yieldHandlers[i], void 0, value);
+        if (result === _errorObj) {
+            return _Promise.reject(_errorObj.e);
+        }
+        var maybePromise = _Promise._cast(result,
+            promiseFromYieldHandler, void 0);
+        if (maybePromise instanceof _Promise) return maybePromise;
+    }
+    return null;
+}
+
+function PromiseSpawn(generatorFunction, receiver) {
     var promise = this._promise = new Promise(INTERNAL);
-    promise._setTrace(caller, void 0);
+    promise._setTrace(void 0);
     this._generatorFunction = generatorFunction;
     this._receiver = receiver;
     this._generator = void 0;
@@ -9848,8 +11093,10 @@ PromiseSpawn.prototype._run = function PromiseSpawn$_run() {
 PromiseSpawn.prototype._continue = function PromiseSpawn$_continue(result) {
     if (result === errorObj) {
         this._generator = void 0;
-        this._promise._attachExtraTrace(result.e);
-        this._promise._reject(result.e);
+        var trace = errors.canAttach(result.e)
+            ? result.e : new Error(result.e + "");
+        this._promise._attachExtraTrace(trace);
+        this._promise._reject(result.e, trace);
         return;
     }
 
@@ -9867,9 +11114,10 @@ PromiseSpawn.prototype._continue = function PromiseSpawn$_continue(result) {
                 maybePromise = Promise.all(maybePromise);
             }
             else {
-                this._throw(new TypeError(
-                    "A value was yielded that could not be treated as a promise"
-               ));
+                maybePromise = promiseFromYieldHandler(maybePromise);
+            }
+            if (maybePromise === null) {
+                this._throw(new TypeError("A value was yielded that could not be treated as a promise"));
                 return;
             }
         }
@@ -9878,15 +11126,14 @@ PromiseSpawn.prototype._continue = function PromiseSpawn$_continue(result) {
             this._throw,
             void 0,
             this,
-            null,
-            void 0
+            null
        );
     }
 };
 
 PromiseSpawn.prototype._throw = function PromiseSpawn$_throw(reason) {
-    ensureNotHandled(reason);
-    this._promise._attachExtraTrace(reason);
+    if (errors.canAttach(reason))
+        this._promise._attachExtraTrace(reason);
     this._continue(
         tryCatch1(this._generator["throw"], this._generator, reason)
    );
@@ -9898,12 +11145,17 @@ PromiseSpawn.prototype._next = function PromiseSpawn$_next(value) {
    );
 };
 
+PromiseSpawn.addYieldHandler = function PromiseSpawn$AddYieldHandler(fn) {
+    if (typeof fn !== "function") throw new TypeError("fn must be a function");
+    yieldHandlers.push(fn);
+};
+
 return PromiseSpawn;
 };
 
-},{"./errors.js":91,"./util.js":120}],106:[function(require,module,exports){
+},{"./errors.js":113,"./util.js":141}],127:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -9922,55 +11174,71 @@ return PromiseSpawn;
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
 module.exports = function(Promise, INTERNAL) {
 var THIS = {};
-var util = require("./util.js");
-var es5 = require("./es5.js");
-var nodebackForPromise = require("./promise_resolver.js")
+var util = _dereq_("./util.js");
+var es5 = _dereq_("./es5.js");
+var nodebackForPromise = _dereq_("./promise_resolver.js")
     ._nodebackForPromise;
 var withAppended = util.withAppended;
 var maybeWrapAsError = util.maybeWrapAsError;
 var canEvaluate = util.canEvaluate;
-var notEnumerableProp = util.notEnumerableProp;
 var deprecated = util.deprecated;
-var ASSERT = require("./assert.js");
+var TypeError = _dereq_("./errors").TypeError;
 
 
-var roriginal = new RegExp("__beforePromisified__" + "$");
-var hasProp = {}.hasOwnProperty;
+var rasyncSuffix = new RegExp("Async" + "$");
 function isPromisified(fn) {
     return fn.__isPromisified__ === true;
+}
+function hasPromisified(obj, key) {
+    var containsKey = ((key + "Async") in obj);
+    return containsKey ? isPromisified(obj[key + "Async"])
+                       : false;
+}
+function checkValid(ret) {
+    for (var i = 0; i < ret.length; i += 2) {
+        var key = ret[i];
+        if (rasyncSuffix.test(key)) {
+            var keyWithoutAsyncSuffix = key.replace(rasyncSuffix, "");
+            for (var j = 0; j < ret.length; j += 2) {
+                if (ret[j] === keyWithoutAsyncSuffix) {
+                    throw new TypeError("Cannot promisify an API " +
+                        "that has normal methods with Async-suffix");
+                }
+            }
+        }
+    }
 }
 var inheritedMethods = (function() {
     if (es5.isES5) {
         var create = Object.create;
         var getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
         return function(cur) {
-            var original = cur;
             var ret = [];
             var visitedKeys = create(null);
+            var original = cur;
             while (cur !== null) {
                 var keys = es5.keys(cur);
                 for (var i = 0, len = keys.length; i < len; ++i) {
                     var key = keys[i];
-                    if (visitedKeys[key] ||
-                        roriginal.test(key) ||
-                        hasProp.call(original, key + "__beforePromisified__")
-                   ) {
-                        continue;
-                    }
+                    if (visitedKeys[key]) continue;
                     visitedKeys[key] = true;
                     var desc = getOwnPropertyDescriptor(cur, key);
+
                     if (desc != null &&
                         typeof desc.value === "function" &&
-                        !isPromisified(desc.value)) {
+                        !isPromisified(desc.value) &&
+                        !hasPromisified(original, key)) {
                         ret.push(key, desc.value);
                     }
                 }
                 cur = es5.getPrototypeOf(cur);
             }
+            checkValid(ret);
             return ret;
         };
     }
@@ -9979,32 +11247,73 @@ var inheritedMethods = (function() {
             var ret = [];
             /*jshint forin:false */
             for (var key in obj) {
-                if (roriginal.test(key) ||
-                    hasProp.call(obj, key + "__beforePromisified__")) {
-                    continue;
-                }
                 var fn = obj[key];
                 if (typeof fn === "function" &&
-                    !isPromisified(fn)) {
+                    !isPromisified(fn) &&
+                    !hasPromisified(obj, key)) {
                     ret.push(key, fn);
                 }
             }
+            checkValid(ret);
             return ret;
         };
     }
 })();
 
-function makeNodePromisifiedEval(callback, receiver, originalName) {
-    function getCall(count) {
+function switchCaseArgumentOrder(likelyArgumentCount) {
+    var ret = [likelyArgumentCount];
+    var min = Math.max(0, likelyArgumentCount - 1 - 5);
+    for(var i = likelyArgumentCount - 1; i >= min; --i) {
+        if (i === likelyArgumentCount) continue;
+        ret.push(i);
+    }
+    for(var i = likelyArgumentCount + 1; i <= 5; ++i) {
+        ret.push(i);
+    }
+    return ret;
+}
+
+function parameterDeclaration(parameterCount) {
+    var ret = new Array(parameterCount);
+    for(var i = 0; i < ret.length; ++i) {
+        ret[i] = "_arg" + i;
+    }
+    return ret.join(", ");
+}
+
+function parameterCount(fn) {
+    if (typeof fn.length === "number") {
+        return Math.max(Math.min(fn.length, 1023 + 1), 0);
+    }
+    return 0;
+}
+
+var rident = /^[a-z$_][a-z$_0-9]*$/i;
+function propertyAccess(id) {
+    if (rident.test(id)) {
+        return "." + id;
+    }
+    else return "['" + id.replace(/(['\\])/g, "\\$1") + "']";
+}
+
+function makeNodePromisifiedEval(callback, receiver, originalName, fn) {
+    var newParameterCount = Math.max(0, parameterCount(fn) - 1);
+    var argumentOrder = switchCaseArgumentOrder(newParameterCount);
+
+    var callbackName = (typeof originalName === "string" ?
+        originalName + "Async" :
+        "promisified");
+
+    function generateCallForArgumentCount(count) {
         var args = new Array(count);
         for (var i = 0, len = args.length; i < len; ++i) {
-            args[i] = "a" + (i+1);
+            args[i] = "arguments[" + i + "]";
         }
         var comma = count > 0 ? "," : "";
 
         if (typeof callback === "string" &&
             receiver === THIS) {
-            return "this['" + callback + "']("+args.join(",") +
+            return "this" + propertyAccess(callback) + "("+args.join(",") +
                 comma +" fn);"+
                 "break;";
         }
@@ -10016,42 +11325,44 @@ function makeNodePromisifiedEval(callback, receiver, originalName) {
         "break;";
     }
 
-    function getArgs() {
-        return "var args = new Array(len + 1);" +
-        "var i = 0;" +
-        "for (var i = 0; i < len; ++i) { " +
-        "   args[i] = arguments[i];" +
-        "}" +
-        "args[i] = fn;";
+    if (!rident.test(callbackName)) {
+        callbackName = "promisified";
     }
 
-    var callbackName = (typeof originalName === "string" ?
-        originalName + "Async" :
-        "promisified");
+    function generateArgumentSwitchCase() {
+        var ret = "";
+        for(var i = 0; i < argumentOrder.length; ++i) {
+            ret += "case " + argumentOrder[i] +":" +
+                generateCallForArgumentCount(argumentOrder[i]);
+        }
+        ret += "default: var args = new Array(len + 1);" +
+            "var i = 0;" +
+            "for (var i = 0; i < len; ++i) { " +
+            "   args[i] = arguments[i];" +
+            "}" +
+            "args[i] = fn;" +
+
+            (typeof callback === "string"
+            ? "this" + propertyAccess(callback) + ".apply("
+            : "callback.apply(") +
+
+            (receiver === THIS ? "this" : "receiver") +
+            ", args); break;";
+        return ret;
+    }
 
     return new Function("Promise", "callback", "receiver",
             "withAppended", "maybeWrapAsError", "nodebackForPromise",
             "INTERNAL",
         "var ret = function " + callbackName +
-        "(a1, a2, a3, a4, a5) {\"use strict\";" +
+        "(" + parameterDeclaration(newParameterCount) + ") {\"use strict\";" +
         "var len = arguments.length;" +
         "var promise = new Promise(INTERNAL);"+
-        "promise._setTrace(" + callbackName + ", void 0);" +
+        "promise._setTrace(void 0);" +
         "var fn = nodebackForPromise(promise);"+
-        "try{" +
+        "try {" +
         "switch(len) {" +
-        "case 1:" + getCall(1) +
-        "case 2:" + getCall(2) +
-        "case 3:" + getCall(3) +
-        "case 0:" + getCall(0) +
-        "case 4:" + getCall(4) +
-        "case 5:" + getCall(5) +
-        "default: " + getArgs() + (typeof callback === "string"
-            ? "this['" + callback + "'].apply("
-            : "callback.apply("
-       ) +
-            (receiver === THIS ? "this" : "receiver") +
-        ", args); break;" +
+        generateArgumentSwitchCase() +
         "}" +
         "}" +
         "catch(e){ " +
@@ -10074,7 +11385,7 @@ function makeNodePromisifiedClosure(callback, receiver) {
             callback = _receiver[callback];
         }
         var promise = new Promise(INTERNAL);
-        promise._setTrace(promisified, void 0);
+        promise._setTrace(void 0);
         var fn = nodebackForPromise(promise);
         try {
             callback.apply(_receiver, withAppended(arguments, fn));
@@ -10094,24 +11405,20 @@ var makeNodePromisified = canEvaluate
     ? makeNodePromisifiedEval
     : makeNodePromisifiedClosure;
 
-function f(){}
 function _promisify(callback, receiver, isAll) {
     if (isAll) {
         var methods = inheritedMethods(callback);
         for (var i = 0, len = methods.length; i < len; i+= 2) {
             var key = methods[i];
             var fn = methods[i+1];
-            var originalKey = key + "__beforePromisified__";
             var promisifiedKey = key + "Async";
-            notEnumerableProp(callback, originalKey, fn);
-            callback[promisifiedKey] =
-                makeNodePromisified(originalKey, THIS, key);
+            callback[promisifiedKey] = makeNodePromisified(key, THIS, key, fn);
         }
-        if (methods.length > 16) f.prototype = callback;
+        util.toFastProperties(callback);
         return callback;
     }
     else {
-        return makeNodePromisified(callback, receiver, void 0);
+        return makeNodePromisified(callback, receiver, void 0, callback);
     }
 }
 
@@ -10141,9 +11448,9 @@ Promise.promisifyAll = function Promise$PromisifyAll(target) {
 };
 
 
-},{"./assert.js":83,"./es5.js":93,"./promise_resolver.js":104,"./util.js":120}],107:[function(require,module,exports){
+},{"./errors":113,"./es5.js":115,"./promise_resolver.js":125,"./util.js":141}],128:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -10162,21 +11469,21 @@ Promise.promisifyAll = function Promise$PromisifyAll(target) {
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
 module.exports = function(Promise, PromiseArray) {
-var ASSERT = require("./assert.js");
-var util = require("./util.js");
+var util = _dereq_("./util.js");
 var inherits = util.inherits;
-var es5 = require("./es5.js");
+var es5 = _dereq_("./es5.js");
 
-function PropertiesPromiseArray(obj, caller, boundTo) {
+function PropertiesPromiseArray(obj, boundTo) {
     var keys = es5.keys(obj);
     var values = new Array(keys.length);
     for (var i = 0, len = values.length; i < len; ++i) {
         values[i] = obj[keys[i]];
     }
-    this.constructor$(values, caller, boundTo);
+    this.constructor$(values, boundTo);
     if (!this._isResolved()) {
         for (var i = 0, len = keys.length; i < len; ++i) {
             values.push(keys[i]);
@@ -10220,9 +11527,9 @@ PromiseArray.PropertiesPromiseArray = PropertiesPromiseArray;
 return PropertiesPromiseArray;
 };
 
-},{"./assert.js":83,"./es5.js":93,"./util.js":120}],108:[function(require,module,exports){
+},{"./es5.js":115,"./util.js":141}],129:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -10241,54 +11548,54 @@ return PropertiesPromiseArray;
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
 module.exports = function(Promise, PromiseArray) {
-    var PropertiesPromiseArray = require("./properties_promise_array.js")(
-        Promise, PromiseArray);
-    var util = require("./util.js");
-    var apiRejection = require("./errors_api_rejection")(Promise);
-    var isObject = util.isObject;
+var PropertiesPromiseArray = _dereq_("./properties_promise_array.js")(
+    Promise, PromiseArray);
+var util = _dereq_("./util.js");
+var apiRejection = _dereq_("./errors_api_rejection")(Promise);
+var isObject = util.isObject;
 
-    function Promise$_Props(promises, useBound, caller) {
-        var ret;
-        var castValue = Promise._cast(promises, caller, void 0);
+function Promise$_Props(promises, useBound) {
+    var ret;
+    var castValue = Promise._cast(promises, void 0);
 
-        if (!isObject(castValue)) {
-            return apiRejection("cannot await properties of a non-object");
-        }
-        else if (Promise.is(castValue)) {
-            ret = castValue._then(Promise.props, void 0, void 0,
-                            void 0, void 0, caller);
-        }
-        else {
-            ret = new PropertiesPromiseArray(
-                castValue,
-                caller,
-                useBound === true && castValue._isBound()
-                            ? castValue._boundTo
-                            : void 0
-           ).promise();
-            useBound = false;
-        }
-        if (useBound === true && castValue._isBound()) {
-            ret._setBoundTo(castValue._boundTo);
-        }
-        return ret;
+    if (!isObject(castValue)) {
+        return apiRejection("cannot await properties of a non-object");
     }
+    else if (castValue instanceof Promise) {
+        ret = castValue._then(Promise.props, void 0, void 0,
+                        void 0, void 0);
+    }
+    else {
+        ret = new PropertiesPromiseArray(
+            castValue,
+            useBound === true && castValue._isBound()
+                        ? castValue._boundTo
+                        : void 0
+       ).promise();
+        useBound = false;
+    }
+    if (useBound === true && castValue._isBound()) {
+        ret._setBoundTo(castValue._boundTo);
+    }
+    return ret;
+}
 
-    Promise.prototype.props = function Promise$props() {
-        return Promise$_Props(this, true, this.props);
-    };
-
-    Promise.props = function Promise$Props(promises) {
-        return Promise$_Props(promises, false, Promise.props);
-    };
+Promise.prototype.props = function Promise$props() {
+    return Promise$_Props(this, true);
 };
 
-},{"./errors_api_rejection":92,"./properties_promise_array.js":107,"./util.js":120}],109:[function(require,module,exports){
+Promise.props = function Promise$Props(promises) {
+    return Promise$_Props(promises, false);
+};
+};
+
+},{"./errors_api_rejection":114,"./properties_promise_array.js":128,"./util.js":141}],130:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -10307,9 +11614,9 @@ module.exports = function(Promise, PromiseArray) {
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
-var ASSERT = require("./assert.js");
 function arrayCopy(src, srcIndex, dst, dstIndex, len) {
     for (var j = 0; j < len; ++j) {
         dst[j + dstIndex] = src[j + srcIndex];
@@ -10423,9 +11730,9 @@ Queue.prototype._resizeTo = function Queue$_resizeTo(capacity) {
 
 module.exports = Queue;
 
-},{"./assert.js":83}],110:[function(require,module,exports){
+},{}],131:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -10444,74 +11751,74 @@ module.exports = Queue;
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
 module.exports = function(Promise, INTERNAL) {
-    var apiRejection = require("./errors_api_rejection.js")(Promise);
-    var isArray = require("./util.js").isArray;
+var apiRejection = _dereq_("./errors_api_rejection.js")(Promise);
+var isArray = _dereq_("./util.js").isArray;
 
-    var raceLater = function Promise$_raceLater(promise) {
-        return promise.then(function Promise$_lateRacer(array) {
-            return Promise$_Race(array, Promise$_lateRacer, promise);
-        });
-    };
+var raceLater = function Promise$_raceLater(promise) {
+    return promise.then(function(array) {
+        return Promise$_Race(array, promise);
+    });
+};
 
-    var hasOwn = {}.hasOwnProperty;
-    function Promise$_Race(promises, caller, parent) {
-        var maybePromise = Promise._cast(promises, caller, void 0);
+var hasOwn = {}.hasOwnProperty;
+function Promise$_Race(promises, parent) {
+    var maybePromise = Promise._cast(promises, void 0);
 
-        if (Promise.is(maybePromise)) {
-            return raceLater(maybePromise);
-        }
-        else if (!isArray(promises)) {
-            return apiRejection("expecting an array, a promise or a thenable");
-        }
-
-        var ret = new Promise(INTERNAL);
-        ret._setTrace(caller, parent);
-        if (parent !== void 0) {
-            if (parent._isBound()) {
-                ret._setBoundTo(parent._boundTo);
-            }
-            if (parent._cancellable()) {
-                ret._setCancellable();
-                ret._cancellationParent = parent;
-            }
-        }
-        var fulfill = ret._fulfill;
-        var reject = ret._reject;
-        for (var i = 0, len = promises.length; i < len; ++i) {
-            var val = promises[i];
-
-            if (val === void 0 && !(hasOwn.call(promises, i))) {
-                continue;
-            }
-
-            Promise.cast(val)._then(
-                fulfill,
-                reject,
-                void 0,
-                ret,
-                null,
-                caller
-           );
-        }
-        return ret;
+    if (maybePromise instanceof Promise) {
+        return raceLater(maybePromise);
+    }
+    else if (!isArray(promises)) {
+        return apiRejection("expecting an array, a promise or a thenable");
     }
 
-    Promise.race = function Promise$Race(promises) {
-        return Promise$_Race(promises, Promise.race, void 0);
-    };
+    var ret = new Promise(INTERNAL);
+    ret._setTrace(parent);
+    if (parent !== void 0) {
+        if (parent._isBound()) {
+            ret._setBoundTo(parent._boundTo);
+        }
+        if (parent._cancellable()) {
+            ret._setCancellable();
+            ret._cancellationParent = parent;
+        }
+    }
+    var fulfill = ret._fulfill;
+    var reject = ret._reject;
+    for (var i = 0, len = promises.length; i < len; ++i) {
+        var val = promises[i];
 
-    Promise.prototype.race = function Promise$race() {
-        return Promise$_Race(this, this.race, void 0);
-    };
+        if (val === void 0 && !(hasOwn.call(promises, i))) {
+            continue;
+        }
+
+        Promise.cast(val)._then(
+            fulfill,
+            reject,
+            void 0,
+            ret,
+            null
+       );
+    }
+    return ret;
+}
+
+Promise.race = function Promise$Race(promises) {
+    return Promise$_Race(promises, void 0);
+};
+
+Promise.prototype.race = function Promise$race() {
+    return Promise$_Race(this, void 0);
+};
 
 };
 
-},{"./errors_api_rejection.js":92,"./util.js":120}],111:[function(require,module,exports){
+},{"./errors_api_rejection.js":114,"./util.js":141}],132:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -10530,164 +11837,152 @@ module.exports = function(Promise, INTERNAL) {
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
 module.exports = function(
     Promise, Promise$_CreatePromiseArray,
     PromiseArray, apiRejection, INTERNAL) {
 
-    var ASSERT = require("./assert.js");
+function Reduction(callback, index, accum, items, receiver) {
+    this.promise = new Promise(INTERNAL);
+    this.index = index;
+    this.length = items.length;
+    this.items = items;
+    this.callback = callback;
+    this.receiver = receiver;
+    this.accum = accum;
+}
 
-    function Reduction(callback, index, accum, items, receiver) {
-        this.promise = new Promise(INTERNAL);
-        this.index = index;
-        this.length = items.length;
-        this.items = items;
-        this.callback = callback;
-        this.receiver = receiver;
-        this.accum = accum;
-    }
-
-    Reduction.prototype.reject = function Reduction$reject(e) {
-        this.promise._reject(e);
-    };
-
-    Reduction.prototype.fulfill = function Reduction$fulfill(value, index) {
-        this.accum = value;
-        this.index = index + 1;
-        this.iterate();
-    };
-
-    Reduction.prototype.iterate = function Reduction$iterate() {
-        var i = this.index;
-        var len = this.length;
-        var items = this.items;
-        var result = this.accum;
-        var receiver = this.receiver;
-        var callback = this.callback;
-        var iterate = this.iterate;
-
-        for(; i < len; ++i) {
-            result = Promise._cast(
-                callback.call(
-                    receiver,
-                    result,
-                    items[i],
-                    i,
-                    len
-                ),
-                iterate,
-                void 0
-            );
-
-            if (result instanceof Promise) {
-                result._then(
-                    this.fulfill, this.reject, void 0, this, i, iterate);
-                return;
-            }
-        }
-        this.promise._fulfill(result);
-    };
-
-    function Promise$_reducer(fulfilleds, initialValue) {
-        var fn = this;
-        var receiver = void 0;
-        if (typeof fn !== "function")  {
-            receiver = fn.receiver;
-            fn = fn.fn;
-        }
-        var len = fulfilleds.length;
-        var accum = void 0;
-        var startIndex = 0;
-
-        if (initialValue !== void 0) {
-            accum = initialValue;
-            startIndex = 0;
-        }
-        else {
-            startIndex = 1;
-            if (len > 0) accum = fulfilleds[0];
-        }
-        var i = startIndex;
-
-        if (i >= len) {
-            return accum;
-        }
-
-        var reduction = new Reduction(fn, i, accum, fulfilleds, receiver);
-        reduction.iterate();
-        return reduction.promise;
-    }
-
-    function Promise$_unpackReducer(fulfilleds) {
-        var fn = this.fn;
-        var initialValue = this.initialValue;
-        return Promise$_reducer.call(fn, fulfilleds, initialValue);
-    }
-
-    function Promise$_slowReduce(
-        promises, fn, initialValue, useBound, caller) {
-        return initialValue._then(function callee(initialValue) {
-            return Promise$_Reduce(
-                promises, fn, initialValue, useBound, callee);
-        }, void 0, void 0, void 0, void 0, caller);
-    }
-
-    function Promise$_Reduce(promises, fn, initialValue, useBound, caller) {
-        if (typeof fn !== "function") {
-            return apiRejection("fn must be a function");
-        }
-
-        if (useBound === true && promises._isBound()) {
-            fn = {
-                fn: fn,
-                receiver: promises._boundTo
-            };
-        }
-
-        if (initialValue !== void 0) {
-            if (Promise.is(initialValue)) {
-                if (initialValue.isFulfilled()) {
-                    initialValue = initialValue._settledValue;
-                }
-                else {
-                    return Promise$_slowReduce(promises,
-                        fn, initialValue, useBound, caller);
-                }
-            }
-
-            return Promise$_CreatePromiseArray(promises, PromiseArray, caller,
-                useBound === true && promises._isBound()
-                    ? promises._boundTo
-                    : void 0)
-                .promise()
-                ._then(Promise$_unpackReducer, void 0, void 0, {
-                    fn: fn,
-                    initialValue: initialValue
-                }, void 0, Promise.reduce);
-        }
-        return Promise$_CreatePromiseArray(promises, PromiseArray, caller,
-                useBound === true && promises._isBound()
-                    ? promises._boundTo
-                    : void 0).promise()
-            ._then(Promise$_reducer, void 0, void 0, fn, void 0, caller);
-    }
-
-
-    Promise.reduce = function Promise$Reduce(promises, fn, initialValue) {
-        return Promise$_Reduce(promises, fn,
-            initialValue, false, Promise.reduce);
-    };
-
-    Promise.prototype.reduce = function Promise$reduce(fn, initialValue) {
-        return Promise$_Reduce(this, fn, initialValue,
-                                true, this.reduce);
-    };
+Reduction.prototype.reject = function Reduction$reject(e) {
+    this.promise._reject(e);
 };
 
-},{"./assert.js":83}],112:[function(require,module,exports){
-var process=require("__browserify_process");/**
- * Copyright (c) 2013 Petka Antonov
+Reduction.prototype.fulfill = function Reduction$fulfill(value, index) {
+    this.accum = value;
+    this.index = index + 1;
+    this.iterate();
+};
+
+Reduction.prototype.iterate = function Reduction$iterate() {
+    var i = this.index;
+    var len = this.length;
+    var items = this.items;
+    var result = this.accum;
+    var receiver = this.receiver;
+    var callback = this.callback;
+
+    for (; i < len; ++i) {
+        result = callback.call(receiver, result, items[i], i, len);
+        result = Promise._cast(result, void 0);
+
+        if (result instanceof Promise) {
+            result._then(
+                this.fulfill, this.reject, void 0, this, i);
+            return;
+        }
+    }
+    this.promise._fulfill(result);
+};
+
+function Promise$_reducer(fulfilleds, initialValue) {
+    var fn = this;
+    var receiver = void 0;
+    if (typeof fn !== "function")  {
+        receiver = fn.receiver;
+        fn = fn.fn;
+    }
+    var len = fulfilleds.length;
+    var accum = void 0;
+    var startIndex = 0;
+
+    if (initialValue !== void 0) {
+        accum = initialValue;
+        startIndex = 0;
+    }
+    else {
+        startIndex = 1;
+        if (len > 0) accum = fulfilleds[0];
+    }
+    var i = startIndex;
+
+    if (i >= len) {
+        return accum;
+    }
+
+    var reduction = new Reduction(fn, i, accum, fulfilleds, receiver);
+    reduction.iterate();
+    return reduction.promise;
+}
+
+function Promise$_unpackReducer(fulfilleds) {
+    var fn = this.fn;
+    var initialValue = this.initialValue;
+    return Promise$_reducer.call(fn, fulfilleds, initialValue);
+}
+
+function Promise$_slowReduce(
+    promises, fn, initialValue, useBound) {
+    return initialValue._then(function(initialValue) {
+        return Promise$_Reduce(
+            promises, fn, initialValue, useBound);
+    }, void 0, void 0, void 0, void 0);
+}
+
+function Promise$_Reduce(promises, fn, initialValue, useBound) {
+    if (typeof fn !== "function") {
+        return apiRejection("fn must be a function");
+    }
+
+    if (useBound === true && promises._isBound()) {
+        fn = {
+            fn: fn,
+            receiver: promises._boundTo
+        };
+    }
+
+    if (initialValue !== void 0) {
+        if (initialValue instanceof Promise) {
+            if (initialValue.isFulfilled()) {
+                initialValue = initialValue._settledValue;
+            }
+            else {
+                return Promise$_slowReduce(promises,
+                    fn, initialValue, useBound);
+            }
+        }
+
+        return Promise$_CreatePromiseArray(promises, PromiseArray,
+            useBound === true && promises._isBound()
+                ? promises._boundTo
+                : void 0)
+            .promise()
+            ._then(Promise$_unpackReducer, void 0, void 0, {
+                fn: fn,
+                initialValue: initialValue
+            }, void 0);
+    }
+    return Promise$_CreatePromiseArray(promises, PromiseArray,
+            useBound === true && promises._isBound()
+                ? promises._boundTo
+                : void 0).promise()
+        ._then(Promise$_reducer, void 0, void 0, fn, void 0);
+}
+
+
+Promise.reduce = function Promise$Reduce(promises, fn, initialValue) {
+    return Promise$_Reduce(promises, fn, initialValue, false);
+};
+
+Promise.prototype.reduce = function Promise$reduce(fn, initialValue) {
+    return Promise$_Reduce(this, fn, initialValue, true);
+};
+};
+
+},{}],133:[function(_dereq_,module,exports){
+(function (process){
+/**
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -10706,20 +12001,22 @@ var process=require("__browserify_process");/**
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
-var global = require("./global.js");
-var ASSERT = require("./assert.js");
+var global = _dereq_("./global.js");
 var schedule;
 if (typeof process !== "undefined" && process !== null &&
     typeof process.cwd === "function" &&
-    typeof process.nextTick === "function") {
-
-    schedule = process.nextTick;
+    typeof process.nextTick === "function" &&
+    typeof process.version === "string") {
+    schedule = function Promise$_Scheduler(fn) {
+        process.nextTick(fn);
+    };
 }
-else if ((typeof MutationObserver === "function" ||
-        typeof WebkitMutationObserver === "function" ||
-        typeof WebKitMutationObserver === "function") &&
+else if ((typeof global.MutationObserver === "function" ||
+        typeof global.WebkitMutationObserver === "function" ||
+        typeof global.WebKitMutationObserver === "function") &&
         typeof document !== "undefined" &&
         typeof document.createElement === "function") {
 
@@ -10776,11 +12073,11 @@ else if (typeof global.postMessage === "function" &&
 
     })();
 }
-else if (typeof MessageChannel === "function") {
+else if (typeof global.MessageChannel === "function") {
     schedule = (function(){
         var queuedFn = void 0;
 
-        var channel = new MessageChannel();
+        var channel = new global.MessageChannel();
         channel.port1.onmessage = function Promise$_Scheduler() {
                 var fn = queuedFn;
                 queuedFn = void 0;
@@ -10806,9 +12103,10 @@ else {
 
 module.exports = schedule;
 
-},{"./assert.js":83,"./global.js":97,"__browserify_process":136}],113:[function(require,module,exports){
+}).call(this,_dereq_("FWaASH"))
+},{"./global.js":119,"FWaASH":154}],134:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -10827,38 +12125,37 @@ module.exports = schedule;
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
 module.exports =
     function(Promise, Promise$_CreatePromiseArray, PromiseArray) {
 
-    var SettledPromiseArray = require("./settled_promise_array.js")(
-        Promise, PromiseArray);
+var SettledPromiseArray = _dereq_("./settled_promise_array.js")(
+    Promise, PromiseArray);
 
-    function Promise$_Settle(promises, useBound, caller) {
-        return Promise$_CreatePromiseArray(
-            promises,
-            SettledPromiseArray,
-            caller,
-            useBound === true && promises._isBound()
-                ? promises._boundTo
-                : void 0
-       ).promise();
-    }
+function Promise$_Settle(promises, useBound) {
+    return Promise$_CreatePromiseArray(
+        promises,
+        SettledPromiseArray,
+        useBound === true && promises._isBound()
+            ? promises._boundTo
+            : void 0
+   ).promise();
+}
 
-    Promise.settle = function Promise$Settle(promises) {
-        return Promise$_Settle(promises, false, Promise.settle);
-    };
-
-    Promise.prototype.settle = function Promise$settle() {
-        return Promise$_Settle(this, true, this.settle);
-    };
-
+Promise.settle = function Promise$Settle(promises) {
+    return Promise$_Settle(promises, false);
 };
 
-},{"./settled_promise_array.js":114}],114:[function(require,module,exports){
+Promise.prototype.settle = function Promise$settle() {
+    return Promise$_Settle(this, true);
+};
+};
+
+},{"./settled_promise_array.js":135}],135:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -10877,15 +12174,15 @@ module.exports =
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
 module.exports = function(Promise, PromiseArray) {
-var ASSERT = require("./assert.js");
-var PromiseInspection = require("./promise_inspection.js");
-var util = require("./util.js");
+var PromiseInspection = Promise.PromiseInspection;
+var util = _dereq_("./util.js");
 var inherits = util.inherits;
-function SettledPromiseArray(values, caller, boundTo) {
-    this.constructor$(values, caller, boundTo);
+function SettledPromiseArray(values, boundTo) {
+    this.constructor$(values, boundTo);
 }
 inherits(SettledPromiseArray, PromiseArray);
 
@@ -10918,9 +12215,9 @@ function SettledPromiseArray$_promiseRejected(reason, index) {
 return SettledPromiseArray;
 };
 
-},{"./assert.js":83,"./promise_inspection.js":103,"./util.js":120}],115:[function(require,module,exports){
+},{"./util.js":141}],136:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -10939,48 +12236,46 @@ return SettledPromiseArray;
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
 module.exports =
 function(Promise, Promise$_CreatePromiseArray, PromiseArray, apiRejection) {
 
-    var SomePromiseArray = require("./some_promise_array.js")(PromiseArray);
-    var ASSERT = require("./assert.js");
-
-    function Promise$_Some(promises, howMany, useBound, caller) {
-        if ((howMany | 0) !== howMany || howMany < 0) {
-            return apiRejection("expecting a positive integer");
-        }
-        var ret = Promise$_CreatePromiseArray(
-            promises,
-            SomePromiseArray,
-            caller,
-            useBound === true && promises._isBound()
-                ? promises._boundTo
-                : void 0
-       );
-        var promise = ret.promise();
-        if (promise.isRejected()) {
-            return promise;
-        }
-        ret.setHowMany(howMany);
-        ret.init();
+var SomePromiseArray = _dereq_("./some_promise_array.js")(PromiseArray);
+function Promise$_Some(promises, howMany, useBound) {
+    if ((howMany | 0) !== howMany || howMany < 0) {
+        return apiRejection("expecting a positive integer");
+    }
+    var ret = Promise$_CreatePromiseArray(
+        promises,
+        SomePromiseArray,
+        useBound === true && promises._isBound()
+            ? promises._boundTo
+            : void 0
+   );
+    var promise = ret.promise();
+    if (promise.isRejected()) {
         return promise;
     }
+    ret.setHowMany(howMany);
+    ret.init();
+    return promise;
+}
 
-    Promise.some = function Promise$Some(promises, howMany) {
-        return Promise$_Some(promises, howMany, false, Promise.some);
-    };
+Promise.some = function Promise$Some(promises, howMany) {
+    return Promise$_Some(promises, howMany, false);
+};
 
-    Promise.prototype.some = function Promise$some(count) {
-        return Promise$_Some(this, count, true, this.some);
-    };
+Promise.prototype.some = function Promise$some(count) {
+    return Promise$_Some(this, count, true);
+};
 
 };
 
-},{"./assert.js":83,"./some_promise_array.js":116}],116:[function(require,module,exports){
+},{"./some_promise_array.js":137}],137:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -10999,16 +12294,17 @@ function(Promise, Promise$_CreatePromiseArray, PromiseArray, apiRejection) {
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
 module.exports = function (PromiseArray) {
-var util = require("./util.js");
-var RangeError = require("./errors.js").RangeError;
+var util = _dereq_("./util.js");
+var RangeError = _dereq_("./errors.js").RangeError;
 var inherits = util.inherits;
 var isArray = util.isArray;
 
-function SomePromiseArray(values, caller, boundTo) {
-    this.constructor$(values, caller, boundTo);
+function SomePromiseArray(values, boundTo) {
+    this.constructor$(values, boundTo);
     this._howMany = 0;
     this._unwrap = false;
     this._initialized = false;
@@ -11110,9 +12406,9 @@ function SomePromiseArray$_canPossiblyFulfill() {
 return SomePromiseArray;
 };
 
-},{"./errors.js":91,"./util.js":120}],117:[function(require,module,exports){
+},{"./errors.js":113,"./util.js":141}],138:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -11131,19 +12427,69 @@ return SomePromiseArray;
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
 module.exports = function(Promise) {
-    var PromiseInspection = require("./promise_inspection.js");
+function PromiseInspection(promise) {
+    if (promise !== void 0) {
+        this._bitField = promise._bitField;
+        this._settledValue = promise.isResolved()
+            ? promise._settledValue
+            : void 0;
+    }
+    else {
+        this._bitField = 0;
+        this._settledValue = void 0;
+    }
+}
 
-    Promise.prototype.inspect = function Promise$inspect() {
-        return new PromiseInspection(this);
-    };
+PromiseInspection.prototype.isFulfilled =
+Promise.prototype.isFulfilled = function Promise$isFulfilled() {
+    return (this._bitField & 268435456) > 0;
 };
 
-},{"./promise_inspection.js":103}],118:[function(require,module,exports){
+PromiseInspection.prototype.isRejected =
+Promise.prototype.isRejected = function Promise$isRejected() {
+    return (this._bitField & 134217728) > 0;
+};
+
+PromiseInspection.prototype.isPending =
+Promise.prototype.isPending = function Promise$isPending() {
+    return (this._bitField & 402653184) === 0;
+};
+
+PromiseInspection.prototype.value =
+Promise.prototype.value = function Promise$value() {
+    if (!this.isFulfilled()) {
+        throw new TypeError("cannot get fulfillment value of a non-fulfilled promise");
+    }
+    return this._settledValue;
+};
+
+PromiseInspection.prototype.error =
+Promise.prototype.reason = function Promise$reason() {
+    if (!this.isRejected()) {
+        throw new TypeError("cannot get rejection reason of a non-rejected promise");
+    }
+    return this._settledValue;
+};
+
+PromiseInspection.prototype.isResolved =
+Promise.prototype.isResolved = function Promise$isResolved() {
+    return (this._bitField & 402653184) > 0;
+};
+
+Promise.prototype.inspect = function Promise$inspect() {
+    return new PromiseInspection(this);
+};
+
+Promise.PromiseInspection = PromiseInspection;
+};
+
+},{}],139:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -11162,95 +12508,125 @@ module.exports = function(Promise) {
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
-module.exports = function(Promise) {
-    var ASSERT = require("./assert.js");
-    var util = require("./util.js");
-    var errorObj = util.errorObj;
-    var isObject = util.isObject;
-    var tryCatch2 = util.tryCatch2;
+module.exports = function(Promise, INTERNAL) {
+var util = _dereq_("./util.js");
+var canAttach = _dereq_("./errors.js").canAttach;
+var errorObj = util.errorObj;
+var isObject = util.isObject;
 
-    function getThen(obj) {
-        try {
-            return obj.then;
+function getThen(obj) {
+    try {
+        return obj.then;
+    }
+    catch(e) {
+        errorObj.e = e;
+        return errorObj;
+    }
+}
+
+function Promise$_Cast(obj, originalPromise) {
+    if (isObject(obj)) {
+        if (obj instanceof Promise) {
+            return obj;
         }
-        catch(e) {
-            errorObj.e = e;
-            return errorObj;
+        else if (isAnyBluebirdPromise(obj)) {
+            var ret = new Promise(INTERNAL);
+            ret._setTrace(void 0);
+            obj._then(
+                ret._fulfillUnchecked,
+                ret._rejectUncheckedCheckError,
+                ret._progressUnchecked,
+                ret,
+                null
+            );
+            ret._setFollowing();
+            return ret;
+        }
+        var then = getThen(obj);
+        if (then === errorObj) {
+            if (originalPromise !== void 0 && canAttach(then.e)) {
+                originalPromise._attachExtraTrace(then.e);
+            }
+            return Promise.reject(then.e);
+        }
+        else if (typeof then === "function") {
+            return Promise$_doThenable(obj, then, originalPromise);
         }
     }
+    return obj;
+}
 
-    function Promise$_Cast(obj, caller, originalPromise) {
-        if (isObject(obj)) {
-            if (obj instanceof Promise) {
-                return obj;
-            }
-            var then = getThen(obj);
-            if (then === errorObj) {
-                caller = typeof caller === "function" ? caller : Promise$_Cast;
-                if (originalPromise !== void 0) {
-                    originalPromise._attachExtraTrace(then.e);
-                }
-                return Promise.reject(then.e, caller);
-            }
-            else if (typeof then === "function") {
-                caller = typeof caller === "function" ? caller : Promise$_Cast;
-                return Promise$_doThenable(obj, then, caller, originalPromise);
-            }
-        }
-        return obj;
+var hasProp = {}.hasOwnProperty;
+function isAnyBluebirdPromise(obj) {
+    return hasProp.call(obj, "_promise0");
+}
+
+function Promise$_doThenable(x, then, originalPromise) {
+    var resolver = Promise.defer();
+    var called = false;
+    try {
+        then.call(
+            x,
+            Promise$_resolveFromThenable,
+            Promise$_rejectFromThenable,
+            Promise$_progressFromThenable
+        );
     }
-
-    function Promise$_doThenable(x, then, caller, originalPromise) {
-        var resolver = Promise.defer(caller);
-
-        var called = false;
-        var ret = tryCatch2(then, x,
-            Promise$_resolveFromThenable, Promise$_rejectFromThenable);
-
-        if (ret === errorObj && !called) {
+    catch(e) {
+        if (!called) {
             called = true;
+            var trace = canAttach(e) ? e : new Error(e + "");
             if (originalPromise !== void 0) {
-                originalPromise._attachExtraTrace(ret.e);
+                originalPromise._attachExtraTrace(trace);
             }
-            resolver.promise._reject(ret.e);
-        }
-        return resolver.promise;
-
-        function Promise$_resolveFromThenable(y) {
-            if (called) return;
-            called = true;
-
-            if (x === y) {
-                var e = Promise._makeSelfResolutionError();
-                if (originalPromise !== void 0) {
-                    originalPromise._attachExtraTrace(e);
-                }
-                resolver.promise._reject(e);
-                return;
-            }
-            resolver.resolve(y);
-        }
-
-        function Promise$_rejectFromThenable(r) {
-            if (called) return;
-            called = true;
-
-            if (originalPromise !== void 0) {
-                originalPromise._attachExtraTrace(r);
-            }
-            resolver.promise._attachExtraTrace(r);
-            resolver.promise._reject(r);
+            resolver.promise._reject(e, trace);
         }
     }
+    return resolver.promise;
 
-    Promise._cast = Promise$_Cast;
+    function Promise$_resolveFromThenable(y) {
+        if (called) return;
+        called = true;
+
+        if (x === y) {
+            var e = Promise._makeSelfResolutionError();
+            if (originalPromise !== void 0) {
+                originalPromise._attachExtraTrace(e);
+            }
+            resolver.promise._reject(e, void 0);
+            return;
+        }
+        resolver.resolve(y);
+    }
+
+    function Promise$_rejectFromThenable(r) {
+        if (called) return;
+        called = true;
+        var trace = canAttach(r) ? r : new Error(r + "");
+        if (originalPromise !== void 0) {
+            originalPromise._attachExtraTrace(trace);
+        }
+        resolver.promise._reject(r, trace);
+    }
+
+    function Promise$_progressFromThenable(v) {
+        if (called) return;
+        var promise = resolver.promise;
+        if (typeof promise._progress === "function") {
+            promise._progress(v);
+        }
+    }
+}
+
+Promise._cast = Promise$_Cast;
 };
 
-},{"./assert.js":83,"./util.js":120}],119:[function(require,module,exports){
+},{"./errors.js":113,"./util.js":141}],140:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -11269,108 +12645,93 @@ module.exports = function(Promise) {
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
-
-var global = require("./global.js");
-var setTimeout = function(fn, time) {
+var global = _dereq_("./global.js");
+var setTimeout = function(fn, ms) {
     var $_len = arguments.length;var args = new Array($_len - 2); for(var $_i = 2; $_i < $_len; ++$_i) {args[$_i - 2] = arguments[$_i];}
-    global.setTimeout(function() {
+    global.setTimeout(function(){
         fn.apply(void 0, args);
-    }, time);
+    }, ms);
 };
-
-var pass = {};
-global.setTimeout( function(_) {
-    if(_ === pass) {
-        setTimeout = global.setTimeout;
-    }
-}, 1, pass);
 
 module.exports = function(Promise, INTERNAL) {
-    var util = require("./util.js");
-    var ASSERT = require("./assert.js");
-    var errors = require("./errors.js");
-    var apiRejection = require("./errors_api_rejection")(Promise);
-    var TimeoutError = Promise.TimeoutError;
+var util = _dereq_("./util.js");
+var errors = _dereq_("./errors.js");
+var apiRejection = _dereq_("./errors_api_rejection")(Promise);
+var TimeoutError = Promise.TimeoutError;
 
-    var afterTimeout = function Promise$_afterTimeout(promise, message, ms) {
-        if (!promise.isPending()) return;
-        if (typeof message !== "string") {
-            message = "operation timed out after" + " " + ms + " ms"
-        }
-        var err = new TimeoutError(message);
-        errors.markAsOriginatingFromRejection(err);
-        promise._attachExtraTrace(err);
-        promise._rejectUnchecked(err);
-    };
+var afterTimeout = function Promise$_afterTimeout(promise, message, ms) {
+    if (!promise.isPending()) return;
+    if (typeof message !== "string") {
+        message = "operation timed out after" + " " + ms + " ms"
+    }
+    var err = new TimeoutError(message);
+    errors.markAsOriginatingFromRejection(err);
+    promise._attachExtraTrace(err);
+    promise._rejectUnchecked(err);
+};
 
-    var afterDelay = function Promise$_afterDelay(value, promise) {
-        promise._fulfill(value);
-    };
+var afterDelay = function Promise$_afterDelay(value, promise) {
+    promise._fulfill(value);
+};
 
-    Promise.delay = function Promise$Delay(value, ms, caller) {
-        if (ms === void 0) {
-            ms = value;
-            value = void 0;
-        }
-        if ((ms | 0) !== ms || ms < 0) {
-            return apiRejection("expecting a positive integer");
-        }
-        if (typeof caller !== "function") {
-            caller = Promise.delay;
-        }
-        var maybePromise = Promise._cast(value, caller, void 0);
-        var promise = new Promise(INTERNAL);
+var delay = Promise.delay = function Promise$Delay(value, ms) {
+    if (ms === void 0) {
+        ms = value;
+        value = void 0;
+    }
+    ms = +ms;
+    var maybePromise = Promise._cast(value, void 0);
+    var promise = new Promise(INTERNAL);
 
-        if (Promise.is(maybePromise)) {
-            if (maybePromise._isBound()) {
-                promise._setBoundTo(maybePromise._boundTo);
-            }
-            if (maybePromise._cancellable()) {
-                promise._setCancellable();
-                promise._cancellationParent = maybePromise;
-            }
-            promise._setTrace(caller, maybePromise);
-            promise._follow(maybePromise);
-            return promise.then(function(value) {
-                return Promise.delay(value, ms);
-            });
+    if (maybePromise instanceof Promise) {
+        if (maybePromise._isBound()) {
+            promise._setBoundTo(maybePromise._boundTo);
         }
-        else {
-            promise._setTrace(caller, void 0);
-            setTimeout(afterDelay, ms, value, promise);
+        if (maybePromise._cancellable()) {
+            promise._setCancellable();
+            promise._cancellationParent = maybePromise;
         }
-        return promise;
-    };
+        promise._setTrace(maybePromise);
+        promise._follow(maybePromise);
+        return promise.then(function(value) {
+            return Promise.delay(value, ms);
+        });
+    }
+    else {
+        promise._setTrace(void 0);
+        setTimeout(afterDelay, ms, value, promise);
+    }
+    return promise;
+};
 
-    Promise.prototype.delay = function Promise$delay(ms) {
-        return Promise.delay(this, ms, this.delay);
-    };
+Promise.prototype.delay = function Promise$delay(ms) {
+    return delay(this, ms);
+};
 
-    Promise.prototype.timeout = function Promise$timeout(ms, message) {
-        if ((ms | 0) !== ms || ms < 0) {
-            return apiRejection("expecting a positive integer");
-        }
+Promise.prototype.timeout = function Promise$timeout(ms, message) {
+    ms = +ms;
 
-        var ret = new Promise(INTERNAL);
-        ret._setTrace(this.timeout, this);
+    var ret = new Promise(INTERNAL);
+    ret._setTrace(this);
 
-        if (this._isBound()) ret._setBoundTo(this._boundTo);
-        if (this._cancellable()) {
-            ret._setCancellable();
-            ret._cancellationParent = this;
-        }
-        ret._follow(this);
-        setTimeout(afterTimeout, ms, ret, message, ms);
-        return ret;
-    };
+    if (this._isBound()) ret._setBoundTo(this._boundTo);
+    if (this._cancellable()) {
+        ret._setCancellable();
+        ret._cancellationParent = this;
+    }
+    ret._follow(this);
+    setTimeout(afterTimeout, ms, ret, message, ms);
+    return ret;
+};
 
 };
 
-},{"./assert.js":83,"./errors.js":91,"./errors_api_rejection":92,"./global.js":97,"./util.js":120}],120:[function(require,module,exports){
+},{"./errors.js":113,"./errors_api_rejection":114,"./global.js":119,"./util.js":141}],141:[function(_dereq_,module,exports){
 /**
- * Copyright (c) 2013 Petka Antonov
+ * Copyright (c) 2014 Petka Antonov
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -11389,11 +12750,11 @@ module.exports = function(Promise, INTERNAL) {
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ * 
  */
 "use strict";
-var global = require("./global.js");
-var ASSERT = require("./assert.js");
-var es5 = require("./es5.js");
+var global = _dereq_("./global.js");
+var es5 = _dereq_("./es5.js");
 var haveGetters = (function(){
     try {
         var o = {};
@@ -11409,28 +12770,6 @@ var haveGetters = (function(){
     }
 
 })();
-
-var ensurePropertyExpansion = function(obj, prop, value) {
-    try {
-        notEnumerableProp(obj, prop, value);
-        return obj;
-    }
-    catch (e) {
-        var ret = {};
-        var keys = es5.keys(obj);
-        for (var i = 0, len = keys.length; i < len; ++i) {
-            try {
-                var key = keys[i];
-                ret[key] = obj[key];
-            }
-            catch (err) {
-                ret[key] = err;
-            }
-        }
-        notEnumerableProp(ret, prop, value);
-        return ret;
-    }
-};
 
 var canEvaluate = (function() {
     if (typeof window !== "undefined" && window !== null &&
@@ -11533,6 +12872,7 @@ function withAppended(target, appendee) {
 
 
 function notEnumerableProp(obj, name, value) {
+    if (isPrimitive(obj)) return obj;
     var descriptor = {
         value: value,
         configurable: true,
@@ -11553,6 +12893,14 @@ function thrower(r) {
 }
 
 
+function toFastProperties(obj) {
+    /*jshint -W027*/
+    function f() {}
+    f.prototype = obj;
+    return f;
+    eval(obj);
+}
+
 var ret = {
     thrower: thrower,
     isArray: es5.isArray,
@@ -11560,7 +12908,6 @@ var ret = {
     notEnumerableProp: notEnumerableProp,
     isPrimitive: isPrimitive,
     isObject: isObject,
-    ensurePropertyExpansion: ensurePropertyExpansion,
     canEvaluate: canEvaluate,
     deprecated: deprecated,
     errorObj: errorObj,
@@ -11571,12 +12918,13 @@ var ret = {
     withAppended: withAppended,
     asString: asString,
     maybeWrapAsError: maybeWrapAsError,
-    wrapsPrimitiveReceiver: wrapsPrimitiveReceiver
+    wrapsPrimitiveReceiver: wrapsPrimitiveReceiver,
+    toFastProperties: toFastProperties
 };
 
 module.exports = ret;
 
-},{"./assert.js":83,"./es5.js":93,"./global.js":97}],121:[function(require,module,exports){
+},{"./es5.js":115,"./global.js":119}],142:[function(_dereq_,module,exports){
 // Browser Request
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -11989,1095 +13337,1290 @@ function b64_enc (data) {
     return enc;
 }
 
-},{}],122:[function(require,module,exports){
-
-
-//
-// The shims in this file are not fully implemented shims for the ES5
-// features, but do work for the particular usecases there is in
-// the other modules.
-//
-
-var toString = Object.prototype.toString;
-var hasOwnProperty = Object.prototype.hasOwnProperty;
-
-// Array.isArray is supported in IE9
-function isArray(xs) {
-  return toString.call(xs) === '[object Array]';
-}
-exports.isArray = typeof Array.isArray === 'function' ? Array.isArray : isArray;
-
-// Array.prototype.indexOf is supported in IE9
-exports.indexOf = function indexOf(xs, x) {
-  if (xs.indexOf) return xs.indexOf(x);
-  for (var i = 0; i < xs.length; i++) {
-    if (x === xs[i]) return i;
-  }
-  return -1;
-};
-
-// Array.prototype.filter is supported in IE9
-exports.filter = function filter(xs, fn) {
-  if (xs.filter) return xs.filter(fn);
-  var res = [];
-  for (var i = 0; i < xs.length; i++) {
-    if (fn(xs[i], i, xs)) res.push(xs[i]);
-  }
-  return res;
-};
-
-// Array.prototype.forEach is supported in IE9
-exports.forEach = function forEach(xs, fn, self) {
-  if (xs.forEach) return xs.forEach(fn, self);
-  for (var i = 0; i < xs.length; i++) {
-    fn.call(self, xs[i], i, xs);
-  }
-};
-
-// Array.prototype.map is supported in IE9
-exports.map = function map(xs, fn) {
-  if (xs.map) return xs.map(fn);
-  var out = new Array(xs.length);
-  for (var i = 0; i < xs.length; i++) {
-    out[i] = fn(xs[i], i, xs);
-  }
-  return out;
-};
-
-// Array.prototype.reduce is supported in IE9
-exports.reduce = function reduce(array, callback, opt_initialValue) {
-  if (array.reduce) return array.reduce(callback, opt_initialValue);
-  var value, isValueSet = false;
-
-  if (2 < arguments.length) {
-    value = opt_initialValue;
-    isValueSet = true;
-  }
-  for (var i = 0, l = array.length; l > i; ++i) {
-    if (array.hasOwnProperty(i)) {
-      if (isValueSet) {
-        value = callback(value, array[i], i, array);
-      }
-      else {
-        value = array[i];
-        isValueSet = true;
-      }
-    }
-  }
-
-  return value;
-};
-
-// String.prototype.substr - negative index don't work in IE8
-if ('ab'.substr(-1) !== 'b') {
-  exports.substr = function (str, start, length) {
-    // did we get a negative start, calculate how much it is from the beginning of the string
-    if (start < 0) start = str.length + start;
-
-    // call the original function
-    return str.substr(start, length);
-  };
-} else {
-  exports.substr = function (str, start, length) {
-    return str.substr(start, length);
-  };
-}
-
-// String.prototype.trim is supported in IE9
-exports.trim = function (str) {
-  if (str.trim) return str.trim();
-  return str.replace(/^\s+|\s+$/g, '');
-};
-
-// Function.prototype.bind is supported in IE9
-exports.bind = function () {
-  var args = Array.prototype.slice.call(arguments);
-  var fn = args.shift();
-  if (fn.bind) return fn.bind.apply(fn, args);
-  var self = args.shift();
-  return function () {
-    fn.apply(self, args.concat([Array.prototype.slice.call(arguments)]));
-  };
-};
-
-// Object.create is supported in IE9
-function create(prototype, properties) {
-  var object;
-  if (prototype === null) {
-    object = { '__proto__' : null };
-  }
-  else {
-    if (typeof prototype !== 'object') {
-      throw new TypeError(
-        'typeof prototype[' + (typeof prototype) + '] != \'object\''
-      );
-    }
-    var Type = function () {};
-    Type.prototype = prototype;
-    object = new Type();
-    object.__proto__ = prototype;
-  }
-  if (typeof properties !== 'undefined' && Object.defineProperties) {
-    Object.defineProperties(object, properties);
-  }
-  return object;
-}
-exports.create = typeof Object.create === 'function' ? Object.create : create;
-
-// Object.keys and Object.getOwnPropertyNames is supported in IE9 however
-// they do show a description and number property on Error objects
-function notObject(object) {
-  return ((typeof object != "object" && typeof object != "function") || object === null);
-}
-
-function keysShim(object) {
-  if (notObject(object)) {
-    throw new TypeError("Object.keys called on a non-object");
-  }
-
-  var result = [];
-  for (var name in object) {
-    if (hasOwnProperty.call(object, name)) {
-      result.push(name);
-    }
-  }
-  return result;
-}
-
-// getOwnPropertyNames is almost the same as Object.keys one key feature
-//  is that it returns hidden properties, since that can't be implemented,
-//  this feature gets reduced so it just shows the length property on arrays
-function propertyShim(object) {
-  if (notObject(object)) {
-    throw new TypeError("Object.getOwnPropertyNames called on a non-object");
-  }
-
-  var result = keysShim(object);
-  if (exports.isArray(object) && exports.indexOf(object, 'length') === -1) {
-    result.push('length');
-  }
-  return result;
-}
-
-var keys = typeof Object.keys === 'function' ? Object.keys : keysShim;
-var getOwnPropertyNames = typeof Object.getOwnPropertyNames === 'function' ?
-  Object.getOwnPropertyNames : propertyShim;
-
-if (new Error().hasOwnProperty('description')) {
-  var ERROR_PROPERTY_FILTER = function (obj, array) {
-    if (toString.call(obj) === '[object Error]') {
-      array = exports.filter(array, function (name) {
-        return name !== 'description' && name !== 'number' && name !== 'message';
-      });
-    }
-    return array;
-  };
-
-  exports.keys = function (object) {
-    return ERROR_PROPERTY_FILTER(object, keys(object));
-  };
-  exports.getOwnPropertyNames = function (object) {
-    return ERROR_PROPERTY_FILTER(object, getOwnPropertyNames(object));
-  };
-} else {
-  exports.keys = keys;
-  exports.getOwnPropertyNames = getOwnPropertyNames;
-}
-
-// Object.getOwnPropertyDescriptor - supported in IE8 but only on dom elements
-function valueObject(value, key) {
-  return { value: value[key] };
-}
-
-if (typeof Object.getOwnPropertyDescriptor === 'function') {
-  try {
-    Object.getOwnPropertyDescriptor({'a': 1}, 'a');
-    exports.getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
-  } catch (e) {
-    // IE8 dom element issue - use a try catch and default to valueObject
-    exports.getOwnPropertyDescriptor = function (value, key) {
-      try {
-        return Object.getOwnPropertyDescriptor(value, key);
-      } catch (e) {
-        return valueObject(value, key);
-      }
-    };
-  }
-} else {
-  exports.getOwnPropertyDescriptor = valueObject;
-}
-
-},{}],123:[function(require,module,exports){
-// Copyright Joyent, Inc. and other Node contributors.
-//
-// Permission is hereby granted, free of charge, to any person obtaining a
-// copy of this software and associated documentation files (the
-// "Software"), to deal in the Software without restriction, including
-// without limitation the rights to use, copy, modify, merge, publish,
-// distribute, sublicense, and/or sell copies of the Software, and to permit
-// persons to whom the Software is furnished to do so, subject to the
-// following conditions:
-//
-// The above copyright notice and this permission notice shall be included
-// in all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
-// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
-// USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-// UTILITY
-var util = require('util');
-var shims = require('_shims');
-var pSlice = Array.prototype.slice;
-
-// 1. The assert module provides functions that throw
-// AssertionError's when particular conditions are not met. The
-// assert module must conform to the following interface.
-
-var assert = module.exports = ok;
-
-// 2. The AssertionError is defined in assert.
-// new assert.AssertionError({ message: message,
-//                             actual: actual,
-//                             expected: expected })
-
-assert.AssertionError = function AssertionError(options) {
-  this.name = 'AssertionError';
-  this.actual = options.actual;
-  this.expected = options.expected;
-  this.operator = options.operator;
-  this.message = options.message || getMessage(this);
-};
-
-// assert.AssertionError instanceof Error
-util.inherits(assert.AssertionError, Error);
-
-function replacer(key, value) {
-  if (util.isUndefined(value)) {
-    return '' + value;
-  }
-  if (util.isNumber(value) && (isNaN(value) || !isFinite(value))) {
-    return value.toString();
-  }
-  if (util.isFunction(value) || util.isRegExp(value)) {
-    return value.toString();
-  }
-  return value;
-}
-
-function truncate(s, n) {
-  if (util.isString(s)) {
-    return s.length < n ? s : s.slice(0, n);
-  } else {
-    return s;
-  }
-}
-
-function getMessage(self) {
-  return truncate(JSON.stringify(self.actual, replacer), 128) + ' ' +
-         self.operator + ' ' +
-         truncate(JSON.stringify(self.expected, replacer), 128);
-}
-
-// At present only the three keys mentioned above are used and
-// understood by the spec. Implementations or sub modules can pass
-// other keys to the AssertionError's constructor - they will be
-// ignored.
-
-// 3. All of the following functions must throw an AssertionError
-// when a corresponding condition is not met, with a message that
-// may be undefined if not provided.  All assertion methods provide
-// both the actual and expected values to the assertion error for
-// display purposes.
-
-function fail(actual, expected, message, operator, stackStartFunction) {
-  throw new assert.AssertionError({
-    message: message,
-    actual: actual,
-    expected: expected,
-    operator: operator,
-    stackStartFunction: stackStartFunction
-  });
-}
-
-// EXTENSION! allows for well behaved errors defined elsewhere.
-assert.fail = fail;
-
-// 4. Pure assertion tests whether a value is truthy, as determined
-// by !!guard.
-// assert.ok(guard, message_opt);
-// This statement is equivalent to assert.equal(true, !!guard,
-// message_opt);. To test strictly for the value true, use
-// assert.strictEqual(true, guard, message_opt);.
-
-function ok(value, message) {
-  if (!value) fail(value, true, message, '==', assert.ok);
-}
-assert.ok = ok;
-
-// 5. The equality assertion tests shallow, coercive equality with
-// ==.
-// assert.equal(actual, expected, message_opt);
-
-assert.equal = function equal(actual, expected, message) {
-  if (actual != expected) fail(actual, expected, message, '==', assert.equal);
-};
-
-// 6. The non-equality assertion tests for whether two objects are not equal
-// with != assert.notEqual(actual, expected, message_opt);
-
-assert.notEqual = function notEqual(actual, expected, message) {
-  if (actual == expected) {
-    fail(actual, expected, message, '!=', assert.notEqual);
-  }
-};
-
-// 7. The equivalence assertion tests a deep equality relation.
-// assert.deepEqual(actual, expected, message_opt);
-
-assert.deepEqual = function deepEqual(actual, expected, message) {
-  if (!_deepEqual(actual, expected)) {
-    fail(actual, expected, message, 'deepEqual', assert.deepEqual);
-  }
-};
-
-function _deepEqual(actual, expected) {
-  // 7.1. All identical values are equivalent, as determined by ===.
-  if (actual === expected) {
-    return true;
-
-  } else if (util.isBuffer(actual) && util.isBuffer(expected)) {
-    if (actual.length != expected.length) return false;
-
-    for (var i = 0; i < actual.length; i++) {
-      if (actual[i] !== expected[i]) return false;
-    }
-
-    return true;
-
-  // 7.2. If the expected value is a Date object, the actual value is
-  // equivalent if it is also a Date object that refers to the same time.
-  } else if (util.isDate(actual) && util.isDate(expected)) {
-    return actual.getTime() === expected.getTime();
-
-  // 7.3 If the expected value is a RegExp object, the actual value is
-  // equivalent if it is also a RegExp object with the same source and
-  // properties (`global`, `multiline`, `lastIndex`, `ignoreCase`).
-  } else if (util.isRegExp(actual) && util.isRegExp(expected)) {
-    return actual.source === expected.source &&
-           actual.global === expected.global &&
-           actual.multiline === expected.multiline &&
-           actual.lastIndex === expected.lastIndex &&
-           actual.ignoreCase === expected.ignoreCase;
-
-  // 7.4. Other pairs that do not both pass typeof value == 'object',
-  // equivalence is determined by ==.
-  } else if (!util.isObject(actual) && !util.isObject(expected)) {
-    return actual == expected;
-
-  // 7.5 For all other Object pairs, including Array objects, equivalence is
-  // determined by having the same number of owned properties (as verified
-  // with Object.prototype.hasOwnProperty.call), the same set of keys
-  // (although not necessarily the same order), equivalent values for every
-  // corresponding key, and an identical 'prototype' property. Note: this
-  // accounts for both named and indexed properties on Arrays.
-  } else {
-    return objEquiv(actual, expected);
-  }
-}
-
-function isArguments(object) {
-  return Object.prototype.toString.call(object) == '[object Arguments]';
-}
-
-function objEquiv(a, b) {
-  if (util.isNullOrUndefined(a) || util.isNullOrUndefined(b))
-    return false;
-  // an identical 'prototype' property.
-  if (a.prototype !== b.prototype) return false;
-  //~~~I've managed to break Object.keys through screwy arguments passing.
-  //   Converting to array solves the problem.
-  if (isArguments(a)) {
-    if (!isArguments(b)) {
-      return false;
-    }
-    a = pSlice.call(a);
-    b = pSlice.call(b);
-    return _deepEqual(a, b);
-  }
-  try {
-    var ka = shims.keys(a),
-        kb = shims.keys(b),
-        key, i;
-  } catch (e) {//happens when one is a string literal and the other isn't
-    return false;
-  }
-  // having the same number of owned properties (keys incorporates
-  // hasOwnProperty)
-  if (ka.length != kb.length)
-    return false;
-  //the same set of keys (although not necessarily the same order),
-  ka.sort();
-  kb.sort();
-  //~~~cheap key test
-  for (i = ka.length - 1; i >= 0; i--) {
-    if (ka[i] != kb[i])
-      return false;
-  }
-  //equivalent values for every corresponding key, and
-  //~~~possibly expensive deep test
-  for (i = ka.length - 1; i >= 0; i--) {
-    key = ka[i];
-    if (!_deepEqual(a[key], b[key])) return false;
-  }
-  return true;
-}
-
-// 8. The non-equivalence assertion tests for any deep inequality.
-// assert.notDeepEqual(actual, expected, message_opt);
-
-assert.notDeepEqual = function notDeepEqual(actual, expected, message) {
-  if (_deepEqual(actual, expected)) {
-    fail(actual, expected, message, 'notDeepEqual', assert.notDeepEqual);
-  }
-};
-
-// 9. The strict equality assertion tests strict equality, as determined by ===.
-// assert.strictEqual(actual, expected, message_opt);
-
-assert.strictEqual = function strictEqual(actual, expected, message) {
-  if (actual !== expected) {
-    fail(actual, expected, message, '===', assert.strictEqual);
-  }
-};
-
-// 10. The strict non-equality assertion tests for strict inequality, as
-// determined by !==.  assert.notStrictEqual(actual, expected, message_opt);
-
-assert.notStrictEqual = function notStrictEqual(actual, expected, message) {
-  if (actual === expected) {
-    fail(actual, expected, message, '!==', assert.notStrictEqual);
-  }
-};
-
-function expectedException(actual, expected) {
-  if (!actual || !expected) {
-    return false;
-  }
-
-  if (Object.prototype.toString.call(expected) == '[object RegExp]') {
-    return expected.test(actual);
-  } else if (actual instanceof expected) {
-    return true;
-  } else if (expected.call({}, actual) === true) {
-    return true;
-  }
-
-  return false;
-}
-
-function _throws(shouldThrow, block, expected, message) {
-  var actual;
-
-  if (util.isString(expected)) {
-    message = expected;
-    expected = null;
-  }
-
-  try {
-    block();
-  } catch (e) {
-    actual = e;
-  }
-
-  message = (expected && expected.name ? ' (' + expected.name + ').' : '.') +
-            (message ? ' ' + message : '.');
-
-  if (shouldThrow && !actual) {
-    fail(actual, expected, 'Missing expected exception' + message);
-  }
-
-  if (!shouldThrow && expectedException(actual, expected)) {
-    fail(actual, expected, 'Got unwanted exception' + message);
-  }
-
-  if ((shouldThrow && actual && expected &&
-      !expectedException(actual, expected)) || (!shouldThrow && actual)) {
-    throw actual;
-  }
-}
-
-// 11. Expected to throw an error:
-// assert.throws(block, Error_opt, message_opt);
-
-assert.throws = function(block, /*optional*/error, /*optional*/message) {
-  _throws.apply(this, [true].concat(pSlice.call(arguments)));
-};
-
-// EXTENSION! This is annoying to write outside this module.
-assert.doesNotThrow = function(block, /*optional*/message) {
-  _throws.apply(this, [false].concat(pSlice.call(arguments)));
-};
-
-assert.ifError = function(err) { if (err) {throw err;}};
-},{"_shims":122,"util":124}],124:[function(require,module,exports){
-// Copyright Joyent, Inc. and other Node contributors.
-//
-// Permission is hereby granted, free of charge, to any person obtaining a
-// copy of this software and associated documentation files (the
-// "Software"), to deal in the Software without restriction, including
-// without limitation the rights to use, copy, modify, merge, publish,
-// distribute, sublicense, and/or sell copies of the Software, and to permit
-// persons to whom the Software is furnished to do so, subject to the
-// following conditions:
-//
-// The above copyright notice and this permission notice shall be included
-// in all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
-// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
-// USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-var shims = require('_shims');
-
-var formatRegExp = /%[sdj%]/g;
-exports.format = function(f) {
-  if (!isString(f)) {
-    var objects = [];
-    for (var i = 0; i < arguments.length; i++) {
-      objects.push(inspect(arguments[i]));
-    }
-    return objects.join(' ');
-  }
-
-  var i = 1;
-  var args = arguments;
-  var len = args.length;
-  var str = String(f).replace(formatRegExp, function(x) {
-    if (x === '%%') return '%';
-    if (i >= len) return x;
-    switch (x) {
-      case '%s': return String(args[i++]);
-      case '%d': return Number(args[i++]);
-      case '%j':
-        try {
-          return JSON.stringify(args[i++]);
-        } catch (_) {
-          return '[Circular]';
-        }
-      default:
-        return x;
-    }
-  });
-  for (var x = args[i]; i < len; x = args[++i]) {
-    if (isNull(x) || !isObject(x)) {
-      str += ' ' + x;
-    } else {
-      str += ' ' + inspect(x);
-    }
-  }
-  return str;
-};
+},{}],143:[function(_dereq_,module,exports){
+
+},{}],144:[function(_dereq_,module,exports){
+/*!
+ * The buffer module from node.js, for the browser.
+ *
+ * @author   Feross Aboukhadijeh <feross@feross.org> <http://feross.org>
+ * @license  MIT
+ */
+
+var base64 = _dereq_('base64-js')
+var ieee754 = _dereq_('ieee754')
+
+exports.Buffer = Buffer
+exports.SlowBuffer = Buffer
+exports.INSPECT_MAX_BYTES = 50
+Buffer.poolSize = 8192
 
 /**
- * Echos the value of a value. Trys to print the value out
- * in the best way possible given the different types.
- *
- * @param {Object} obj The object to print out.
- * @param {Object} opts Optional options object that alters the output.
+ * If `Buffer._useTypedArrays`:
+ *   === true    Use Uint8Array implementation (fastest)
+ *   === false   Use Object implementation (compatible down to IE6)
  */
-/* legacy: obj, showHidden, depth, colors*/
-function inspect(obj, opts) {
-  // default options
-  var ctx = {
-    seen: [],
-    stylize: stylizeNoColor
-  };
-  // legacy...
-  if (arguments.length >= 3) ctx.depth = arguments[2];
-  if (arguments.length >= 4) ctx.colors = arguments[3];
-  if (isBoolean(opts)) {
-    // legacy...
-    ctx.showHidden = opts;
-  } else if (opts) {
-    // got an "options" object
-    exports._extend(ctx, opts);
+Buffer._useTypedArrays = (function () {
+  // Detect if browser supports Typed Arrays. Supported browsers are IE 10+, Firefox 4+,
+  // Chrome 7+, Safari 5.1+, Opera 11.6+, iOS 4.2+. If the browser does not support adding
+  // properties to `Uint8Array` instances, then that's the same as no `Uint8Array` support
+  // because we need to be able to add all the node Buffer API methods. This is an issue
+  // in Firefox 4-29. Now fixed: https://bugzilla.mozilla.org/show_bug.cgi?id=695438
+  try {
+    var buf = new ArrayBuffer(0)
+    var arr = new Uint8Array(buf)
+    arr.foo = function () { return 42 }
+    return 42 === arr.foo() &&
+        typeof arr.subarray === 'function' // Chrome 9-10 lack `subarray`
+  } catch (e) {
+    return false
   }
-  // set default options
-  if (isUndefined(ctx.showHidden)) ctx.showHidden = false;
-  if (isUndefined(ctx.depth)) ctx.depth = 2;
-  if (isUndefined(ctx.colors)) ctx.colors = false;
-  if (isUndefined(ctx.customInspect)) ctx.customInspect = true;
-  if (ctx.colors) ctx.stylize = stylizeWithColor;
-  return formatValue(ctx, obj, ctx.depth);
-}
-exports.inspect = inspect;
-
-
-// http://en.wikipedia.org/wiki/ANSI_escape_code#graphics
-inspect.colors = {
-  'bold' : [1, 22],
-  'italic' : [3, 23],
-  'underline' : [4, 24],
-  'inverse' : [7, 27],
-  'white' : [37, 39],
-  'grey' : [90, 39],
-  'black' : [30, 39],
-  'blue' : [34, 39],
-  'cyan' : [36, 39],
-  'green' : [32, 39],
-  'magenta' : [35, 39],
-  'red' : [31, 39],
-  'yellow' : [33, 39]
-};
-
-// Don't use 'blue' not visible on cmd.exe
-inspect.styles = {
-  'special': 'cyan',
-  'number': 'yellow',
-  'boolean': 'yellow',
-  'undefined': 'grey',
-  'null': 'bold',
-  'string': 'green',
-  'date': 'magenta',
-  // "name": intentionally not styling
-  'regexp': 'red'
-};
-
-
-function stylizeWithColor(str, styleType) {
-  var style = inspect.styles[styleType];
-
-  if (style) {
-    return '\u001b[' + inspect.colors[style][0] + 'm' + str +
-           '\u001b[' + inspect.colors[style][1] + 'm';
-  } else {
-    return str;
-  }
-}
-
-
-function stylizeNoColor(str, styleType) {
-  return str;
-}
-
-
-function arrayToHash(array) {
-  var hash = {};
-
-  shims.forEach(array, function(val, idx) {
-    hash[val] = true;
-  });
-
-  return hash;
-}
-
-
-function formatValue(ctx, value, recurseTimes) {
-  // Provide a hook for user-specified inspect functions.
-  // Check that value is an object with an inspect function on it
-  if (ctx.customInspect &&
-      value &&
-      isFunction(value.inspect) &&
-      // Filter out the util module, it's inspect function is special
-      value.inspect !== exports.inspect &&
-      // Also filter out any prototype objects using the circular check.
-      !(value.constructor && value.constructor.prototype === value)) {
-    var ret = value.inspect(recurseTimes);
-    if (!isString(ret)) {
-      ret = formatValue(ctx, ret, recurseTimes);
-    }
-    return ret;
-  }
-
-  // Primitive types cannot have properties
-  var primitive = formatPrimitive(ctx, value);
-  if (primitive) {
-    return primitive;
-  }
-
-  // Look up the keys of the object.
-  var keys = shims.keys(value);
-  var visibleKeys = arrayToHash(keys);
-
-  if (ctx.showHidden) {
-    keys = shims.getOwnPropertyNames(value);
-  }
-
-  // Some type of object without properties can be shortcutted.
-  if (keys.length === 0) {
-    if (isFunction(value)) {
-      var name = value.name ? ': ' + value.name : '';
-      return ctx.stylize('[Function' + name + ']', 'special');
-    }
-    if (isRegExp(value)) {
-      return ctx.stylize(RegExp.prototype.toString.call(value), 'regexp');
-    }
-    if (isDate(value)) {
-      return ctx.stylize(Date.prototype.toString.call(value), 'date');
-    }
-    if (isError(value)) {
-      return formatError(value);
-    }
-  }
-
-  var base = '', array = false, braces = ['{', '}'];
-
-  // Make Array say that they are Array
-  if (isArray(value)) {
-    array = true;
-    braces = ['[', ']'];
-  }
-
-  // Make functions say that they are functions
-  if (isFunction(value)) {
-    var n = value.name ? ': ' + value.name : '';
-    base = ' [Function' + n + ']';
-  }
-
-  // Make RegExps say that they are RegExps
-  if (isRegExp(value)) {
-    base = ' ' + RegExp.prototype.toString.call(value);
-  }
-
-  // Make dates with properties first say the date
-  if (isDate(value)) {
-    base = ' ' + Date.prototype.toUTCString.call(value);
-  }
-
-  // Make error with message first say the error
-  if (isError(value)) {
-    base = ' ' + formatError(value);
-  }
-
-  if (keys.length === 0 && (!array || value.length == 0)) {
-    return braces[0] + base + braces[1];
-  }
-
-  if (recurseTimes < 0) {
-    if (isRegExp(value)) {
-      return ctx.stylize(RegExp.prototype.toString.call(value), 'regexp');
-    } else {
-      return ctx.stylize('[Object]', 'special');
-    }
-  }
-
-  ctx.seen.push(value);
-
-  var output;
-  if (array) {
-    output = formatArray(ctx, value, recurseTimes, visibleKeys, keys);
-  } else {
-    output = keys.map(function(key) {
-      return formatProperty(ctx, value, recurseTimes, visibleKeys, key, array);
-    });
-  }
-
-  ctx.seen.pop();
-
-  return reduceToSingleString(output, base, braces);
-}
-
-
-function formatPrimitive(ctx, value) {
-  if (isUndefined(value))
-    return ctx.stylize('undefined', 'undefined');
-  if (isString(value)) {
-    var simple = '\'' + JSON.stringify(value).replace(/^"|"$/g, '')
-                                             .replace(/'/g, "\\'")
-                                             .replace(/\\"/g, '"') + '\'';
-    return ctx.stylize(simple, 'string');
-  }
-  if (isNumber(value))
-    return ctx.stylize('' + value, 'number');
-  if (isBoolean(value))
-    return ctx.stylize('' + value, 'boolean');
-  // For some reason typeof null is "object", so special case here.
-  if (isNull(value))
-    return ctx.stylize('null', 'null');
-}
-
-
-function formatError(value) {
-  return '[' + Error.prototype.toString.call(value) + ']';
-}
-
-
-function formatArray(ctx, value, recurseTimes, visibleKeys, keys) {
-  var output = [];
-  for (var i = 0, l = value.length; i < l; ++i) {
-    if (hasOwnProperty(value, String(i))) {
-      output.push(formatProperty(ctx, value, recurseTimes, visibleKeys,
-          String(i), true));
-    } else {
-      output.push('');
-    }
-  }
-
-  shims.forEach(keys, function(key) {
-    if (!key.match(/^\d+$/)) {
-      output.push(formatProperty(ctx, value, recurseTimes, visibleKeys,
-          key, true));
-    }
-  });
-  return output;
-}
-
-
-function formatProperty(ctx, value, recurseTimes, visibleKeys, key, array) {
-  var name, str, desc;
-  desc = shims.getOwnPropertyDescriptor(value, key) || { value: value[key] };
-  if (desc.get) {
-    if (desc.set) {
-      str = ctx.stylize('[Getter/Setter]', 'special');
-    } else {
-      str = ctx.stylize('[Getter]', 'special');
-    }
-  } else {
-    if (desc.set) {
-      str = ctx.stylize('[Setter]', 'special');
-    }
-  }
-
-  if (!hasOwnProperty(visibleKeys, key)) {
-    name = '[' + key + ']';
-  }
-  if (!str) {
-    if (shims.indexOf(ctx.seen, desc.value) < 0) {
-      if (isNull(recurseTimes)) {
-        str = formatValue(ctx, desc.value, null);
-      } else {
-        str = formatValue(ctx, desc.value, recurseTimes - 1);
-      }
-      if (str.indexOf('\n') > -1) {
-        if (array) {
-          str = str.split('\n').map(function(line) {
-            return '  ' + line;
-          }).join('\n').substr(2);
-        } else {
-          str = '\n' + str.split('\n').map(function(line) {
-            return '   ' + line;
-          }).join('\n');
-        }
-      }
-    } else {
-      str = ctx.stylize('[Circular]', 'special');
-    }
-  }
-  if (isUndefined(name)) {
-    if (array && key.match(/^\d+$/)) {
-      return str;
-    }
-    name = JSON.stringify('' + key);
-    if (name.match(/^"([a-zA-Z_][a-zA-Z_0-9]*)"$/)) {
-      name = name.substr(1, name.length - 2);
-      name = ctx.stylize(name, 'name');
-    } else {
-      name = name.replace(/'/g, "\\'")
-                 .replace(/\\"/g, '"')
-                 .replace(/(^"|"$)/g, "'");
-      name = ctx.stylize(name, 'string');
-    }
-  }
-
-  return name + ': ' + str;
-}
-
-
-function reduceToSingleString(output, base, braces) {
-  var numLinesEst = 0;
-  var length = shims.reduce(output, function(prev, cur) {
-    numLinesEst++;
-    if (cur.indexOf('\n') >= 0) numLinesEst++;
-    return prev + cur.replace(/\u001b\[\d\d?m/g, '').length + 1;
-  }, 0);
-
-  if (length > 60) {
-    return braces[0] +
-           (base === '' ? '' : base + '\n ') +
-           ' ' +
-           output.join(',\n  ') +
-           ' ' +
-           braces[1];
-  }
-
-  return braces[0] + base + ' ' + output.join(', ') + ' ' + braces[1];
-}
-
-
-// NOTE: These type checking functions intentionally don't use `instanceof`
-// because it is fragile and can be easily faked with `Object.create()`.
-function isArray(ar) {
-  return shims.isArray(ar);
-}
-exports.isArray = isArray;
-
-function isBoolean(arg) {
-  return typeof arg === 'boolean';
-}
-exports.isBoolean = isBoolean;
-
-function isNull(arg) {
-  return arg === null;
-}
-exports.isNull = isNull;
-
-function isNullOrUndefined(arg) {
-  return arg == null;
-}
-exports.isNullOrUndefined = isNullOrUndefined;
-
-function isNumber(arg) {
-  return typeof arg === 'number';
-}
-exports.isNumber = isNumber;
-
-function isString(arg) {
-  return typeof arg === 'string';
-}
-exports.isString = isString;
-
-function isSymbol(arg) {
-  return typeof arg === 'symbol';
-}
-exports.isSymbol = isSymbol;
-
-function isUndefined(arg) {
-  return arg === void 0;
-}
-exports.isUndefined = isUndefined;
-
-function isRegExp(re) {
-  return isObject(re) && objectToString(re) === '[object RegExp]';
-}
-exports.isRegExp = isRegExp;
-
-function isObject(arg) {
-  return typeof arg === 'object' && arg;
-}
-exports.isObject = isObject;
-
-function isDate(d) {
-  return isObject(d) && objectToString(d) === '[object Date]';
-}
-exports.isDate = isDate;
-
-function isError(e) {
-  return isObject(e) && objectToString(e) === '[object Error]';
-}
-exports.isError = isError;
-
-function isFunction(arg) {
-  return typeof arg === 'function';
-}
-exports.isFunction = isFunction;
-
-function isPrimitive(arg) {
-  return arg === null ||
-         typeof arg === 'boolean' ||
-         typeof arg === 'number' ||
-         typeof arg === 'string' ||
-         typeof arg === 'symbol' ||  // ES6 symbol
-         typeof arg === 'undefined';
-}
-exports.isPrimitive = isPrimitive;
-
-function isBuffer(arg) {
-  return arg && typeof arg === 'object'
-    && typeof arg.copy === 'function'
-    && typeof arg.fill === 'function'
-    && typeof arg.binarySlice === 'function'
-  ;
-}
-exports.isBuffer = isBuffer;
-
-function objectToString(o) {
-  return Object.prototype.toString.call(o);
-}
-
-
-function pad(n) {
-  return n < 10 ? '0' + n.toString(10) : n.toString(10);
-}
-
-
-var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep',
-              'Oct', 'Nov', 'Dec'];
-
-// 26 Feb 16:19:34
-function timestamp() {
-  var d = new Date();
-  var time = [pad(d.getHours()),
-              pad(d.getMinutes()),
-              pad(d.getSeconds())].join(':');
-  return [d.getDate(), months[d.getMonth()], time].join(' ');
-}
-
-
-// log is just a thin wrapper to console.log that prepends a timestamp
-exports.log = function() {
-  console.log('%s - %s', timestamp(), exports.format.apply(exports, arguments));
-};
-
+})()
 
 /**
- * Inherit the prototype methods from one constructor into another.
+ * Class: Buffer
+ * =============
  *
- * The Function.prototype.inherits from lang.js rewritten as a standalone
- * function (not on Function.prototype). NOTE: If this file is to be loaded
- * during bootstrapping this function needs to be rewritten using some native
- * functions as prototype setup using normal JavaScript does not work as
- * expected during bootstrapping (see mirror.js in r114903).
+ * The Buffer constructor returns instances of `Uint8Array` that are augmented
+ * with function properties for all the node `Buffer` API functions. We use
+ * `Uint8Array` so that square bracket notation works as expected -- it returns
+ * a single octet.
  *
- * @param {function} ctor Constructor function which needs to inherit the
- *     prototype.
- * @param {function} superCtor Constructor function to inherit prototype from.
+ * By augmenting the instances, we can avoid modifying the `Uint8Array`
+ * prototype.
  */
-exports.inherits = function(ctor, superCtor) {
-  ctor.super_ = superCtor;
-  ctor.prototype = shims.create(superCtor.prototype, {
-    constructor: {
-      value: ctor,
-      enumerable: false,
-      writable: true,
-      configurable: true
+function Buffer (subject, encoding, noZero) {
+  if (!(this instanceof Buffer))
+    return new Buffer(subject, encoding, noZero)
+
+  var type = typeof subject
+
+  // Workaround: node's base64 implementation allows for non-padded strings
+  // while base64-js does not.
+  if (encoding === 'base64' && type === 'string') {
+    subject = stringtrim(subject)
+    while (subject.length % 4 !== 0) {
+      subject = subject + '='
     }
-  });
-};
-
-exports._extend = function(origin, add) {
-  // Don't do anything if add isn't an object
-  if (!add || !isObject(add)) return origin;
-
-  var keys = shims.keys(add);
-  var i = keys.length;
-  while (i--) {
-    origin[keys[i]] = add[keys[i]];
   }
-  return origin;
-};
 
-function hasOwnProperty(obj, prop) {
-  return Object.prototype.hasOwnProperty.call(obj, prop);
+  // Find the length
+  var length
+  if (type === 'number')
+    length = coerce(subject)
+  else if (type === 'string')
+    length = Buffer.byteLength(subject, encoding)
+  else if (type === 'object')
+    length = coerce(subject.length) // assume that object is array-like
+  else
+    throw new Error('First argument needs to be a number, array or string.')
+
+  var buf
+  if (Buffer._useTypedArrays) {
+    // Preferred: Return an augmented `Uint8Array` instance for best performance
+    buf = Buffer._augment(new Uint8Array(length))
+  } else {
+    // Fallback: Return THIS instance of Buffer (created by `new`)
+    buf = this
+    buf.length = length
+    buf._isBuffer = true
+  }
+
+  var i
+  if (Buffer._useTypedArrays && typeof subject.byteLength === 'number') {
+    // Speed optimization -- use set if we're copying from a typed array
+    buf._set(subject)
+  } else if (isArrayish(subject)) {
+    // Treat array-ish objects as a byte array
+    if (Buffer.isBuffer(subject)) {
+      for (i = 0; i < length; i++)
+        buf[i] = subject.readUInt8(i)
+    } else {
+      for (i = 0; i < length; i++)
+        buf[i] = ((subject[i] % 256) + 256) % 256
+    }
+  } else if (type === 'string') {
+    buf.write(subject, 0, encoding)
+  } else if (type === 'number' && !Buffer._useTypedArrays && !noZero) {
+    for (i = 0; i < length; i++) {
+      buf[i] = 0
+    }
+  }
+
+  return buf
 }
 
-},{"_shims":122}],125:[function(require,module,exports){
-exports.readIEEE754 = function(buffer, offset, isBE, mLen, nBytes) {
+// STATIC METHODS
+// ==============
+
+Buffer.isEncoding = function (encoding) {
+  switch (String(encoding).toLowerCase()) {
+    case 'hex':
+    case 'utf8':
+    case 'utf-8':
+    case 'ascii':
+    case 'binary':
+    case 'base64':
+    case 'raw':
+    case 'ucs2':
+    case 'ucs-2':
+    case 'utf16le':
+    case 'utf-16le':
+      return true
+    default:
+      return false
+  }
+}
+
+Buffer.isBuffer = function (b) {
+  return !!(b !== null && b !== undefined && b._isBuffer)
+}
+
+Buffer.byteLength = function (str, encoding) {
+  var ret
+  str = str.toString()
+  switch (encoding || 'utf8') {
+    case 'hex':
+      ret = str.length / 2
+      break
+    case 'utf8':
+    case 'utf-8':
+      ret = utf8ToBytes(str).length
+      break
+    case 'ascii':
+    case 'binary':
+    case 'raw':
+      ret = str.length
+      break
+    case 'base64':
+      ret = base64ToBytes(str).length
+      break
+    case 'ucs2':
+    case 'ucs-2':
+    case 'utf16le':
+    case 'utf-16le':
+      ret = str.length * 2
+      break
+    default:
+      throw new Error('Unknown encoding')
+  }
+  return ret
+}
+
+Buffer.concat = function (list, totalLength) {
+  assert(isArray(list), 'Usage: Buffer.concat(list[, length])')
+
+  if (list.length === 0) {
+    return new Buffer(0)
+  } else if (list.length === 1) {
+    return list[0]
+  }
+
+  var i
+  if (totalLength === undefined) {
+    totalLength = 0
+    for (i = 0; i < list.length; i++) {
+      totalLength += list[i].length
+    }
+  }
+
+  var buf = new Buffer(totalLength)
+  var pos = 0
+  for (i = 0; i < list.length; i++) {
+    var item = list[i]
+    item.copy(buf, pos)
+    pos += item.length
+  }
+  return buf
+}
+
+Buffer.compare = function (a, b) {
+  assert(Buffer.isBuffer(a) && Buffer.isBuffer(b), 'Arguments must be Buffers')
+  var x = a.length
+  var y = b.length
+  for (var i = 0, len = Math.min(x, y); i < len && a[i] === b[i]; i++) {}
+  if (i !== len) {
+    x = a[i]
+    y = b[i]
+  }
+  if (x < y) {
+    return -1
+  }
+  if (y < x) {
+    return 1
+  }
+  return 0
+}
+
+// BUFFER INSTANCE METHODS
+// =======================
+
+function hexWrite (buf, string, offset, length) {
+  offset = Number(offset) || 0
+  var remaining = buf.length - offset
+  if (!length) {
+    length = remaining
+  } else {
+    length = Number(length)
+    if (length > remaining) {
+      length = remaining
+    }
+  }
+
+  // must be an even number of digits
+  var strLen = string.length
+  assert(strLen % 2 === 0, 'Invalid hex string')
+
+  if (length > strLen / 2) {
+    length = strLen / 2
+  }
+  for (var i = 0; i < length; i++) {
+    var byte = parseInt(string.substr(i * 2, 2), 16)
+    assert(!isNaN(byte), 'Invalid hex string')
+    buf[offset + i] = byte
+  }
+  return i
+}
+
+function utf8Write (buf, string, offset, length) {
+  var charsWritten = blitBuffer(utf8ToBytes(string), buf, offset, length)
+  return charsWritten
+}
+
+function asciiWrite (buf, string, offset, length) {
+  var charsWritten = blitBuffer(asciiToBytes(string), buf, offset, length)
+  return charsWritten
+}
+
+function binaryWrite (buf, string, offset, length) {
+  return asciiWrite(buf, string, offset, length)
+}
+
+function base64Write (buf, string, offset, length) {
+  var charsWritten = blitBuffer(base64ToBytes(string), buf, offset, length)
+  return charsWritten
+}
+
+function utf16leWrite (buf, string, offset, length) {
+  var charsWritten = blitBuffer(utf16leToBytes(string), buf, offset, length)
+  return charsWritten
+}
+
+Buffer.prototype.write = function (string, offset, length, encoding) {
+  // Support both (string, offset, length, encoding)
+  // and the legacy (string, encoding, offset, length)
+  if (isFinite(offset)) {
+    if (!isFinite(length)) {
+      encoding = length
+      length = undefined
+    }
+  } else {  // legacy
+    var swap = encoding
+    encoding = offset
+    offset = length
+    length = swap
+  }
+
+  offset = Number(offset) || 0
+  var remaining = this.length - offset
+  if (!length) {
+    length = remaining
+  } else {
+    length = Number(length)
+    if (length > remaining) {
+      length = remaining
+    }
+  }
+  encoding = String(encoding || 'utf8').toLowerCase()
+
+  var ret
+  switch (encoding) {
+    case 'hex':
+      ret = hexWrite(this, string, offset, length)
+      break
+    case 'utf8':
+    case 'utf-8':
+      ret = utf8Write(this, string, offset, length)
+      break
+    case 'ascii':
+      ret = asciiWrite(this, string, offset, length)
+      break
+    case 'binary':
+      ret = binaryWrite(this, string, offset, length)
+      break
+    case 'base64':
+      ret = base64Write(this, string, offset, length)
+      break
+    case 'ucs2':
+    case 'ucs-2':
+    case 'utf16le':
+    case 'utf-16le':
+      ret = utf16leWrite(this, string, offset, length)
+      break
+    default:
+      throw new Error('Unknown encoding')
+  }
+  return ret
+}
+
+Buffer.prototype.toString = function (encoding, start, end) {
+  var self = this
+
+  encoding = String(encoding || 'utf8').toLowerCase()
+  start = Number(start) || 0
+  end = (end === undefined) ? self.length : Number(end)
+
+  // Fastpath empty strings
+  if (end === start)
+    return ''
+
+  var ret
+  switch (encoding) {
+    case 'hex':
+      ret = hexSlice(self, start, end)
+      break
+    case 'utf8':
+    case 'utf-8':
+      ret = utf8Slice(self, start, end)
+      break
+    case 'ascii':
+      ret = asciiSlice(self, start, end)
+      break
+    case 'binary':
+      ret = binarySlice(self, start, end)
+      break
+    case 'base64':
+      ret = base64Slice(self, start, end)
+      break
+    case 'ucs2':
+    case 'ucs-2':
+    case 'utf16le':
+    case 'utf-16le':
+      ret = utf16leSlice(self, start, end)
+      break
+    default:
+      throw new Error('Unknown encoding')
+  }
+  return ret
+}
+
+Buffer.prototype.toJSON = function () {
+  return {
+    type: 'Buffer',
+    data: Array.prototype.slice.call(this._arr || this, 0)
+  }
+}
+
+Buffer.prototype.equals = function (b) {
+  assert(Buffer.isBuffer(b), 'Argument must be a Buffer')
+  return Buffer.compare(this, b) === 0
+}
+
+Buffer.prototype.compare = function (b) {
+  assert(Buffer.isBuffer(b), 'Argument must be a Buffer')
+  return Buffer.compare(this, b)
+}
+
+// copy(targetBuffer, targetStart=0, sourceStart=0, sourceEnd=buffer.length)
+Buffer.prototype.copy = function (target, target_start, start, end) {
+  var source = this
+
+  if (!start) start = 0
+  if (!end && end !== 0) end = this.length
+  if (!target_start) target_start = 0
+
+  // Copy 0 bytes; we're done
+  if (end === start) return
+  if (target.length === 0 || source.length === 0) return
+
+  // Fatal error conditions
+  assert(end >= start, 'sourceEnd < sourceStart')
+  assert(target_start >= 0 && target_start < target.length,
+      'targetStart out of bounds')
+  assert(start >= 0 && start < source.length, 'sourceStart out of bounds')
+  assert(end >= 0 && end <= source.length, 'sourceEnd out of bounds')
+
+  // Are we oob?
+  if (end > this.length)
+    end = this.length
+  if (target.length - target_start < end - start)
+    end = target.length - target_start + start
+
+  var len = end - start
+
+  if (len < 100 || !Buffer._useTypedArrays) {
+    for (var i = 0; i < len; i++) {
+      target[i + target_start] = this[i + start]
+    }
+  } else {
+    target._set(this.subarray(start, start + len), target_start)
+  }
+}
+
+function base64Slice (buf, start, end) {
+  if (start === 0 && end === buf.length) {
+    return base64.fromByteArray(buf)
+  } else {
+    return base64.fromByteArray(buf.slice(start, end))
+  }
+}
+
+function utf8Slice (buf, start, end) {
+  var res = ''
+  var tmp = ''
+  end = Math.min(buf.length, end)
+
+  for (var i = start; i < end; i++) {
+    if (buf[i] <= 0x7F) {
+      res += decodeUtf8Char(tmp) + String.fromCharCode(buf[i])
+      tmp = ''
+    } else {
+      tmp += '%' + buf[i].toString(16)
+    }
+  }
+
+  return res + decodeUtf8Char(tmp)
+}
+
+function asciiSlice (buf, start, end) {
+  var ret = ''
+  end = Math.min(buf.length, end)
+
+  for (var i = start; i < end; i++) {
+    ret += String.fromCharCode(buf[i])
+  }
+  return ret
+}
+
+function binarySlice (buf, start, end) {
+  return asciiSlice(buf, start, end)
+}
+
+function hexSlice (buf, start, end) {
+  var len = buf.length
+
+  if (!start || start < 0) start = 0
+  if (!end || end < 0 || end > len) end = len
+
+  var out = ''
+  for (var i = start; i < end; i++) {
+    out += toHex(buf[i])
+  }
+  return out
+}
+
+function utf16leSlice (buf, start, end) {
+  var bytes = buf.slice(start, end)
+  var res = ''
+  for (var i = 0; i < bytes.length; i += 2) {
+    res += String.fromCharCode(bytes[i] + bytes[i + 1] * 256)
+  }
+  return res
+}
+
+Buffer.prototype.slice = function (start, end) {
+  var len = this.length
+  start = clamp(start, len, 0)
+  end = clamp(end, len, len)
+
+  if (Buffer._useTypedArrays) {
+    return Buffer._augment(this.subarray(start, end))
+  } else {
+    var sliceLen = end - start
+    var newBuf = new Buffer(sliceLen, undefined, true)
+    for (var i = 0; i < sliceLen; i++) {
+      newBuf[i] = this[i + start]
+    }
+    return newBuf
+  }
+}
+
+// `get` will be removed in Node 0.13+
+Buffer.prototype.get = function (offset) {
+  console.log('.get() is deprecated. Access using array indexes instead.')
+  return this.readUInt8(offset)
+}
+
+// `set` will be removed in Node 0.13+
+Buffer.prototype.set = function (v, offset) {
+  console.log('.set() is deprecated. Access using array indexes instead.')
+  return this.writeUInt8(v, offset)
+}
+
+Buffer.prototype.readUInt8 = function (offset, noAssert) {
+  if (!noAssert) {
+    assert(offset !== undefined && offset !== null, 'missing offset')
+    assert(offset < this.length, 'Trying to read beyond buffer length')
+  }
+
+  if (offset >= this.length)
+    return
+
+  return this[offset]
+}
+
+function readUInt16 (buf, offset, littleEndian, noAssert) {
+  if (!noAssert) {
+    assert(typeof littleEndian === 'boolean', 'missing or invalid endian')
+    assert(offset !== undefined && offset !== null, 'missing offset')
+    assert(offset + 1 < buf.length, 'Trying to read beyond buffer length')
+  }
+
+  var len = buf.length
+  if (offset >= len)
+    return
+
+  var val
+  if (littleEndian) {
+    val = buf[offset]
+    if (offset + 1 < len)
+      val |= buf[offset + 1] << 8
+  } else {
+    val = buf[offset] << 8
+    if (offset + 1 < len)
+      val |= buf[offset + 1]
+  }
+  return val
+}
+
+Buffer.prototype.readUInt16LE = function (offset, noAssert) {
+  return readUInt16(this, offset, true, noAssert)
+}
+
+Buffer.prototype.readUInt16BE = function (offset, noAssert) {
+  return readUInt16(this, offset, false, noAssert)
+}
+
+function readUInt32 (buf, offset, littleEndian, noAssert) {
+  if (!noAssert) {
+    assert(typeof littleEndian === 'boolean', 'missing or invalid endian')
+    assert(offset !== undefined && offset !== null, 'missing offset')
+    assert(offset + 3 < buf.length, 'Trying to read beyond buffer length')
+  }
+
+  var len = buf.length
+  if (offset >= len)
+    return
+
+  var val
+  if (littleEndian) {
+    if (offset + 2 < len)
+      val = buf[offset + 2] << 16
+    if (offset + 1 < len)
+      val |= buf[offset + 1] << 8
+    val |= buf[offset]
+    if (offset + 3 < len)
+      val = val + (buf[offset + 3] << 24 >>> 0)
+  } else {
+    if (offset + 1 < len)
+      val = buf[offset + 1] << 16
+    if (offset + 2 < len)
+      val |= buf[offset + 2] << 8
+    if (offset + 3 < len)
+      val |= buf[offset + 3]
+    val = val + (buf[offset] << 24 >>> 0)
+  }
+  return val
+}
+
+Buffer.prototype.readUInt32LE = function (offset, noAssert) {
+  return readUInt32(this, offset, true, noAssert)
+}
+
+Buffer.prototype.readUInt32BE = function (offset, noAssert) {
+  return readUInt32(this, offset, false, noAssert)
+}
+
+Buffer.prototype.readInt8 = function (offset, noAssert) {
+  if (!noAssert) {
+    assert(offset !== undefined && offset !== null,
+        'missing offset')
+    assert(offset < this.length, 'Trying to read beyond buffer length')
+  }
+
+  if (offset >= this.length)
+    return
+
+  var neg = this[offset] & 0x80
+  if (neg)
+    return (0xff - this[offset] + 1) * -1
+  else
+    return this[offset]
+}
+
+function readInt16 (buf, offset, littleEndian, noAssert) {
+  if (!noAssert) {
+    assert(typeof littleEndian === 'boolean', 'missing or invalid endian')
+    assert(offset !== undefined && offset !== null, 'missing offset')
+    assert(offset + 1 < buf.length, 'Trying to read beyond buffer length')
+  }
+
+  var len = buf.length
+  if (offset >= len)
+    return
+
+  var val = readUInt16(buf, offset, littleEndian, true)
+  var neg = val & 0x8000
+  if (neg)
+    return (0xffff - val + 1) * -1
+  else
+    return val
+}
+
+Buffer.prototype.readInt16LE = function (offset, noAssert) {
+  return readInt16(this, offset, true, noAssert)
+}
+
+Buffer.prototype.readInt16BE = function (offset, noAssert) {
+  return readInt16(this, offset, false, noAssert)
+}
+
+function readInt32 (buf, offset, littleEndian, noAssert) {
+  if (!noAssert) {
+    assert(typeof littleEndian === 'boolean', 'missing or invalid endian')
+    assert(offset !== undefined && offset !== null, 'missing offset')
+    assert(offset + 3 < buf.length, 'Trying to read beyond buffer length')
+  }
+
+  var len = buf.length
+  if (offset >= len)
+    return
+
+  var val = readUInt32(buf, offset, littleEndian, true)
+  var neg = val & 0x80000000
+  if (neg)
+    return (0xffffffff - val + 1) * -1
+  else
+    return val
+}
+
+Buffer.prototype.readInt32LE = function (offset, noAssert) {
+  return readInt32(this, offset, true, noAssert)
+}
+
+Buffer.prototype.readInt32BE = function (offset, noAssert) {
+  return readInt32(this, offset, false, noAssert)
+}
+
+function readFloat (buf, offset, littleEndian, noAssert) {
+  if (!noAssert) {
+    assert(typeof littleEndian === 'boolean', 'missing or invalid endian')
+    assert(offset + 3 < buf.length, 'Trying to read beyond buffer length')
+  }
+
+  return ieee754.read(buf, offset, littleEndian, 23, 4)
+}
+
+Buffer.prototype.readFloatLE = function (offset, noAssert) {
+  return readFloat(this, offset, true, noAssert)
+}
+
+Buffer.prototype.readFloatBE = function (offset, noAssert) {
+  return readFloat(this, offset, false, noAssert)
+}
+
+function readDouble (buf, offset, littleEndian, noAssert) {
+  if (!noAssert) {
+    assert(typeof littleEndian === 'boolean', 'missing or invalid endian')
+    assert(offset + 7 < buf.length, 'Trying to read beyond buffer length')
+  }
+
+  return ieee754.read(buf, offset, littleEndian, 52, 8)
+}
+
+Buffer.prototype.readDoubleLE = function (offset, noAssert) {
+  return readDouble(this, offset, true, noAssert)
+}
+
+Buffer.prototype.readDoubleBE = function (offset, noAssert) {
+  return readDouble(this, offset, false, noAssert)
+}
+
+Buffer.prototype.writeUInt8 = function (value, offset, noAssert) {
+  if (!noAssert) {
+    assert(value !== undefined && value !== null, 'missing value')
+    assert(offset !== undefined && offset !== null, 'missing offset')
+    assert(offset < this.length, 'trying to write beyond buffer length')
+    verifuint(value, 0xff)
+  }
+
+  if (offset >= this.length) return
+
+  this[offset] = value
+  return offset + 1
+}
+
+function writeUInt16 (buf, value, offset, littleEndian, noAssert) {
+  if (!noAssert) {
+    assert(value !== undefined && value !== null, 'missing value')
+    assert(typeof littleEndian === 'boolean', 'missing or invalid endian')
+    assert(offset !== undefined && offset !== null, 'missing offset')
+    assert(offset + 1 < buf.length, 'trying to write beyond buffer length')
+    verifuint(value, 0xffff)
+  }
+
+  var len = buf.length
+  if (offset >= len)
+    return
+
+  for (var i = 0, j = Math.min(len - offset, 2); i < j; i++) {
+    buf[offset + i] =
+        (value & (0xff << (8 * (littleEndian ? i : 1 - i)))) >>>
+            (littleEndian ? i : 1 - i) * 8
+  }
+  return offset + 2
+}
+
+Buffer.prototype.writeUInt16LE = function (value, offset, noAssert) {
+  return writeUInt16(this, value, offset, true, noAssert)
+}
+
+Buffer.prototype.writeUInt16BE = function (value, offset, noAssert) {
+  return writeUInt16(this, value, offset, false, noAssert)
+}
+
+function writeUInt32 (buf, value, offset, littleEndian, noAssert) {
+  if (!noAssert) {
+    assert(value !== undefined && value !== null, 'missing value')
+    assert(typeof littleEndian === 'boolean', 'missing or invalid endian')
+    assert(offset !== undefined && offset !== null, 'missing offset')
+    assert(offset + 3 < buf.length, 'trying to write beyond buffer length')
+    verifuint(value, 0xffffffff)
+  }
+
+  var len = buf.length
+  if (offset >= len)
+    return
+
+  for (var i = 0, j = Math.min(len - offset, 4); i < j; i++) {
+    buf[offset + i] =
+        (value >>> (littleEndian ? i : 3 - i) * 8) & 0xff
+  }
+  return offset + 4
+}
+
+Buffer.prototype.writeUInt32LE = function (value, offset, noAssert) {
+  return writeUInt32(this, value, offset, true, noAssert)
+}
+
+Buffer.prototype.writeUInt32BE = function (value, offset, noAssert) {
+  return writeUInt32(this, value, offset, false, noAssert)
+}
+
+Buffer.prototype.writeInt8 = function (value, offset, noAssert) {
+  if (!noAssert) {
+    assert(value !== undefined && value !== null, 'missing value')
+    assert(offset !== undefined && offset !== null, 'missing offset')
+    assert(offset < this.length, 'Trying to write beyond buffer length')
+    verifsint(value, 0x7f, -0x80)
+  }
+
+  if (offset >= this.length)
+    return
+
+  if (value >= 0)
+    this.writeUInt8(value, offset, noAssert)
+  else
+    this.writeUInt8(0xff + value + 1, offset, noAssert)
+  return offset + 1
+}
+
+function writeInt16 (buf, value, offset, littleEndian, noAssert) {
+  if (!noAssert) {
+    assert(value !== undefined && value !== null, 'missing value')
+    assert(typeof littleEndian === 'boolean', 'missing or invalid endian')
+    assert(offset !== undefined && offset !== null, 'missing offset')
+    assert(offset + 1 < buf.length, 'Trying to write beyond buffer length')
+    verifsint(value, 0x7fff, -0x8000)
+  }
+
+  var len = buf.length
+  if (offset >= len)
+    return
+
+  if (value >= 0)
+    writeUInt16(buf, value, offset, littleEndian, noAssert)
+  else
+    writeUInt16(buf, 0xffff + value + 1, offset, littleEndian, noAssert)
+  return offset + 2
+}
+
+Buffer.prototype.writeInt16LE = function (value, offset, noAssert) {
+  return writeInt16(this, value, offset, true, noAssert)
+}
+
+Buffer.prototype.writeInt16BE = function (value, offset, noAssert) {
+  return writeInt16(this, value, offset, false, noAssert)
+}
+
+function writeInt32 (buf, value, offset, littleEndian, noAssert) {
+  if (!noAssert) {
+    assert(value !== undefined && value !== null, 'missing value')
+    assert(typeof littleEndian === 'boolean', 'missing or invalid endian')
+    assert(offset !== undefined && offset !== null, 'missing offset')
+    assert(offset + 3 < buf.length, 'Trying to write beyond buffer length')
+    verifsint(value, 0x7fffffff, -0x80000000)
+  }
+
+  var len = buf.length
+  if (offset >= len)
+    return
+
+  if (value >= 0)
+    writeUInt32(buf, value, offset, littleEndian, noAssert)
+  else
+    writeUInt32(buf, 0xffffffff + value + 1, offset, littleEndian, noAssert)
+  return offset + 4
+}
+
+Buffer.prototype.writeInt32LE = function (value, offset, noAssert) {
+  return writeInt32(this, value, offset, true, noAssert)
+}
+
+Buffer.prototype.writeInt32BE = function (value, offset, noAssert) {
+  return writeInt32(this, value, offset, false, noAssert)
+}
+
+function writeFloat (buf, value, offset, littleEndian, noAssert) {
+  if (!noAssert) {
+    assert(value !== undefined && value !== null, 'missing value')
+    assert(typeof littleEndian === 'boolean', 'missing or invalid endian')
+    assert(offset !== undefined && offset !== null, 'missing offset')
+    assert(offset + 3 < buf.length, 'Trying to write beyond buffer length')
+    verifIEEE754(value, 3.4028234663852886e+38, -3.4028234663852886e+38)
+  }
+
+  var len = buf.length
+  if (offset >= len)
+    return
+
+  ieee754.write(buf, value, offset, littleEndian, 23, 4)
+  return offset + 4
+}
+
+Buffer.prototype.writeFloatLE = function (value, offset, noAssert) {
+  return writeFloat(this, value, offset, true, noAssert)
+}
+
+Buffer.prototype.writeFloatBE = function (value, offset, noAssert) {
+  return writeFloat(this, value, offset, false, noAssert)
+}
+
+function writeDouble (buf, value, offset, littleEndian, noAssert) {
+  if (!noAssert) {
+    assert(value !== undefined && value !== null, 'missing value')
+    assert(typeof littleEndian === 'boolean', 'missing or invalid endian')
+    assert(offset !== undefined && offset !== null, 'missing offset')
+    assert(offset + 7 < buf.length,
+        'Trying to write beyond buffer length')
+    verifIEEE754(value, 1.7976931348623157E+308, -1.7976931348623157E+308)
+  }
+
+  var len = buf.length
+  if (offset >= len)
+    return
+
+  ieee754.write(buf, value, offset, littleEndian, 52, 8)
+  return offset + 8
+}
+
+Buffer.prototype.writeDoubleLE = function (value, offset, noAssert) {
+  return writeDouble(this, value, offset, true, noAssert)
+}
+
+Buffer.prototype.writeDoubleBE = function (value, offset, noAssert) {
+  return writeDouble(this, value, offset, false, noAssert)
+}
+
+// fill(value, start=0, end=buffer.length)
+Buffer.prototype.fill = function (value, start, end) {
+  if (!value) value = 0
+  if (!start) start = 0
+  if (!end) end = this.length
+
+  assert(end >= start, 'end < start')
+
+  // Fill 0 bytes; we're done
+  if (end === start) return
+  if (this.length === 0) return
+
+  assert(start >= 0 && start < this.length, 'start out of bounds')
+  assert(end >= 0 && end <= this.length, 'end out of bounds')
+
+  var i
+  if (typeof value === 'number') {
+    for (i = start; i < end; i++) {
+      this[i] = value
+    }
+  } else {
+    var bytes = utf8ToBytes(value.toString())
+    var len = bytes.length
+    for (i = start; i < end; i++) {
+      this[i] = bytes[i % len]
+    }
+  }
+
+  return this
+}
+
+Buffer.prototype.inspect = function () {
+  var out = []
+  var len = this.length
+  for (var i = 0; i < len; i++) {
+    out[i] = toHex(this[i])
+    if (i === exports.INSPECT_MAX_BYTES) {
+      out[i + 1] = '...'
+      break
+    }
+  }
+  return '<Buffer ' + out.join(' ') + '>'
+}
+
+/**
+ * Creates a new `ArrayBuffer` with the *copied* memory of the buffer instance.
+ * Added in Node 0.12. Only available in browsers that support ArrayBuffer.
+ */
+Buffer.prototype.toArrayBuffer = function () {
+  if (typeof Uint8Array !== 'undefined') {
+    if (Buffer._useTypedArrays) {
+      return (new Buffer(this)).buffer
+    } else {
+      var buf = new Uint8Array(this.length)
+      for (var i = 0, len = buf.length; i < len; i += 1) {
+        buf[i] = this[i]
+      }
+      return buf.buffer
+    }
+  } else {
+    throw new Error('Buffer.toArrayBuffer not supported in this browser')
+  }
+}
+
+// HELPER FUNCTIONS
+// ================
+
+var BP = Buffer.prototype
+
+/**
+ * Augment a Uint8Array *instance* (not the Uint8Array class!) with Buffer methods
+ */
+Buffer._augment = function (arr) {
+  arr._isBuffer = true
+
+  // save reference to original Uint8Array get/set methods before overwriting
+  arr._get = arr.get
+  arr._set = arr.set
+
+  // deprecated, will be removed in node 0.13+
+  arr.get = BP.get
+  arr.set = BP.set
+
+  arr.write = BP.write
+  arr.toString = BP.toString
+  arr.toLocaleString = BP.toString
+  arr.toJSON = BP.toJSON
+  arr.equals = BP.equals
+  arr.compare = BP.compare
+  arr.copy = BP.copy
+  arr.slice = BP.slice
+  arr.readUInt8 = BP.readUInt8
+  arr.readUInt16LE = BP.readUInt16LE
+  arr.readUInt16BE = BP.readUInt16BE
+  arr.readUInt32LE = BP.readUInt32LE
+  arr.readUInt32BE = BP.readUInt32BE
+  arr.readInt8 = BP.readInt8
+  arr.readInt16LE = BP.readInt16LE
+  arr.readInt16BE = BP.readInt16BE
+  arr.readInt32LE = BP.readInt32LE
+  arr.readInt32BE = BP.readInt32BE
+  arr.readFloatLE = BP.readFloatLE
+  arr.readFloatBE = BP.readFloatBE
+  arr.readDoubleLE = BP.readDoubleLE
+  arr.readDoubleBE = BP.readDoubleBE
+  arr.writeUInt8 = BP.writeUInt8
+  arr.writeUInt16LE = BP.writeUInt16LE
+  arr.writeUInt16BE = BP.writeUInt16BE
+  arr.writeUInt32LE = BP.writeUInt32LE
+  arr.writeUInt32BE = BP.writeUInt32BE
+  arr.writeInt8 = BP.writeInt8
+  arr.writeInt16LE = BP.writeInt16LE
+  arr.writeInt16BE = BP.writeInt16BE
+  arr.writeInt32LE = BP.writeInt32LE
+  arr.writeInt32BE = BP.writeInt32BE
+  arr.writeFloatLE = BP.writeFloatLE
+  arr.writeFloatBE = BP.writeFloatBE
+  arr.writeDoubleLE = BP.writeDoubleLE
+  arr.writeDoubleBE = BP.writeDoubleBE
+  arr.fill = BP.fill
+  arr.inspect = BP.inspect
+  arr.toArrayBuffer = BP.toArrayBuffer
+
+  return arr
+}
+
+function stringtrim (str) {
+  if (str.trim) return str.trim()
+  return str.replace(/^\s+|\s+$/g, '')
+}
+
+// slice(start, end)
+function clamp (index, len, defaultValue) {
+  if (typeof index !== 'number') return defaultValue
+  index = ~~index;  // Coerce to integer.
+  if (index >= len) return len
+  if (index >= 0) return index
+  index += len
+  if (index >= 0) return index
+  return 0
+}
+
+function coerce (length) {
+  // Coerce length to a number (possibly NaN), round up
+  // in case it's fractional (e.g. 123.456) then do a
+  // double negate to coerce a NaN to 0. Easy, right?
+  length = ~~Math.ceil(+length)
+  return length < 0 ? 0 : length
+}
+
+function isArray (subject) {
+  return (Array.isArray || function (subject) {
+    return Object.prototype.toString.call(subject) === '[object Array]'
+  })(subject)
+}
+
+function isArrayish (subject) {
+  return isArray(subject) || Buffer.isBuffer(subject) ||
+      subject && typeof subject === 'object' &&
+      typeof subject.length === 'number'
+}
+
+function toHex (n) {
+  if (n < 16) return '0' + n.toString(16)
+  return n.toString(16)
+}
+
+function utf8ToBytes (str) {
+  var byteArray = []
+  for (var i = 0; i < str.length; i++) {
+    var b = str.charCodeAt(i)
+    if (b <= 0x7F) {
+      byteArray.push(b)
+    } else {
+      var start = i
+      if (b >= 0xD800 && b <= 0xDFFF) i++
+      var h = encodeURIComponent(str.slice(start, i+1)).substr(1).split('%')
+      for (var j = 0; j < h.length; j++) {
+        byteArray.push(parseInt(h[j], 16))
+      }
+    }
+  }
+  return byteArray
+}
+
+function asciiToBytes (str) {
+  var byteArray = []
+  for (var i = 0; i < str.length; i++) {
+    // Node's code seems to be doing this and not & 0x7F..
+    byteArray.push(str.charCodeAt(i) & 0xFF)
+  }
+  return byteArray
+}
+
+function utf16leToBytes (str) {
+  var c, hi, lo
+  var byteArray = []
+  for (var i = 0; i < str.length; i++) {
+    c = str.charCodeAt(i)
+    hi = c >> 8
+    lo = c % 256
+    byteArray.push(lo)
+    byteArray.push(hi)
+  }
+
+  return byteArray
+}
+
+function base64ToBytes (str) {
+  return base64.toByteArray(str)
+}
+
+function blitBuffer (src, dst, offset, length) {
+  for (var i = 0; i < length; i++) {
+    if ((i + offset >= dst.length) || (i >= src.length))
+      break
+    dst[i + offset] = src[i]
+  }
+  return i
+}
+
+function decodeUtf8Char (str) {
+  try {
+    return decodeURIComponent(str)
+  } catch (err) {
+    return String.fromCharCode(0xFFFD) // UTF 8 invalid char
+  }
+}
+
+/*
+ * We have to make sure that the value is a valid integer. This means that it
+ * is non-negative. It has no fractional component and that it does not
+ * exceed the maximum allowed value.
+ */
+function verifuint (value, max) {
+  assert(typeof value === 'number', 'cannot write a non-number as a number')
+  assert(value >= 0, 'specified a negative value for writing an unsigned value')
+  assert(value <= max, 'value is larger than maximum value for type')
+  assert(Math.floor(value) === value, 'value has a fractional component')
+}
+
+function verifsint (value, max, min) {
+  assert(typeof value === 'number', 'cannot write a non-number as a number')
+  assert(value <= max, 'value larger than maximum allowed value')
+  assert(value >= min, 'value smaller than minimum allowed value')
+  assert(Math.floor(value) === value, 'value has a fractional component')
+}
+
+function verifIEEE754 (value, max, min) {
+  assert(typeof value === 'number', 'cannot write a non-number as a number')
+  assert(value <= max, 'value larger than maximum allowed value')
+  assert(value >= min, 'value smaller than minimum allowed value')
+}
+
+function assert (test, message) {
+  if (!test) throw new Error(message || 'Failed assertion')
+}
+
+},{"base64-js":145,"ieee754":146}],145:[function(_dereq_,module,exports){
+var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+;(function (exports) {
+	'use strict';
+
+  var Arr = (typeof Uint8Array !== 'undefined')
+    ? Uint8Array
+    : Array
+
+	var PLUS   = '+'.charCodeAt(0)
+	var SLASH  = '/'.charCodeAt(0)
+	var NUMBER = '0'.charCodeAt(0)
+	var LOWER  = 'a'.charCodeAt(0)
+	var UPPER  = 'A'.charCodeAt(0)
+
+	function decode (elt) {
+		var code = elt.charCodeAt(0)
+		if (code === PLUS)
+			return 62 // '+'
+		if (code === SLASH)
+			return 63 // '/'
+		if (code < NUMBER)
+			return -1 //no match
+		if (code < NUMBER + 10)
+			return code - NUMBER + 26 + 26
+		if (code < UPPER + 26)
+			return code - UPPER
+		if (code < LOWER + 26)
+			return code - LOWER + 26
+	}
+
+	function b64ToByteArray (b64) {
+		var i, j, l, tmp, placeHolders, arr
+
+		if (b64.length % 4 > 0) {
+			throw new Error('Invalid string. Length must be a multiple of 4')
+		}
+
+		// the number of equal signs (place holders)
+		// if there are two placeholders, than the two characters before it
+		// represent one byte
+		// if there is only one, then the three characters before it represent 2 bytes
+		// this is just a cheap hack to not do indexOf twice
+		var len = b64.length
+		placeHolders = '=' === b64.charAt(len - 2) ? 2 : '=' === b64.charAt(len - 1) ? 1 : 0
+
+		// base64 is 4/3 + up to two characters of the original data
+		arr = new Arr(b64.length * 3 / 4 - placeHolders)
+
+		// if there are placeholders, only get up to the last complete 4 chars
+		l = placeHolders > 0 ? b64.length - 4 : b64.length
+
+		var L = 0
+
+		function push (v) {
+			arr[L++] = v
+		}
+
+		for (i = 0, j = 0; i < l; i += 4, j += 3) {
+			tmp = (decode(b64.charAt(i)) << 18) | (decode(b64.charAt(i + 1)) << 12) | (decode(b64.charAt(i + 2)) << 6) | decode(b64.charAt(i + 3))
+			push((tmp & 0xFF0000) >> 16)
+			push((tmp & 0xFF00) >> 8)
+			push(tmp & 0xFF)
+		}
+
+		if (placeHolders === 2) {
+			tmp = (decode(b64.charAt(i)) << 2) | (decode(b64.charAt(i + 1)) >> 4)
+			push(tmp & 0xFF)
+		} else if (placeHolders === 1) {
+			tmp = (decode(b64.charAt(i)) << 10) | (decode(b64.charAt(i + 1)) << 4) | (decode(b64.charAt(i + 2)) >> 2)
+			push((tmp >> 8) & 0xFF)
+			push(tmp & 0xFF)
+		}
+
+		return arr
+	}
+
+	function uint8ToBase64 (uint8) {
+		var i,
+			extraBytes = uint8.length % 3, // if we have 1 byte left, pad 2 bytes
+			output = "",
+			temp, length
+
+		function encode (num) {
+			return lookup.charAt(num)
+		}
+
+		function tripletToBase64 (num) {
+			return encode(num >> 18 & 0x3F) + encode(num >> 12 & 0x3F) + encode(num >> 6 & 0x3F) + encode(num & 0x3F)
+		}
+
+		// go through the array every three bytes, we'll deal with trailing stuff later
+		for (i = 0, length = uint8.length - extraBytes; i < length; i += 3) {
+			temp = (uint8[i] << 16) + (uint8[i + 1] << 8) + (uint8[i + 2])
+			output += tripletToBase64(temp)
+		}
+
+		// pad the end with zeros, but make sure to not forget the extra bytes
+		switch (extraBytes) {
+			case 1:
+				temp = uint8[uint8.length - 1]
+				output += encode(temp >> 2)
+				output += encode((temp << 4) & 0x3F)
+				output += '=='
+				break
+			case 2:
+				temp = (uint8[uint8.length - 2] << 8) + (uint8[uint8.length - 1])
+				output += encode(temp >> 10)
+				output += encode((temp >> 4) & 0x3F)
+				output += encode((temp << 2) & 0x3F)
+				output += '='
+				break
+		}
+
+		return output
+	}
+
+	exports.toByteArray = b64ToByteArray
+	exports.fromByteArray = uint8ToBase64
+}(typeof exports === 'undefined' ? (this.base64js = {}) : exports))
+
+},{}],146:[function(_dereq_,module,exports){
+exports.read = function(buffer, offset, isLE, mLen, nBytes) {
   var e, m,
       eLen = nBytes * 8 - mLen - 1,
       eMax = (1 << eLen) - 1,
       eBias = eMax >> 1,
       nBits = -7,
-      i = isBE ? 0 : (nBytes - 1),
-      d = isBE ? 1 : -1,
+      i = isLE ? (nBytes - 1) : 0,
+      d = isLE ? -1 : 1,
       s = buffer[offset + i];
 
   i += d;
@@ -13103,14 +14646,14 @@ exports.readIEEE754 = function(buffer, offset, isBE, mLen, nBytes) {
   return (s ? -1 : 1) * m * Math.pow(2, e - mLen);
 };
 
-exports.writeIEEE754 = function(buffer, value, offset, isBE, mLen, nBytes) {
+exports.write = function(buffer, value, offset, isLE, mLen, nBytes) {
   var e, m, c,
       eLen = nBytes * 8 - mLen - 1,
       eMax = (1 << eLen) - 1,
       eBias = eMax >> 1,
       rt = (mLen === 23 ? Math.pow(2, -24) - Math.pow(2, -77) : 0),
-      i = isBE ? (nBytes - 1) : 0,
-      d = isBE ? -1 : 1,
+      i = isLE ? 0 : (nBytes - 1),
+      d = isLE ? 1 : -1,
       s = value < 0 || (value === 0 && 1 / value < 0) ? 1 : 0;
 
   value = Math.abs(value);
@@ -13155,1220 +14698,8 @@ exports.writeIEEE754 = function(buffer, value, offset, isBE, mLen, nBytes) {
   buffer[offset + i - d] |= s * 128;
 };
 
-},{}],126:[function(require,module,exports){
-var assert;
-exports.Buffer = Buffer;
-exports.SlowBuffer = Buffer;
-Buffer.poolSize = 8192;
-exports.INSPECT_MAX_BYTES = 50;
-
-function stringtrim(str) {
-  if (str.trim) return str.trim();
-  return str.replace(/^\s+|\s+$/g, '');
-}
-
-function Buffer(subject, encoding, offset) {
-  if(!assert) assert= require('assert');
-  if (!(this instanceof Buffer)) {
-    return new Buffer(subject, encoding, offset);
-  }
-  this.parent = this;
-  this.offset = 0;
-
-  // Work-around: node's base64 implementation
-  // allows for non-padded strings while base64-js
-  // does not..
-  if (encoding == "base64" && typeof subject == "string") {
-    subject = stringtrim(subject);
-    while (subject.length % 4 != 0) {
-      subject = subject + "="; 
-    }
-  }
-
-  var type;
-
-  // Are we slicing?
-  if (typeof offset === 'number') {
-    this.length = coerce(encoding);
-    // slicing works, with limitations (no parent tracking/update)
-    // check https://github.com/toots/buffer-browserify/issues/19
-    for (var i = 0; i < this.length; i++) {
-        this[i] = subject.get(i+offset);
-    }
-  } else {
-    // Find the length
-    switch (type = typeof subject) {
-      case 'number':
-        this.length = coerce(subject);
-        break;
-
-      case 'string':
-        this.length = Buffer.byteLength(subject, encoding);
-        break;
-
-      case 'object': // Assume object is an array
-        this.length = coerce(subject.length);
-        break;
-
-      default:
-        throw new Error('First argument needs to be a number, ' +
-                        'array or string.');
-    }
-
-    // Treat array-ish objects as a byte array.
-    if (isArrayIsh(subject)) {
-      for (var i = 0; i < this.length; i++) {
-        if (subject instanceof Buffer) {
-          this[i] = subject.readUInt8(i);
-        }
-        else {
-          this[i] = subject[i];
-        }
-      }
-    } else if (type == 'string') {
-      // We are a string
-      this.length = this.write(subject, 0, encoding);
-    } else if (type === 'number') {
-      for (var i = 0; i < this.length; i++) {
-        this[i] = 0;
-      }
-    }
-  }
-}
-
-Buffer.prototype.get = function get(i) {
-  if (i < 0 || i >= this.length) throw new Error('oob');
-  return this[i];
-};
-
-Buffer.prototype.set = function set(i, v) {
-  if (i < 0 || i >= this.length) throw new Error('oob');
-  return this[i] = v;
-};
-
-Buffer.byteLength = function (str, encoding) {
-  switch (encoding || "utf8") {
-    case 'hex':
-      return str.length / 2;
-
-    case 'utf8':
-    case 'utf-8':
-      return utf8ToBytes(str).length;
-
-    case 'ascii':
-    case 'binary':
-      return str.length;
-
-    case 'base64':
-      return base64ToBytes(str).length;
-
-    default:
-      throw new Error('Unknown encoding');
-  }
-};
-
-Buffer.prototype.utf8Write = function (string, offset, length) {
-  var bytes, pos;
-  return Buffer._charsWritten =  blitBuffer(utf8ToBytes(string), this, offset, length);
-};
-
-Buffer.prototype.asciiWrite = function (string, offset, length) {
-  var bytes, pos;
-  return Buffer._charsWritten =  blitBuffer(asciiToBytes(string), this, offset, length);
-};
-
-Buffer.prototype.binaryWrite = Buffer.prototype.asciiWrite;
-
-Buffer.prototype.base64Write = function (string, offset, length) {
-  var bytes, pos;
-  return Buffer._charsWritten = blitBuffer(base64ToBytes(string), this, offset, length);
-};
-
-Buffer.prototype.base64Slice = function (start, end) {
-  var bytes = Array.prototype.slice.apply(this, arguments)
-  return require("base64-js").fromByteArray(bytes);
-};
-
-Buffer.prototype.utf8Slice = function () {
-  var bytes = Array.prototype.slice.apply(this, arguments);
-  var res = "";
-  var tmp = "";
-  var i = 0;
-  while (i < bytes.length) {
-    if (bytes[i] <= 0x7F) {
-      res += decodeUtf8Char(tmp) + String.fromCharCode(bytes[i]);
-      tmp = "";
-    } else
-      tmp += "%" + bytes[i].toString(16);
-
-    i++;
-  }
-
-  return res + decodeUtf8Char(tmp);
-}
-
-Buffer.prototype.asciiSlice = function () {
-  var bytes = Array.prototype.slice.apply(this, arguments);
-  var ret = "";
-  for (var i = 0; i < bytes.length; i++)
-    ret += String.fromCharCode(bytes[i]);
-  return ret;
-}
-
-Buffer.prototype.binarySlice = Buffer.prototype.asciiSlice;
-
-Buffer.prototype.inspect = function() {
-  var out = [],
-      len = this.length;
-  for (var i = 0; i < len; i++) {
-    out[i] = toHex(this[i]);
-    if (i == exports.INSPECT_MAX_BYTES) {
-      out[i + 1] = '...';
-      break;
-    }
-  }
-  return '<Buffer ' + out.join(' ') + '>';
-};
-
-
-Buffer.prototype.hexSlice = function(start, end) {
-  var len = this.length;
-
-  if (!start || start < 0) start = 0;
-  if (!end || end < 0 || end > len) end = len;
-
-  var out = '';
-  for (var i = start; i < end; i++) {
-    out += toHex(this[i]);
-  }
-  return out;
-};
-
-
-Buffer.prototype.toString = function(encoding, start, end) {
-  encoding = String(encoding || 'utf8').toLowerCase();
-  start = +start || 0;
-  if (typeof end == 'undefined') end = this.length;
-
-  // Fastpath empty strings
-  if (+end == start) {
-    return '';
-  }
-
-  switch (encoding) {
-    case 'hex':
-      return this.hexSlice(start, end);
-
-    case 'utf8':
-    case 'utf-8':
-      return this.utf8Slice(start, end);
-
-    case 'ascii':
-      return this.asciiSlice(start, end);
-
-    case 'binary':
-      return this.binarySlice(start, end);
-
-    case 'base64':
-      return this.base64Slice(start, end);
-
-    case 'ucs2':
-    case 'ucs-2':
-      return this.ucs2Slice(start, end);
-
-    default:
-      throw new Error('Unknown encoding');
-  }
-};
-
-
-Buffer.prototype.hexWrite = function(string, offset, length) {
-  offset = +offset || 0;
-  var remaining = this.length - offset;
-  if (!length) {
-    length = remaining;
-  } else {
-    length = +length;
-    if (length > remaining) {
-      length = remaining;
-    }
-  }
-
-  // must be an even number of digits
-  var strLen = string.length;
-  if (strLen % 2) {
-    throw new Error('Invalid hex string');
-  }
-  if (length > strLen / 2) {
-    length = strLen / 2;
-  }
-  for (var i = 0; i < length; i++) {
-    var byte = parseInt(string.substr(i * 2, 2), 16);
-    if (isNaN(byte)) throw new Error('Invalid hex string');
-    this[offset + i] = byte;
-  }
-  Buffer._charsWritten = i * 2;
-  return i;
-};
-
-
-Buffer.prototype.write = function(string, offset, length, encoding) {
-  // Support both (string, offset, length, encoding)
-  // and the legacy (string, encoding, offset, length)
-  if (isFinite(offset)) {
-    if (!isFinite(length)) {
-      encoding = length;
-      length = undefined;
-    }
-  } else {  // legacy
-    var swap = encoding;
-    encoding = offset;
-    offset = length;
-    length = swap;
-  }
-
-  offset = +offset || 0;
-  var remaining = this.length - offset;
-  if (!length) {
-    length = remaining;
-  } else {
-    length = +length;
-    if (length > remaining) {
-      length = remaining;
-    }
-  }
-  encoding = String(encoding || 'utf8').toLowerCase();
-
-  switch (encoding) {
-    case 'hex':
-      return this.hexWrite(string, offset, length);
-
-    case 'utf8':
-    case 'utf-8':
-      return this.utf8Write(string, offset, length);
-
-    case 'ascii':
-      return this.asciiWrite(string, offset, length);
-
-    case 'binary':
-      return this.binaryWrite(string, offset, length);
-
-    case 'base64':
-      return this.base64Write(string, offset, length);
-
-    case 'ucs2':
-    case 'ucs-2':
-      return this.ucs2Write(string, offset, length);
-
-    default:
-      throw new Error('Unknown encoding');
-  }
-};
-
-// slice(start, end)
-function clamp(index, len, defaultValue) {
-  if (typeof index !== 'number') return defaultValue;
-  index = ~~index;  // Coerce to integer.
-  if (index >= len) return len;
-  if (index >= 0) return index;
-  index += len;
-  if (index >= 0) return index;
-  return 0;
-}
-
-Buffer.prototype.slice = function(start, end) {
-  var len = this.length;
-  start = clamp(start, len, 0);
-  end = clamp(end, len, len);
-  return new Buffer(this, end - start, +start);
-};
-
-// copy(targetBuffer, targetStart=0, sourceStart=0, sourceEnd=buffer.length)
-Buffer.prototype.copy = function(target, target_start, start, end) {
-  var source = this;
-  start || (start = 0);
-  if (end === undefined || isNaN(end)) {
-    end = this.length;
-  }
-  target_start || (target_start = 0);
-
-  if (end < start) throw new Error('sourceEnd < sourceStart');
-
-  // Copy 0 bytes; we're done
-  if (end === start) return 0;
-  if (target.length == 0 || source.length == 0) return 0;
-
-  if (target_start < 0 || target_start >= target.length) {
-    throw new Error('targetStart out of bounds');
-  }
-
-  if (start < 0 || start >= source.length) {
-    throw new Error('sourceStart out of bounds');
-  }
-
-  if (end < 0 || end > source.length) {
-    throw new Error('sourceEnd out of bounds');
-  }
-
-  // Are we oob?
-  if (end > this.length) {
-    end = this.length;
-  }
-
-  if (target.length - target_start < end - start) {
-    end = target.length - target_start + start;
-  }
-
-  var temp = [];
-  for (var i=start; i<end; i++) {
-    assert.ok(typeof this[i] !== 'undefined', "copying undefined buffer bytes!");
-    temp.push(this[i]);
-  }
-
-  for (var i=target_start; i<target_start+temp.length; i++) {
-    target[i] = temp[i-target_start];
-  }
-};
-
-// fill(value, start=0, end=buffer.length)
-Buffer.prototype.fill = function fill(value, start, end) {
-  value || (value = 0);
-  start || (start = 0);
-  end || (end = this.length);
-
-  if (typeof value === 'string') {
-    value = value.charCodeAt(0);
-  }
-  if (!(typeof value === 'number') || isNaN(value)) {
-    throw new Error('value is not a number');
-  }
-
-  if (end < start) throw new Error('end < start');
-
-  // Fill 0 bytes; we're done
-  if (end === start) return 0;
-  if (this.length == 0) return 0;
-
-  if (start < 0 || start >= this.length) {
-    throw new Error('start out of bounds');
-  }
-
-  if (end < 0 || end > this.length) {
-    throw new Error('end out of bounds');
-  }
-
-  for (var i = start; i < end; i++) {
-    this[i] = value;
-  }
-}
-
-// Static methods
-Buffer.isBuffer = function isBuffer(b) {
-  return b instanceof Buffer || b instanceof Buffer;
-};
-
-Buffer.concat = function (list, totalLength) {
-  if (!isArray(list)) {
-    throw new Error("Usage: Buffer.concat(list, [totalLength])\n \
-      list should be an Array.");
-  }
-
-  if (list.length === 0) {
-    return new Buffer(0);
-  } else if (list.length === 1) {
-    return list[0];
-  }
-
-  if (typeof totalLength !== 'number') {
-    totalLength = 0;
-    for (var i = 0; i < list.length; i++) {
-      var buf = list[i];
-      totalLength += buf.length;
-    }
-  }
-
-  var buffer = new Buffer(totalLength);
-  var pos = 0;
-  for (var i = 0; i < list.length; i++) {
-    var buf = list[i];
-    buf.copy(buffer, pos);
-    pos += buf.length;
-  }
-  return buffer;
-};
-
-Buffer.isEncoding = function(encoding) {
-  switch ((encoding + '').toLowerCase()) {
-    case 'hex':
-    case 'utf8':
-    case 'utf-8':
-    case 'ascii':
-    case 'binary':
-    case 'base64':
-    case 'ucs2':
-    case 'ucs-2':
-    case 'utf16le':
-    case 'utf-16le':
-    case 'raw':
-      return true;
-
-    default:
-      return false;
-  }
-};
-
-// helpers
-
-function coerce(length) {
-  // Coerce length to a number (possibly NaN), round up
-  // in case it's fractional (e.g. 123.456) then do a
-  // double negate to coerce a NaN to 0. Easy, right?
-  length = ~~Math.ceil(+length);
-  return length < 0 ? 0 : length;
-}
-
-function isArray(subject) {
-  return (Array.isArray ||
-    function(subject){
-      return {}.toString.apply(subject) == '[object Array]'
-    })
-    (subject)
-}
-
-function isArrayIsh(subject) {
-  return isArray(subject) || Buffer.isBuffer(subject) ||
-         subject && typeof subject === 'object' &&
-         typeof subject.length === 'number';
-}
-
-function toHex(n) {
-  if (n < 16) return '0' + n.toString(16);
-  return n.toString(16);
-}
-
-function utf8ToBytes(str) {
-  var byteArray = [];
-  for (var i = 0; i < str.length; i++)
-    if (str.charCodeAt(i) <= 0x7F)
-      byteArray.push(str.charCodeAt(i));
-    else {
-      var h = encodeURIComponent(str.charAt(i)).substr(1).split('%');
-      for (var j = 0; j < h.length; j++)
-        byteArray.push(parseInt(h[j], 16));
-    }
-
-  return byteArray;
-}
-
-function asciiToBytes(str) {
-  var byteArray = []
-  for (var i = 0; i < str.length; i++ )
-    // Node's code seems to be doing this and not & 0x7F..
-    byteArray.push( str.charCodeAt(i) & 0xFF );
-
-  return byteArray;
-}
-
-function base64ToBytes(str) {
-  return require("base64-js").toByteArray(str);
-}
-
-function blitBuffer(src, dst, offset, length) {
-  var pos, i = 0;
-  while (i < length) {
-    if ((i+offset >= dst.length) || (i >= src.length))
-      break;
-
-    dst[i + offset] = src[i];
-    i++;
-  }
-  return i;
-}
-
-function decodeUtf8Char(str) {
-  try {
-    return decodeURIComponent(str);
-  } catch (err) {
-    return String.fromCharCode(0xFFFD); // UTF 8 invalid char
-  }
-}
-
-// read/write bit-twiddling
-
-Buffer.prototype.readUInt8 = function(offset, noAssert) {
-  var buffer = this;
-
-  if (!noAssert) {
-    assert.ok(offset !== undefined && offset !== null,
-        'missing offset');
-
-    assert.ok(offset < buffer.length,
-        'Trying to read beyond buffer length');
-  }
-
-  if (offset >= buffer.length) return;
-
-  return buffer[offset];
-};
-
-function readUInt16(buffer, offset, isBigEndian, noAssert) {
-  var val = 0;
-
-
-  if (!noAssert) {
-    assert.ok(typeof (isBigEndian) === 'boolean',
-        'missing or invalid endian');
-
-    assert.ok(offset !== undefined && offset !== null,
-        'missing offset');
-
-    assert.ok(offset + 1 < buffer.length,
-        'Trying to read beyond buffer length');
-  }
-
-  if (offset >= buffer.length) return 0;
-
-  if (isBigEndian) {
-    val = buffer[offset] << 8;
-    if (offset + 1 < buffer.length) {
-      val |= buffer[offset + 1];
-    }
-  } else {
-    val = buffer[offset];
-    if (offset + 1 < buffer.length) {
-      val |= buffer[offset + 1] << 8;
-    }
-  }
-
-  return val;
-}
-
-Buffer.prototype.readUInt16LE = function(offset, noAssert) {
-  return readUInt16(this, offset, false, noAssert);
-};
-
-Buffer.prototype.readUInt16BE = function(offset, noAssert) {
-  return readUInt16(this, offset, true, noAssert);
-};
-
-function readUInt32(buffer, offset, isBigEndian, noAssert) {
-  var val = 0;
-
-  if (!noAssert) {
-    assert.ok(typeof (isBigEndian) === 'boolean',
-        'missing or invalid endian');
-
-    assert.ok(offset !== undefined && offset !== null,
-        'missing offset');
-
-    assert.ok(offset + 3 < buffer.length,
-        'Trying to read beyond buffer length');
-  }
-
-  if (offset >= buffer.length) return 0;
-
-  if (isBigEndian) {
-    if (offset + 1 < buffer.length)
-      val = buffer[offset + 1] << 16;
-    if (offset + 2 < buffer.length)
-      val |= buffer[offset + 2] << 8;
-    if (offset + 3 < buffer.length)
-      val |= buffer[offset + 3];
-    val = val + (buffer[offset] << 24 >>> 0);
-  } else {
-    if (offset + 2 < buffer.length)
-      val = buffer[offset + 2] << 16;
-    if (offset + 1 < buffer.length)
-      val |= buffer[offset + 1] << 8;
-    val |= buffer[offset];
-    if (offset + 3 < buffer.length)
-      val = val + (buffer[offset + 3] << 24 >>> 0);
-  }
-
-  return val;
-}
-
-Buffer.prototype.readUInt32LE = function(offset, noAssert) {
-  return readUInt32(this, offset, false, noAssert);
-};
-
-Buffer.prototype.readUInt32BE = function(offset, noAssert) {
-  return readUInt32(this, offset, true, noAssert);
-};
-
-
-/*
- * Signed integer types, yay team! A reminder on how two's complement actually
- * works. The first bit is the signed bit, i.e. tells us whether or not the
- * number should be positive or negative. If the two's complement value is
- * positive, then we're done, as it's equivalent to the unsigned representation.
- *
- * Now if the number is positive, you're pretty much done, you can just leverage
- * the unsigned translations and return those. Unfortunately, negative numbers
- * aren't quite that straightforward.
- *
- * At first glance, one might be inclined to use the traditional formula to
- * translate binary numbers between the positive and negative values in two's
- * complement. (Though it doesn't quite work for the most negative value)
- * Mainly:
- *  - invert all the bits
- *  - add one to the result
- *
- * Of course, this doesn't quite work in Javascript. Take for example the value
- * of -128. This could be represented in 16 bits (big-endian) as 0xff80. But of
- * course, Javascript will do the following:
- *
- * > ~0xff80
- * -65409
- *
- * Whoh there, Javascript, that's not quite right. But wait, according to
- * Javascript that's perfectly correct. When Javascript ends up seeing the
- * constant 0xff80, it has no notion that it is actually a signed number. It
- * assumes that we've input the unsigned value 0xff80. Thus, when it does the
- * binary negation, it casts it into a signed value, (positive 0xff80). Then
- * when you perform binary negation on that, it turns it into a negative number.
- *
- * Instead, we're going to have to use the following general formula, that works
- * in a rather Javascript friendly way. I'm glad we don't support this kind of
- * weird numbering scheme in the kernel.
- *
- * (BIT-MAX - (unsigned)val + 1) * -1
- *
- * The astute observer, may think that this doesn't make sense for 8-bit numbers
- * (really it isn't necessary for them). However, when you get 16-bit numbers,
- * you do. Let's go back to our prior example and see how this will look:
- *
- * (0xffff - 0xff80 + 1) * -1
- * (0x007f + 1) * -1
- * (0x0080) * -1
- */
-Buffer.prototype.readInt8 = function(offset, noAssert) {
-  var buffer = this;
-  var neg;
-
-  if (!noAssert) {
-    assert.ok(offset !== undefined && offset !== null,
-        'missing offset');
-
-    assert.ok(offset < buffer.length,
-        'Trying to read beyond buffer length');
-  }
-
-  if (offset >= buffer.length) return;
-
-  neg = buffer[offset] & 0x80;
-  if (!neg) {
-    return (buffer[offset]);
-  }
-
-  return ((0xff - buffer[offset] + 1) * -1);
-};
-
-function readInt16(buffer, offset, isBigEndian, noAssert) {
-  var neg, val;
-
-  if (!noAssert) {
-    assert.ok(typeof (isBigEndian) === 'boolean',
-        'missing or invalid endian');
-
-    assert.ok(offset !== undefined && offset !== null,
-        'missing offset');
-
-    assert.ok(offset + 1 < buffer.length,
-        'Trying to read beyond buffer length');
-  }
-
-  val = readUInt16(buffer, offset, isBigEndian, noAssert);
-  neg = val & 0x8000;
-  if (!neg) {
-    return val;
-  }
-
-  return (0xffff - val + 1) * -1;
-}
-
-Buffer.prototype.readInt16LE = function(offset, noAssert) {
-  return readInt16(this, offset, false, noAssert);
-};
-
-Buffer.prototype.readInt16BE = function(offset, noAssert) {
-  return readInt16(this, offset, true, noAssert);
-};
-
-function readInt32(buffer, offset, isBigEndian, noAssert) {
-  var neg, val;
-
-  if (!noAssert) {
-    assert.ok(typeof (isBigEndian) === 'boolean',
-        'missing or invalid endian');
-
-    assert.ok(offset !== undefined && offset !== null,
-        'missing offset');
-
-    assert.ok(offset + 3 < buffer.length,
-        'Trying to read beyond buffer length');
-  }
-
-  val = readUInt32(buffer, offset, isBigEndian, noAssert);
-  neg = val & 0x80000000;
-  if (!neg) {
-    return (val);
-  }
-
-  return (0xffffffff - val + 1) * -1;
-}
-
-Buffer.prototype.readInt32LE = function(offset, noAssert) {
-  return readInt32(this, offset, false, noAssert);
-};
-
-Buffer.prototype.readInt32BE = function(offset, noAssert) {
-  return readInt32(this, offset, true, noAssert);
-};
-
-function readFloat(buffer, offset, isBigEndian, noAssert) {
-  if (!noAssert) {
-    assert.ok(typeof (isBigEndian) === 'boolean',
-        'missing or invalid endian');
-
-    assert.ok(offset + 3 < buffer.length,
-        'Trying to read beyond buffer length');
-  }
-
-  return require('./buffer_ieee754').readIEEE754(buffer, offset, isBigEndian,
-      23, 4);
-}
-
-Buffer.prototype.readFloatLE = function(offset, noAssert) {
-  return readFloat(this, offset, false, noAssert);
-};
-
-Buffer.prototype.readFloatBE = function(offset, noAssert) {
-  return readFloat(this, offset, true, noAssert);
-};
-
-function readDouble(buffer, offset, isBigEndian, noAssert) {
-  if (!noAssert) {
-    assert.ok(typeof (isBigEndian) === 'boolean',
-        'missing or invalid endian');
-
-    assert.ok(offset + 7 < buffer.length,
-        'Trying to read beyond buffer length');
-  }
-
-  return require('./buffer_ieee754').readIEEE754(buffer, offset, isBigEndian,
-      52, 8);
-}
-
-Buffer.prototype.readDoubleLE = function(offset, noAssert) {
-  return readDouble(this, offset, false, noAssert);
-};
-
-Buffer.prototype.readDoubleBE = function(offset, noAssert) {
-  return readDouble(this, offset, true, noAssert);
-};
-
-
-/*
- * We have to make sure that the value is a valid integer. This means that it is
- * non-negative. It has no fractional component and that it does not exceed the
- * maximum allowed value.
- *
- *      value           The number to check for validity
- *
- *      max             The maximum value
- */
-function verifuint(value, max) {
-  assert.ok(typeof (value) == 'number',
-      'cannot write a non-number as a number');
-
-  assert.ok(value >= 0,
-      'specified a negative value for writing an unsigned value');
-
-  assert.ok(value <= max, 'value is larger than maximum value for type');
-
-  assert.ok(Math.floor(value) === value, 'value has a fractional component');
-}
-
-Buffer.prototype.writeUInt8 = function(value, offset, noAssert) {
-  var buffer = this;
-
-  if (!noAssert) {
-    assert.ok(value !== undefined && value !== null,
-        'missing value');
-
-    assert.ok(offset !== undefined && offset !== null,
-        'missing offset');
-
-    assert.ok(offset < buffer.length,
-        'trying to write beyond buffer length');
-
-    verifuint(value, 0xff);
-  }
-
-  if (offset < buffer.length) {
-    buffer[offset] = value;
-  }
-};
-
-function writeUInt16(buffer, value, offset, isBigEndian, noAssert) {
-  if (!noAssert) {
-    assert.ok(value !== undefined && value !== null,
-        'missing value');
-
-    assert.ok(typeof (isBigEndian) === 'boolean',
-        'missing or invalid endian');
-
-    assert.ok(offset !== undefined && offset !== null,
-        'missing offset');
-
-    assert.ok(offset + 1 < buffer.length,
-        'trying to write beyond buffer length');
-
-    verifuint(value, 0xffff);
-  }
-
-  for (var i = 0; i < Math.min(buffer.length - offset, 2); i++) {
-    buffer[offset + i] =
-        (value & (0xff << (8 * (isBigEndian ? 1 - i : i)))) >>>
-            (isBigEndian ? 1 - i : i) * 8;
-  }
-
-}
-
-Buffer.prototype.writeUInt16LE = function(value, offset, noAssert) {
-  writeUInt16(this, value, offset, false, noAssert);
-};
-
-Buffer.prototype.writeUInt16BE = function(value, offset, noAssert) {
-  writeUInt16(this, value, offset, true, noAssert);
-};
-
-function writeUInt32(buffer, value, offset, isBigEndian, noAssert) {
-  if (!noAssert) {
-    assert.ok(value !== undefined && value !== null,
-        'missing value');
-
-    assert.ok(typeof (isBigEndian) === 'boolean',
-        'missing or invalid endian');
-
-    assert.ok(offset !== undefined && offset !== null,
-        'missing offset');
-
-    assert.ok(offset + 3 < buffer.length,
-        'trying to write beyond buffer length');
-
-    verifuint(value, 0xffffffff);
-  }
-
-  for (var i = 0; i < Math.min(buffer.length - offset, 4); i++) {
-    buffer[offset + i] =
-        (value >>> (isBigEndian ? 3 - i : i) * 8) & 0xff;
-  }
-}
-
-Buffer.prototype.writeUInt32LE = function(value, offset, noAssert) {
-  writeUInt32(this, value, offset, false, noAssert);
-};
-
-Buffer.prototype.writeUInt32BE = function(value, offset, noAssert) {
-  writeUInt32(this, value, offset, true, noAssert);
-};
-
-
-/*
- * We now move onto our friends in the signed number category. Unlike unsigned
- * numbers, we're going to have to worry a bit more about how we put values into
- * arrays. Since we are only worrying about signed 32-bit values, we're in
- * slightly better shape. Unfortunately, we really can't do our favorite binary
- * & in this system. It really seems to do the wrong thing. For example:
- *
- * > -32 & 0xff
- * 224
- *
- * What's happening above is really: 0xe0 & 0xff = 0xe0. However, the results of
- * this aren't treated as a signed number. Ultimately a bad thing.
- *
- * What we're going to want to do is basically create the unsigned equivalent of
- * our representation and pass that off to the wuint* functions. To do that
- * we're going to do the following:
- *
- *  - if the value is positive
- *      we can pass it directly off to the equivalent wuint
- *  - if the value is negative
- *      we do the following computation:
- *         mb + val + 1, where
- *         mb   is the maximum unsigned value in that byte size
- *         val  is the Javascript negative integer
- *
- *
- * As a concrete value, take -128. In signed 16 bits this would be 0xff80. If
- * you do out the computations:
- *
- * 0xffff - 128 + 1
- * 0xffff - 127
- * 0xff80
- *
- * You can then encode this value as the signed version. This is really rather
- * hacky, but it should work and get the job done which is our goal here.
- */
-
-/*
- * A series of checks to make sure we actually have a signed 32-bit number
- */
-function verifsint(value, max, min) {
-  assert.ok(typeof (value) == 'number',
-      'cannot write a non-number as a number');
-
-  assert.ok(value <= max, 'value larger than maximum allowed value');
-
-  assert.ok(value >= min, 'value smaller than minimum allowed value');
-
-  assert.ok(Math.floor(value) === value, 'value has a fractional component');
-}
-
-function verifIEEE754(value, max, min) {
-  assert.ok(typeof (value) == 'number',
-      'cannot write a non-number as a number');
-
-  assert.ok(value <= max, 'value larger than maximum allowed value');
-
-  assert.ok(value >= min, 'value smaller than minimum allowed value');
-}
-
-Buffer.prototype.writeInt8 = function(value, offset, noAssert) {
-  var buffer = this;
-
-  if (!noAssert) {
-    assert.ok(value !== undefined && value !== null,
-        'missing value');
-
-    assert.ok(offset !== undefined && offset !== null,
-        'missing offset');
-
-    assert.ok(offset < buffer.length,
-        'Trying to write beyond buffer length');
-
-    verifsint(value, 0x7f, -0x80);
-  }
-
-  if (value >= 0) {
-    buffer.writeUInt8(value, offset, noAssert);
-  } else {
-    buffer.writeUInt8(0xff + value + 1, offset, noAssert);
-  }
-};
-
-function writeInt16(buffer, value, offset, isBigEndian, noAssert) {
-  if (!noAssert) {
-    assert.ok(value !== undefined && value !== null,
-        'missing value');
-
-    assert.ok(typeof (isBigEndian) === 'boolean',
-        'missing or invalid endian');
-
-    assert.ok(offset !== undefined && offset !== null,
-        'missing offset');
-
-    assert.ok(offset + 1 < buffer.length,
-        'Trying to write beyond buffer length');
-
-    verifsint(value, 0x7fff, -0x8000);
-  }
-
-  if (value >= 0) {
-    writeUInt16(buffer, value, offset, isBigEndian, noAssert);
-  } else {
-    writeUInt16(buffer, 0xffff + value + 1, offset, isBigEndian, noAssert);
-  }
-}
-
-Buffer.prototype.writeInt16LE = function(value, offset, noAssert) {
-  writeInt16(this, value, offset, false, noAssert);
-};
-
-Buffer.prototype.writeInt16BE = function(value, offset, noAssert) {
-  writeInt16(this, value, offset, true, noAssert);
-};
-
-function writeInt32(buffer, value, offset, isBigEndian, noAssert) {
-  if (!noAssert) {
-    assert.ok(value !== undefined && value !== null,
-        'missing value');
-
-    assert.ok(typeof (isBigEndian) === 'boolean',
-        'missing or invalid endian');
-
-    assert.ok(offset !== undefined && offset !== null,
-        'missing offset');
-
-    assert.ok(offset + 3 < buffer.length,
-        'Trying to write beyond buffer length');
-
-    verifsint(value, 0x7fffffff, -0x80000000);
-  }
-
-  if (value >= 0) {
-    writeUInt32(buffer, value, offset, isBigEndian, noAssert);
-  } else {
-    writeUInt32(buffer, 0xffffffff + value + 1, offset, isBigEndian, noAssert);
-  }
-}
-
-Buffer.prototype.writeInt32LE = function(value, offset, noAssert) {
-  writeInt32(this, value, offset, false, noAssert);
-};
-
-Buffer.prototype.writeInt32BE = function(value, offset, noAssert) {
-  writeInt32(this, value, offset, true, noAssert);
-};
-
-function writeFloat(buffer, value, offset, isBigEndian, noAssert) {
-  if (!noAssert) {
-    assert.ok(value !== undefined && value !== null,
-        'missing value');
-
-    assert.ok(typeof (isBigEndian) === 'boolean',
-        'missing or invalid endian');
-
-    assert.ok(offset !== undefined && offset !== null,
-        'missing offset');
-
-    assert.ok(offset + 3 < buffer.length,
-        'Trying to write beyond buffer length');
-
-    verifIEEE754(value, 3.4028234663852886e+38, -3.4028234663852886e+38);
-  }
-
-  require('./buffer_ieee754').writeIEEE754(buffer, value, offset, isBigEndian,
-      23, 4);
-}
-
-Buffer.prototype.writeFloatLE = function(value, offset, noAssert) {
-  writeFloat(this, value, offset, false, noAssert);
-};
-
-Buffer.prototype.writeFloatBE = function(value, offset, noAssert) {
-  writeFloat(this, value, offset, true, noAssert);
-};
-
-function writeDouble(buffer, value, offset, isBigEndian, noAssert) {
-  if (!noAssert) {
-    assert.ok(value !== undefined && value !== null,
-        'missing value');
-
-    assert.ok(typeof (isBigEndian) === 'boolean',
-        'missing or invalid endian');
-
-    assert.ok(offset !== undefined && offset !== null,
-        'missing offset');
-
-    assert.ok(offset + 7 < buffer.length,
-        'Trying to write beyond buffer length');
-
-    verifIEEE754(value, 1.7976931348623157E+308, -1.7976931348623157E+308);
-  }
-
-  require('./buffer_ieee754').writeIEEE754(buffer, value, offset, isBigEndian,
-      52, 8);
-}
-
-Buffer.prototype.writeDoubleLE = function(value, offset, noAssert) {
-  writeDouble(this, value, offset, false, noAssert);
-};
-
-Buffer.prototype.writeDoubleBE = function(value, offset, noAssert) {
-  writeDouble(this, value, offset, true, noAssert);
-};
-
-},{"./buffer_ieee754":125,"assert":123,"base64-js":127}],127:[function(require,module,exports){
-(function (exports) {
-	'use strict';
-
-	var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-
-	function b64ToByteArray(b64) {
-		var i, j, l, tmp, placeHolders, arr;
-	
-		if (b64.length % 4 > 0) {
-			throw 'Invalid string. Length must be a multiple of 4';
-		}
-
-		// the number of equal signs (place holders)
-		// if there are two placeholders, than the two characters before it
-		// represent one byte
-		// if there is only one, then the three characters before it represent 2 bytes
-		// this is just a cheap hack to not do indexOf twice
-		placeHolders = b64.indexOf('=');
-		placeHolders = placeHolders > 0 ? b64.length - placeHolders : 0;
-
-		// base64 is 4/3 + up to two characters of the original data
-		arr = [];//new Uint8Array(b64.length * 3 / 4 - placeHolders);
-
-		// if there are placeholders, only get up to the last complete 4 chars
-		l = placeHolders > 0 ? b64.length - 4 : b64.length;
-
-		for (i = 0, j = 0; i < l; i += 4, j += 3) {
-			tmp = (lookup.indexOf(b64[i]) << 18) | (lookup.indexOf(b64[i + 1]) << 12) | (lookup.indexOf(b64[i + 2]) << 6) | lookup.indexOf(b64[i + 3]);
-			arr.push((tmp & 0xFF0000) >> 16);
-			arr.push((tmp & 0xFF00) >> 8);
-			arr.push(tmp & 0xFF);
-		}
-
-		if (placeHolders === 2) {
-			tmp = (lookup.indexOf(b64[i]) << 2) | (lookup.indexOf(b64[i + 1]) >> 4);
-			arr.push(tmp & 0xFF);
-		} else if (placeHolders === 1) {
-			tmp = (lookup.indexOf(b64[i]) << 10) | (lookup.indexOf(b64[i + 1]) << 4) | (lookup.indexOf(b64[i + 2]) >> 2);
-			arr.push((tmp >> 8) & 0xFF);
-			arr.push(tmp & 0xFF);
-		}
-
-		return arr;
-	}
-
-	function uint8ToBase64(uint8) {
-		var i,
-			extraBytes = uint8.length % 3, // if we have 1 byte left, pad 2 bytes
-			output = "",
-			temp, length;
-
-		function tripletToBase64 (num) {
-			return lookup[num >> 18 & 0x3F] + lookup[num >> 12 & 0x3F] + lookup[num >> 6 & 0x3F] + lookup[num & 0x3F];
-		};
-
-		// go through the array every three bytes, we'll deal with trailing stuff later
-		for (i = 0, length = uint8.length - extraBytes; i < length; i += 3) {
-			temp = (uint8[i] << 16) + (uint8[i + 1] << 8) + (uint8[i + 2]);
-			output += tripletToBase64(temp);
-		}
-
-		// pad the end with zeros, but make sure to not forget the extra bytes
-		switch (extraBytes) {
-			case 1:
-				temp = uint8[uint8.length - 1];
-				output += lookup[temp >> 2];
-				output += lookup[(temp << 4) & 0x3F];
-				output += '==';
-				break;
-			case 2:
-				temp = (uint8[uint8.length - 2] << 8) + (uint8[uint8.length - 1]);
-				output += lookup[temp >> 10];
-				output += lookup[(temp >> 4) & 0x3F];
-				output += lookup[(temp << 2) & 0x3F];
-				output += '=';
-				break;
-		}
-
-		return output;
-	}
-
-	module.exports.toByteArray = b64ToByteArray;
-	module.exports.fromByteArray = uint8ToBase64;
-}());
-
-},{}],128:[function(require,module,exports){
-var Buffer = require('buffer').Buffer;
+},{}],147:[function(_dereq_,module,exports){
+var Buffer = _dereq_('buffer').Buffer;
 var intSize = 4;
 var zeroBuffer = new Buffer(intSize); zeroBuffer.fill(0);
 var chrsz = 8;
@@ -14404,12 +14735,12 @@ function hash(buf, fn, hashSize, bigEndian) {
 
 module.exports = { hash: hash };
 
-},{"buffer":126}],129:[function(require,module,exports){
-var Buffer = require('buffer').Buffer
-var sha = require('./sha')
-var sha256 = require('./sha256')
-var rng = require('./rng')
-var md5 = require('./md5')
+},{"buffer":144}],148:[function(_dereq_,module,exports){
+var Buffer = _dereq_('buffer').Buffer
+var sha = _dereq_('./sha')
+var sha256 = _dereq_('./sha256')
+var rng = _dereq_('./rng')
+var md5 = _dereq_('./md5')
 
 var algorithms = {
   sha1: sha,
@@ -14503,7 +14834,7 @@ each(['createCredentials'
   }
 })
 
-},{"./md5":130,"./rng":131,"./sha":132,"./sha256":133,"buffer":126}],130:[function(require,module,exports){
+},{"./md5":149,"./rng":150,"./sha":151,"./sha256":152,"buffer":144}],149:[function(_dereq_,module,exports){
 /*
  * A JavaScript implementation of the RSA Data Security, Inc. MD5 Message
  * Digest Algorithm, as defined in RFC 1321.
@@ -14513,7 +14844,7 @@ each(['createCredentials'
  * See http://pajhome.org.uk/crypt/md5 for more info.
  */
 
-var helpers = require('./helpers');
+var helpers = _dereq_('./helpers');
 
 /*
  * Perform a simple self-test to see if the VM is working
@@ -14668,7 +14999,7 @@ module.exports = function md5(buf) {
   return helpers.hash(buf, core_md5, 16);
 };
 
-},{"./helpers":128}],131:[function(require,module,exports){
+},{"./helpers":147}],150:[function(_dereq_,module,exports){
 // Original code adapted from Robert Kieffer.
 // details at https://github.com/broofa/node-uuid
 (function() {
@@ -14701,7 +15032,7 @@ module.exports = function md5(buf) {
 
 }())
 
-},{}],132:[function(require,module,exports){
+},{}],151:[function(_dereq_,module,exports){
 /*
  * A JavaScript implementation of the Secure Hash Algorithm, SHA-1, as defined
  * in FIPS PUB 180-1
@@ -14711,7 +15042,7 @@ module.exports = function md5(buf) {
  * See http://pajhome.org.uk/crypt/md5 for details.
  */
 
-var helpers = require('./helpers');
+var helpers = _dereq_('./helpers');
 
 /*
  * Calculate the SHA-1 of an array of big-endian words, and a bit length
@@ -14804,7 +15135,7 @@ module.exports = function sha1(buf) {
   return helpers.hash(buf, core_sha1, 20, true);
 };
 
-},{"./helpers":128}],133:[function(require,module,exports){
+},{"./helpers":147}],152:[function(_dereq_,module,exports){
 
 /**
  * A JavaScript implementation of the Secure Hash Algorithm, SHA-256, as defined
@@ -14814,7 +15145,7 @@ module.exports = function sha1(buf) {
  *
  */
 
-var helpers = require('./helpers');
+var helpers = _dereq_('./helpers');
 
 var safe_add = function(x, y) {
   var lsw = (x & 0xFFFF) + (y & 0xFFFF);
@@ -14885,1528 +15216,105 @@ module.exports = function sha256(buf) {
   return helpers.hash(buf, core_sha256, 32, true);
 };
 
-},{"./helpers":128}],134:[function(require,module,exports){
-
-},{}],135:[function(require,module,exports){
-require=(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-exports.readIEEE754 = function(buffer, offset, isBE, mLen, nBytes) {
-  var e, m,
-      eLen = nBytes * 8 - mLen - 1,
-      eMax = (1 << eLen) - 1,
-      eBias = eMax >> 1,
-      nBits = -7,
-      i = isBE ? 0 : (nBytes - 1),
-      d = isBE ? 1 : -1,
-      s = buffer[offset + i];
-
-  i += d;
-
-  e = s & ((1 << (-nBits)) - 1);
-  s >>= (-nBits);
-  nBits += eLen;
-  for (; nBits > 0; e = e * 256 + buffer[offset + i], i += d, nBits -= 8);
-
-  m = e & ((1 << (-nBits)) - 1);
-  e >>= (-nBits);
-  nBits += mLen;
-  for (; nBits > 0; m = m * 256 + buffer[offset + i], i += d, nBits -= 8);
-
-  if (e === 0) {
-    e = 1 - eBias;
-  } else if (e === eMax) {
-    return m ? NaN : ((s ? -1 : 1) * Infinity);
-  } else {
-    m = m + Math.pow(2, mLen);
-    e = e - eBias;
-  }
-  return (s ? -1 : 1) * m * Math.pow(2, e - mLen);
-};
-
-exports.writeIEEE754 = function(buffer, value, offset, isBE, mLen, nBytes) {
-  var e, m, c,
-      eLen = nBytes * 8 - mLen - 1,
-      eMax = (1 << eLen) - 1,
-      eBias = eMax >> 1,
-      rt = (mLen === 23 ? Math.pow(2, -24) - Math.pow(2, -77) : 0),
-      i = isBE ? (nBytes - 1) : 0,
-      d = isBE ? -1 : 1,
-      s = value < 0 || (value === 0 && 1 / value < 0) ? 1 : 0;
-
-  value = Math.abs(value);
-
-  if (isNaN(value) || value === Infinity) {
-    m = isNaN(value) ? 1 : 0;
-    e = eMax;
-  } else {
-    e = Math.floor(Math.log(value) / Math.LN2);
-    if (value * (c = Math.pow(2, -e)) < 1) {
-      e--;
-      c *= 2;
-    }
-    if (e + eBias >= 1) {
-      value += rt / c;
-    } else {
-      value += rt * Math.pow(2, 1 - eBias);
-    }
-    if (value * c >= 2) {
-      e++;
-      c /= 2;
-    }
-
-    if (e + eBias >= eMax) {
-      m = 0;
-      e = eMax;
-    } else if (e + eBias >= 1) {
-      m = (value * c - 1) * Math.pow(2, mLen);
-      e = e + eBias;
-    } else {
-      m = value * Math.pow(2, eBias - 1) * Math.pow(2, mLen);
-      e = 0;
-    }
-  }
-
-  for (; mLen >= 8; buffer[offset + i] = m & 0xff, i += d, m /= 256, mLen -= 8);
-
-  e = (e << mLen) | m;
-  eLen += mLen;
-  for (; eLen > 0; buffer[offset + i] = e & 0xff, i += d, e /= 256, eLen -= 8);
-
-  buffer[offset + i - d] |= s * 128;
-};
-
-},{}],"q9TxCC":[function(require,module,exports){
-var assert;
-exports.Buffer = Buffer;
-exports.SlowBuffer = Buffer;
-Buffer.poolSize = 8192;
-exports.INSPECT_MAX_BYTES = 50;
-
-function stringtrim(str) {
-  if (str.trim) return str.trim();
-  return str.replace(/^\s+|\s+$/g, '');
-}
-
-function Buffer(subject, encoding, offset) {
-  if(!assert) assert= require('assert');
-  if (!(this instanceof Buffer)) {
-    return new Buffer(subject, encoding, offset);
-  }
-  this.parent = this;
-  this.offset = 0;
-
-  // Work-around: node's base64 implementation
-  // allows for non-padded strings while base64-js
-  // does not..
-  if (encoding == "base64" && typeof subject == "string") {
-    subject = stringtrim(subject);
-    while (subject.length % 4 != 0) {
-      subject = subject + "="; 
-    }
-  }
-
-  var type;
-
-  // Are we slicing?
-  if (typeof offset === 'number') {
-    this.length = coerce(encoding);
-    // slicing works, with limitations (no parent tracking/update)
-    // check https://github.com/toots/buffer-browserify/issues/19
-    for (var i = 0; i < this.length; i++) {
-        this[i] = subject.get(i+offset);
-    }
-  } else {
-    // Find the length
-    switch (type = typeof subject) {
-      case 'number':
-        this.length = coerce(subject);
-        break;
-
-      case 'string':
-        this.length = Buffer.byteLength(subject, encoding);
-        break;
-
-      case 'object': // Assume object is an array
-        this.length = coerce(subject.length);
-        break;
-
-      default:
-        throw new Error('First argument needs to be a number, ' +
-                        'array or string.');
-    }
-
-    // Treat array-ish objects as a byte array.
-    if (isArrayIsh(subject)) {
-      for (var i = 0; i < this.length; i++) {
-        if (subject instanceof Buffer) {
-          this[i] = subject.readUInt8(i);
-        }
-        else {
-          this[i] = subject[i];
-        }
+},{"./helpers":147}],153:[function(_dereq_,module,exports){
+if (typeof Object.create === 'function') {
+  // implementation from standard node.js 'util' module
+  module.exports = function inherits(ctor, superCtor) {
+    ctor.super_ = superCtor
+    ctor.prototype = Object.create(superCtor.prototype, {
+      constructor: {
+        value: ctor,
+        enumerable: false,
+        writable: true,
+        configurable: true
       }
-    } else if (type == 'string') {
-      // We are a string
-      this.length = this.write(subject, 0, encoding);
-    } else if (type === 'number') {
-      for (var i = 0; i < this.length; i++) {
-        this[i] = 0;
-      }
-    }
-  }
-}
-
-Buffer.prototype.get = function get(i) {
-  if (i < 0 || i >= this.length) throw new Error('oob');
-  return this[i];
-};
-
-Buffer.prototype.set = function set(i, v) {
-  if (i < 0 || i >= this.length) throw new Error('oob');
-  return this[i] = v;
-};
-
-Buffer.byteLength = function (str, encoding) {
-  switch (encoding || "utf8") {
-    case 'hex':
-      return str.length / 2;
-
-    case 'utf8':
-    case 'utf-8':
-      return utf8ToBytes(str).length;
-
-    case 'ascii':
-    case 'binary':
-      return str.length;
-
-    case 'base64':
-      return base64ToBytes(str).length;
-
-    default:
-      throw new Error('Unknown encoding');
-  }
-};
-
-Buffer.prototype.utf8Write = function (string, offset, length) {
-  var bytes, pos;
-  return Buffer._charsWritten =  blitBuffer(utf8ToBytes(string), this, offset, length);
-};
-
-Buffer.prototype.asciiWrite = function (string, offset, length) {
-  var bytes, pos;
-  return Buffer._charsWritten =  blitBuffer(asciiToBytes(string), this, offset, length);
-};
-
-Buffer.prototype.binaryWrite = Buffer.prototype.asciiWrite;
-
-Buffer.prototype.base64Write = function (string, offset, length) {
-  var bytes, pos;
-  return Buffer._charsWritten = blitBuffer(base64ToBytes(string), this, offset, length);
-};
-
-Buffer.prototype.base64Slice = function (start, end) {
-  var bytes = Array.prototype.slice.apply(this, arguments)
-  return require("base64-js").fromByteArray(bytes);
-};
-
-Buffer.prototype.utf8Slice = function () {
-  var bytes = Array.prototype.slice.apply(this, arguments);
-  var res = "";
-  var tmp = "";
-  var i = 0;
-  while (i < bytes.length) {
-    if (bytes[i] <= 0x7F) {
-      res += decodeUtf8Char(tmp) + String.fromCharCode(bytes[i]);
-      tmp = "";
-    } else
-      tmp += "%" + bytes[i].toString(16);
-
-    i++;
-  }
-
-  return res + decodeUtf8Char(tmp);
-}
-
-Buffer.prototype.asciiSlice = function () {
-  var bytes = Array.prototype.slice.apply(this, arguments);
-  var ret = "";
-  for (var i = 0; i < bytes.length; i++)
-    ret += String.fromCharCode(bytes[i]);
-  return ret;
-}
-
-Buffer.prototype.binarySlice = Buffer.prototype.asciiSlice;
-
-Buffer.prototype.inspect = function() {
-  var out = [],
-      len = this.length;
-  for (var i = 0; i < len; i++) {
-    out[i] = toHex(this[i]);
-    if (i == exports.INSPECT_MAX_BYTES) {
-      out[i + 1] = '...';
-      break;
-    }
-  }
-  return '<Buffer ' + out.join(' ') + '>';
-};
-
-
-Buffer.prototype.hexSlice = function(start, end) {
-  var len = this.length;
-
-  if (!start || start < 0) start = 0;
-  if (!end || end < 0 || end > len) end = len;
-
-  var out = '';
-  for (var i = start; i < end; i++) {
-    out += toHex(this[i]);
-  }
-  return out;
-};
-
-
-Buffer.prototype.toString = function(encoding, start, end) {
-  encoding = String(encoding || 'utf8').toLowerCase();
-  start = +start || 0;
-  if (typeof end == 'undefined') end = this.length;
-
-  // Fastpath empty strings
-  if (+end == start) {
-    return '';
-  }
-
-  switch (encoding) {
-    case 'hex':
-      return this.hexSlice(start, end);
-
-    case 'utf8':
-    case 'utf-8':
-      return this.utf8Slice(start, end);
-
-    case 'ascii':
-      return this.asciiSlice(start, end);
-
-    case 'binary':
-      return this.binarySlice(start, end);
-
-    case 'base64':
-      return this.base64Slice(start, end);
-
-    case 'ucs2':
-    case 'ucs-2':
-      return this.ucs2Slice(start, end);
-
-    default:
-      throw new Error('Unknown encoding');
-  }
-};
-
-
-Buffer.prototype.hexWrite = function(string, offset, length) {
-  offset = +offset || 0;
-  var remaining = this.length - offset;
-  if (!length) {
-    length = remaining;
-  } else {
-    length = +length;
-    if (length > remaining) {
-      length = remaining;
-    }
-  }
-
-  // must be an even number of digits
-  var strLen = string.length;
-  if (strLen % 2) {
-    throw new Error('Invalid hex string');
-  }
-  if (length > strLen / 2) {
-    length = strLen / 2;
-  }
-  for (var i = 0; i < length; i++) {
-    var byte = parseInt(string.substr(i * 2, 2), 16);
-    if (isNaN(byte)) throw new Error('Invalid hex string');
-    this[offset + i] = byte;
-  }
-  Buffer._charsWritten = i * 2;
-  return i;
-};
-
-
-Buffer.prototype.write = function(string, offset, length, encoding) {
-  // Support both (string, offset, length, encoding)
-  // and the legacy (string, encoding, offset, length)
-  if (isFinite(offset)) {
-    if (!isFinite(length)) {
-      encoding = length;
-      length = undefined;
-    }
-  } else {  // legacy
-    var swap = encoding;
-    encoding = offset;
-    offset = length;
-    length = swap;
-  }
-
-  offset = +offset || 0;
-  var remaining = this.length - offset;
-  if (!length) {
-    length = remaining;
-  } else {
-    length = +length;
-    if (length > remaining) {
-      length = remaining;
-    }
-  }
-  encoding = String(encoding || 'utf8').toLowerCase();
-
-  switch (encoding) {
-    case 'hex':
-      return this.hexWrite(string, offset, length);
-
-    case 'utf8':
-    case 'utf-8':
-      return this.utf8Write(string, offset, length);
-
-    case 'ascii':
-      return this.asciiWrite(string, offset, length);
-
-    case 'binary':
-      return this.binaryWrite(string, offset, length);
-
-    case 'base64':
-      return this.base64Write(string, offset, length);
-
-    case 'ucs2':
-    case 'ucs-2':
-      return this.ucs2Write(string, offset, length);
-
-    default:
-      throw new Error('Unknown encoding');
-  }
-};
-
-// slice(start, end)
-function clamp(index, len, defaultValue) {
-  if (typeof index !== 'number') return defaultValue;
-  index = ~~index;  // Coerce to integer.
-  if (index >= len) return len;
-  if (index >= 0) return index;
-  index += len;
-  if (index >= 0) return index;
-  return 0;
-}
-
-Buffer.prototype.slice = function(start, end) {
-  var len = this.length;
-  start = clamp(start, len, 0);
-  end = clamp(end, len, len);
-  return new Buffer(this, end - start, +start);
-};
-
-// copy(targetBuffer, targetStart=0, sourceStart=0, sourceEnd=buffer.length)
-Buffer.prototype.copy = function(target, target_start, start, end) {
-  var source = this;
-  start || (start = 0);
-  if (end === undefined || isNaN(end)) {
-    end = this.length;
-  }
-  target_start || (target_start = 0);
-
-  if (end < start) throw new Error('sourceEnd < sourceStart');
-
-  // Copy 0 bytes; we're done
-  if (end === start) return 0;
-  if (target.length == 0 || source.length == 0) return 0;
-
-  if (target_start < 0 || target_start >= target.length) {
-    throw new Error('targetStart out of bounds');
-  }
-
-  if (start < 0 || start >= source.length) {
-    throw new Error('sourceStart out of bounds');
-  }
-
-  if (end < 0 || end > source.length) {
-    throw new Error('sourceEnd out of bounds');
-  }
-
-  // Are we oob?
-  if (end > this.length) {
-    end = this.length;
-  }
-
-  if (target.length - target_start < end - start) {
-    end = target.length - target_start + start;
-  }
-
-  var temp = [];
-  for (var i=start; i<end; i++) {
-    assert.ok(typeof this[i] !== 'undefined', "copying undefined buffer bytes!");
-    temp.push(this[i]);
-  }
-
-  for (var i=target_start; i<target_start+temp.length; i++) {
-    target[i] = temp[i-target_start];
-  }
-};
-
-// fill(value, start=0, end=buffer.length)
-Buffer.prototype.fill = function fill(value, start, end) {
-  value || (value = 0);
-  start || (start = 0);
-  end || (end = this.length);
-
-  if (typeof value === 'string') {
-    value = value.charCodeAt(0);
-  }
-  if (!(typeof value === 'number') || isNaN(value)) {
-    throw new Error('value is not a number');
-  }
-
-  if (end < start) throw new Error('end < start');
-
-  // Fill 0 bytes; we're done
-  if (end === start) return 0;
-  if (this.length == 0) return 0;
-
-  if (start < 0 || start >= this.length) {
-    throw new Error('start out of bounds');
-  }
-
-  if (end < 0 || end > this.length) {
-    throw new Error('end out of bounds');
-  }
-
-  for (var i = start; i < end; i++) {
-    this[i] = value;
-  }
-}
-
-// Static methods
-Buffer.isBuffer = function isBuffer(b) {
-  return b instanceof Buffer || b instanceof Buffer;
-};
-
-Buffer.concat = function (list, totalLength) {
-  if (!isArray(list)) {
-    throw new Error("Usage: Buffer.concat(list, [totalLength])\n \
-      list should be an Array.");
-  }
-
-  if (list.length === 0) {
-    return new Buffer(0);
-  } else if (list.length === 1) {
-    return list[0];
-  }
-
-  if (typeof totalLength !== 'number') {
-    totalLength = 0;
-    for (var i = 0; i < list.length; i++) {
-      var buf = list[i];
-      totalLength += buf.length;
-    }
-  }
-
-  var buffer = new Buffer(totalLength);
-  var pos = 0;
-  for (var i = 0; i < list.length; i++) {
-    var buf = list[i];
-    buf.copy(buffer, pos);
-    pos += buf.length;
-  }
-  return buffer;
-};
-
-Buffer.isEncoding = function(encoding) {
-  switch ((encoding + '').toLowerCase()) {
-    case 'hex':
-    case 'utf8':
-    case 'utf-8':
-    case 'ascii':
-    case 'binary':
-    case 'base64':
-    case 'ucs2':
-    case 'ucs-2':
-    case 'utf16le':
-    case 'utf-16le':
-    case 'raw':
-      return true;
-
-    default:
-      return false;
-  }
-};
-
-// helpers
-
-function coerce(length) {
-  // Coerce length to a number (possibly NaN), round up
-  // in case it's fractional (e.g. 123.456) then do a
-  // double negate to coerce a NaN to 0. Easy, right?
-  length = ~~Math.ceil(+length);
-  return length < 0 ? 0 : length;
-}
-
-function isArray(subject) {
-  return (Array.isArray ||
-    function(subject){
-      return {}.toString.apply(subject) == '[object Array]'
-    })
-    (subject)
-}
-
-function isArrayIsh(subject) {
-  return isArray(subject) || Buffer.isBuffer(subject) ||
-         subject && typeof subject === 'object' &&
-         typeof subject.length === 'number';
-}
-
-function toHex(n) {
-  if (n < 16) return '0' + n.toString(16);
-  return n.toString(16);
-}
-
-function utf8ToBytes(str) {
-  var byteArray = [];
-  for (var i = 0; i < str.length; i++)
-    if (str.charCodeAt(i) <= 0x7F)
-      byteArray.push(str.charCodeAt(i));
-    else {
-      var h = encodeURIComponent(str.charAt(i)).substr(1).split('%');
-      for (var j = 0; j < h.length; j++)
-        byteArray.push(parseInt(h[j], 16));
-    }
-
-  return byteArray;
-}
-
-function asciiToBytes(str) {
-  var byteArray = []
-  for (var i = 0; i < str.length; i++ )
-    // Node's code seems to be doing this and not & 0x7F..
-    byteArray.push( str.charCodeAt(i) & 0xFF );
-
-  return byteArray;
-}
-
-function base64ToBytes(str) {
-  return require("base64-js").toByteArray(str);
-}
-
-function blitBuffer(src, dst, offset, length) {
-  var pos, i = 0;
-  while (i < length) {
-    if ((i+offset >= dst.length) || (i >= src.length))
-      break;
-
-    dst[i + offset] = src[i];
-    i++;
-  }
-  return i;
-}
-
-function decodeUtf8Char(str) {
-  try {
-    return decodeURIComponent(str);
-  } catch (err) {
-    return String.fromCharCode(0xFFFD); // UTF 8 invalid char
-  }
-}
-
-// read/write bit-twiddling
-
-Buffer.prototype.readUInt8 = function(offset, noAssert) {
-  var buffer = this;
-
-  if (!noAssert) {
-    assert.ok(offset !== undefined && offset !== null,
-        'missing offset');
-
-    assert.ok(offset < buffer.length,
-        'Trying to read beyond buffer length');
-  }
-
-  if (offset >= buffer.length) return;
-
-  return buffer[offset];
-};
-
-function readUInt16(buffer, offset, isBigEndian, noAssert) {
-  var val = 0;
-
-
-  if (!noAssert) {
-    assert.ok(typeof (isBigEndian) === 'boolean',
-        'missing or invalid endian');
-
-    assert.ok(offset !== undefined && offset !== null,
-        'missing offset');
-
-    assert.ok(offset + 1 < buffer.length,
-        'Trying to read beyond buffer length');
-  }
-
-  if (offset >= buffer.length) return 0;
-
-  if (isBigEndian) {
-    val = buffer[offset] << 8;
-    if (offset + 1 < buffer.length) {
-      val |= buffer[offset + 1];
-    }
-  } else {
-    val = buffer[offset];
-    if (offset + 1 < buffer.length) {
-      val |= buffer[offset + 1] << 8;
-    }
-  }
-
-  return val;
-}
-
-Buffer.prototype.readUInt16LE = function(offset, noAssert) {
-  return readUInt16(this, offset, false, noAssert);
-};
-
-Buffer.prototype.readUInt16BE = function(offset, noAssert) {
-  return readUInt16(this, offset, true, noAssert);
-};
-
-function readUInt32(buffer, offset, isBigEndian, noAssert) {
-  var val = 0;
-
-  if (!noAssert) {
-    assert.ok(typeof (isBigEndian) === 'boolean',
-        'missing or invalid endian');
-
-    assert.ok(offset !== undefined && offset !== null,
-        'missing offset');
-
-    assert.ok(offset + 3 < buffer.length,
-        'Trying to read beyond buffer length');
-  }
-
-  if (offset >= buffer.length) return 0;
-
-  if (isBigEndian) {
-    if (offset + 1 < buffer.length)
-      val = buffer[offset + 1] << 16;
-    if (offset + 2 < buffer.length)
-      val |= buffer[offset + 2] << 8;
-    if (offset + 3 < buffer.length)
-      val |= buffer[offset + 3];
-    val = val + (buffer[offset] << 24 >>> 0);
-  } else {
-    if (offset + 2 < buffer.length)
-      val = buffer[offset + 2] << 16;
-    if (offset + 1 < buffer.length)
-      val |= buffer[offset + 1] << 8;
-    val |= buffer[offset];
-    if (offset + 3 < buffer.length)
-      val = val + (buffer[offset + 3] << 24 >>> 0);
-  }
-
-  return val;
-}
-
-Buffer.prototype.readUInt32LE = function(offset, noAssert) {
-  return readUInt32(this, offset, false, noAssert);
-};
-
-Buffer.prototype.readUInt32BE = function(offset, noAssert) {
-  return readUInt32(this, offset, true, noAssert);
-};
-
-
-/*
- * Signed integer types, yay team! A reminder on how two's complement actually
- * works. The first bit is the signed bit, i.e. tells us whether or not the
- * number should be positive or negative. If the two's complement value is
- * positive, then we're done, as it's equivalent to the unsigned representation.
- *
- * Now if the number is positive, you're pretty much done, you can just leverage
- * the unsigned translations and return those. Unfortunately, negative numbers
- * aren't quite that straightforward.
- *
- * At first glance, one might be inclined to use the traditional formula to
- * translate binary numbers between the positive and negative values in two's
- * complement. (Though it doesn't quite work for the most negative value)
- * Mainly:
- *  - invert all the bits
- *  - add one to the result
- *
- * Of course, this doesn't quite work in Javascript. Take for example the value
- * of -128. This could be represented in 16 bits (big-endian) as 0xff80. But of
- * course, Javascript will do the following:
- *
- * > ~0xff80
- * -65409
- *
- * Whoh there, Javascript, that's not quite right. But wait, according to
- * Javascript that's perfectly correct. When Javascript ends up seeing the
- * constant 0xff80, it has no notion that it is actually a signed number. It
- * assumes that we've input the unsigned value 0xff80. Thus, when it does the
- * binary negation, it casts it into a signed value, (positive 0xff80). Then
- * when you perform binary negation on that, it turns it into a negative number.
- *
- * Instead, we're going to have to use the following general formula, that works
- * in a rather Javascript friendly way. I'm glad we don't support this kind of
- * weird numbering scheme in the kernel.
- *
- * (BIT-MAX - (unsigned)val + 1) * -1
- *
- * The astute observer, may think that this doesn't make sense for 8-bit numbers
- * (really it isn't necessary for them). However, when you get 16-bit numbers,
- * you do. Let's go back to our prior example and see how this will look:
- *
- * (0xffff - 0xff80 + 1) * -1
- * (0x007f + 1) * -1
- * (0x0080) * -1
- */
-Buffer.prototype.readInt8 = function(offset, noAssert) {
-  var buffer = this;
-  var neg;
-
-  if (!noAssert) {
-    assert.ok(offset !== undefined && offset !== null,
-        'missing offset');
-
-    assert.ok(offset < buffer.length,
-        'Trying to read beyond buffer length');
-  }
-
-  if (offset >= buffer.length) return;
-
-  neg = buffer[offset] & 0x80;
-  if (!neg) {
-    return (buffer[offset]);
-  }
-
-  return ((0xff - buffer[offset] + 1) * -1);
-};
-
-function readInt16(buffer, offset, isBigEndian, noAssert) {
-  var neg, val;
-
-  if (!noAssert) {
-    assert.ok(typeof (isBigEndian) === 'boolean',
-        'missing or invalid endian');
-
-    assert.ok(offset !== undefined && offset !== null,
-        'missing offset');
-
-    assert.ok(offset + 1 < buffer.length,
-        'Trying to read beyond buffer length');
-  }
-
-  val = readUInt16(buffer, offset, isBigEndian, noAssert);
-  neg = val & 0x8000;
-  if (!neg) {
-    return val;
-  }
-
-  return (0xffff - val + 1) * -1;
-}
-
-Buffer.prototype.readInt16LE = function(offset, noAssert) {
-  return readInt16(this, offset, false, noAssert);
-};
-
-Buffer.prototype.readInt16BE = function(offset, noAssert) {
-  return readInt16(this, offset, true, noAssert);
-};
-
-function readInt32(buffer, offset, isBigEndian, noAssert) {
-  var neg, val;
-
-  if (!noAssert) {
-    assert.ok(typeof (isBigEndian) === 'boolean',
-        'missing or invalid endian');
-
-    assert.ok(offset !== undefined && offset !== null,
-        'missing offset');
-
-    assert.ok(offset + 3 < buffer.length,
-        'Trying to read beyond buffer length');
-  }
-
-  val = readUInt32(buffer, offset, isBigEndian, noAssert);
-  neg = val & 0x80000000;
-  if (!neg) {
-    return (val);
-  }
-
-  return (0xffffffff - val + 1) * -1;
-}
-
-Buffer.prototype.readInt32LE = function(offset, noAssert) {
-  return readInt32(this, offset, false, noAssert);
-};
-
-Buffer.prototype.readInt32BE = function(offset, noAssert) {
-  return readInt32(this, offset, true, noAssert);
-};
-
-function readFloat(buffer, offset, isBigEndian, noAssert) {
-  if (!noAssert) {
-    assert.ok(typeof (isBigEndian) === 'boolean',
-        'missing or invalid endian');
-
-    assert.ok(offset + 3 < buffer.length,
-        'Trying to read beyond buffer length');
-  }
-
-  return require('./buffer_ieee754').readIEEE754(buffer, offset, isBigEndian,
-      23, 4);
-}
-
-Buffer.prototype.readFloatLE = function(offset, noAssert) {
-  return readFloat(this, offset, false, noAssert);
-};
-
-Buffer.prototype.readFloatBE = function(offset, noAssert) {
-  return readFloat(this, offset, true, noAssert);
-};
-
-function readDouble(buffer, offset, isBigEndian, noAssert) {
-  if (!noAssert) {
-    assert.ok(typeof (isBigEndian) === 'boolean',
-        'missing or invalid endian');
-
-    assert.ok(offset + 7 < buffer.length,
-        'Trying to read beyond buffer length');
-  }
-
-  return require('./buffer_ieee754').readIEEE754(buffer, offset, isBigEndian,
-      52, 8);
-}
-
-Buffer.prototype.readDoubleLE = function(offset, noAssert) {
-  return readDouble(this, offset, false, noAssert);
-};
-
-Buffer.prototype.readDoubleBE = function(offset, noAssert) {
-  return readDouble(this, offset, true, noAssert);
-};
-
-
-/*
- * We have to make sure that the value is a valid integer. This means that it is
- * non-negative. It has no fractional component and that it does not exceed the
- * maximum allowed value.
- *
- *      value           The number to check for validity
- *
- *      max             The maximum value
- */
-function verifuint(value, max) {
-  assert.ok(typeof (value) == 'number',
-      'cannot write a non-number as a number');
-
-  assert.ok(value >= 0,
-      'specified a negative value for writing an unsigned value');
-
-  assert.ok(value <= max, 'value is larger than maximum value for type');
-
-  assert.ok(Math.floor(value) === value, 'value has a fractional component');
-}
-
-Buffer.prototype.writeUInt8 = function(value, offset, noAssert) {
-  var buffer = this;
-
-  if (!noAssert) {
-    assert.ok(value !== undefined && value !== null,
-        'missing value');
-
-    assert.ok(offset !== undefined && offset !== null,
-        'missing offset');
-
-    assert.ok(offset < buffer.length,
-        'trying to write beyond buffer length');
-
-    verifuint(value, 0xff);
-  }
-
-  if (offset < buffer.length) {
-    buffer[offset] = value;
-  }
-};
-
-function writeUInt16(buffer, value, offset, isBigEndian, noAssert) {
-  if (!noAssert) {
-    assert.ok(value !== undefined && value !== null,
-        'missing value');
-
-    assert.ok(typeof (isBigEndian) === 'boolean',
-        'missing or invalid endian');
-
-    assert.ok(offset !== undefined && offset !== null,
-        'missing offset');
-
-    assert.ok(offset + 1 < buffer.length,
-        'trying to write beyond buffer length');
-
-    verifuint(value, 0xffff);
-  }
-
-  for (var i = 0; i < Math.min(buffer.length - offset, 2); i++) {
-    buffer[offset + i] =
-        (value & (0xff << (8 * (isBigEndian ? 1 - i : i)))) >>>
-            (isBigEndian ? 1 - i : i) * 8;
-  }
-
-}
-
-Buffer.prototype.writeUInt16LE = function(value, offset, noAssert) {
-  writeUInt16(this, value, offset, false, noAssert);
-};
-
-Buffer.prototype.writeUInt16BE = function(value, offset, noAssert) {
-  writeUInt16(this, value, offset, true, noAssert);
-};
-
-function writeUInt32(buffer, value, offset, isBigEndian, noAssert) {
-  if (!noAssert) {
-    assert.ok(value !== undefined && value !== null,
-        'missing value');
-
-    assert.ok(typeof (isBigEndian) === 'boolean',
-        'missing or invalid endian');
-
-    assert.ok(offset !== undefined && offset !== null,
-        'missing offset');
-
-    assert.ok(offset + 3 < buffer.length,
-        'trying to write beyond buffer length');
-
-    verifuint(value, 0xffffffff);
-  }
-
-  for (var i = 0; i < Math.min(buffer.length - offset, 4); i++) {
-    buffer[offset + i] =
-        (value >>> (isBigEndian ? 3 - i : i) * 8) & 0xff;
-  }
-}
-
-Buffer.prototype.writeUInt32LE = function(value, offset, noAssert) {
-  writeUInt32(this, value, offset, false, noAssert);
-};
-
-Buffer.prototype.writeUInt32BE = function(value, offset, noAssert) {
-  writeUInt32(this, value, offset, true, noAssert);
-};
-
-
-/*
- * We now move onto our friends in the signed number category. Unlike unsigned
- * numbers, we're going to have to worry a bit more about how we put values into
- * arrays. Since we are only worrying about signed 32-bit values, we're in
- * slightly better shape. Unfortunately, we really can't do our favorite binary
- * & in this system. It really seems to do the wrong thing. For example:
- *
- * > -32 & 0xff
- * 224
- *
- * What's happening above is really: 0xe0 & 0xff = 0xe0. However, the results of
- * this aren't treated as a signed number. Ultimately a bad thing.
- *
- * What we're going to want to do is basically create the unsigned equivalent of
- * our representation and pass that off to the wuint* functions. To do that
- * we're going to do the following:
- *
- *  - if the value is positive
- *      we can pass it directly off to the equivalent wuint
- *  - if the value is negative
- *      we do the following computation:
- *         mb + val + 1, where
- *         mb   is the maximum unsigned value in that byte size
- *         val  is the Javascript negative integer
- *
- *
- * As a concrete value, take -128. In signed 16 bits this would be 0xff80. If
- * you do out the computations:
- *
- * 0xffff - 128 + 1
- * 0xffff - 127
- * 0xff80
- *
- * You can then encode this value as the signed version. This is really rather
- * hacky, but it should work and get the job done which is our goal here.
- */
-
-/*
- * A series of checks to make sure we actually have a signed 32-bit number
- */
-function verifsint(value, max, min) {
-  assert.ok(typeof (value) == 'number',
-      'cannot write a non-number as a number');
-
-  assert.ok(value <= max, 'value larger than maximum allowed value');
-
-  assert.ok(value >= min, 'value smaller than minimum allowed value');
-
-  assert.ok(Math.floor(value) === value, 'value has a fractional component');
-}
-
-function verifIEEE754(value, max, min) {
-  assert.ok(typeof (value) == 'number',
-      'cannot write a non-number as a number');
-
-  assert.ok(value <= max, 'value larger than maximum allowed value');
-
-  assert.ok(value >= min, 'value smaller than minimum allowed value');
-}
-
-Buffer.prototype.writeInt8 = function(value, offset, noAssert) {
-  var buffer = this;
-
-  if (!noAssert) {
-    assert.ok(value !== undefined && value !== null,
-        'missing value');
-
-    assert.ok(offset !== undefined && offset !== null,
-        'missing offset');
-
-    assert.ok(offset < buffer.length,
-        'Trying to write beyond buffer length');
-
-    verifsint(value, 0x7f, -0x80);
-  }
-
-  if (value >= 0) {
-    buffer.writeUInt8(value, offset, noAssert);
-  } else {
-    buffer.writeUInt8(0xff + value + 1, offset, noAssert);
-  }
-};
-
-function writeInt16(buffer, value, offset, isBigEndian, noAssert) {
-  if (!noAssert) {
-    assert.ok(value !== undefined && value !== null,
-        'missing value');
-
-    assert.ok(typeof (isBigEndian) === 'boolean',
-        'missing or invalid endian');
-
-    assert.ok(offset !== undefined && offset !== null,
-        'missing offset');
-
-    assert.ok(offset + 1 < buffer.length,
-        'Trying to write beyond buffer length');
-
-    verifsint(value, 0x7fff, -0x8000);
-  }
-
-  if (value >= 0) {
-    writeUInt16(buffer, value, offset, isBigEndian, noAssert);
-  } else {
-    writeUInt16(buffer, 0xffff + value + 1, offset, isBigEndian, noAssert);
-  }
-}
-
-Buffer.prototype.writeInt16LE = function(value, offset, noAssert) {
-  writeInt16(this, value, offset, false, noAssert);
-};
-
-Buffer.prototype.writeInt16BE = function(value, offset, noAssert) {
-  writeInt16(this, value, offset, true, noAssert);
-};
-
-function writeInt32(buffer, value, offset, isBigEndian, noAssert) {
-  if (!noAssert) {
-    assert.ok(value !== undefined && value !== null,
-        'missing value');
-
-    assert.ok(typeof (isBigEndian) === 'boolean',
-        'missing or invalid endian');
-
-    assert.ok(offset !== undefined && offset !== null,
-        'missing offset');
-
-    assert.ok(offset + 3 < buffer.length,
-        'Trying to write beyond buffer length');
-
-    verifsint(value, 0x7fffffff, -0x80000000);
-  }
-
-  if (value >= 0) {
-    writeUInt32(buffer, value, offset, isBigEndian, noAssert);
-  } else {
-    writeUInt32(buffer, 0xffffffff + value + 1, offset, isBigEndian, noAssert);
-  }
-}
-
-Buffer.prototype.writeInt32LE = function(value, offset, noAssert) {
-  writeInt32(this, value, offset, false, noAssert);
-};
-
-Buffer.prototype.writeInt32BE = function(value, offset, noAssert) {
-  writeInt32(this, value, offset, true, noAssert);
-};
-
-function writeFloat(buffer, value, offset, isBigEndian, noAssert) {
-  if (!noAssert) {
-    assert.ok(value !== undefined && value !== null,
-        'missing value');
-
-    assert.ok(typeof (isBigEndian) === 'boolean',
-        'missing or invalid endian');
-
-    assert.ok(offset !== undefined && offset !== null,
-        'missing offset');
-
-    assert.ok(offset + 3 < buffer.length,
-        'Trying to write beyond buffer length');
-
-    verifIEEE754(value, 3.4028234663852886e+38, -3.4028234663852886e+38);
-  }
-
-  require('./buffer_ieee754').writeIEEE754(buffer, value, offset, isBigEndian,
-      23, 4);
-}
-
-Buffer.prototype.writeFloatLE = function(value, offset, noAssert) {
-  writeFloat(this, value, offset, false, noAssert);
-};
-
-Buffer.prototype.writeFloatBE = function(value, offset, noAssert) {
-  writeFloat(this, value, offset, true, noAssert);
-};
-
-function writeDouble(buffer, value, offset, isBigEndian, noAssert) {
-  if (!noAssert) {
-    assert.ok(value !== undefined && value !== null,
-        'missing value');
-
-    assert.ok(typeof (isBigEndian) === 'boolean',
-        'missing or invalid endian');
-
-    assert.ok(offset !== undefined && offset !== null,
-        'missing offset');
-
-    assert.ok(offset + 7 < buffer.length,
-        'Trying to write beyond buffer length');
-
-    verifIEEE754(value, 1.7976931348623157E+308, -1.7976931348623157E+308);
-  }
-
-  require('./buffer_ieee754').writeIEEE754(buffer, value, offset, isBigEndian,
-      52, 8);
-}
-
-Buffer.prototype.writeDoubleLE = function(value, offset, noAssert) {
-  writeDouble(this, value, offset, false, noAssert);
-};
-
-Buffer.prototype.writeDoubleBE = function(value, offset, noAssert) {
-  writeDouble(this, value, offset, true, noAssert);
-};
-
-},{"./buffer_ieee754":1,"assert":6,"base64-js":4}],"buffer-browserify":[function(require,module,exports){
-module.exports=require('q9TxCC');
-},{}],4:[function(require,module,exports){
-(function (exports) {
-	'use strict';
-
-	var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-
-	function b64ToByteArray(b64) {
-		var i, j, l, tmp, placeHolders, arr;
-	
-		if (b64.length % 4 > 0) {
-			throw 'Invalid string. Length must be a multiple of 4';
-		}
-
-		// the number of equal signs (place holders)
-		// if there are two placeholders, than the two characters before it
-		// represent one byte
-		// if there is only one, then the three characters before it represent 2 bytes
-		// this is just a cheap hack to not do indexOf twice
-		placeHolders = b64.indexOf('=');
-		placeHolders = placeHolders > 0 ? b64.length - placeHolders : 0;
-
-		// base64 is 4/3 + up to two characters of the original data
-		arr = [];//new Uint8Array(b64.length * 3 / 4 - placeHolders);
-
-		// if there are placeholders, only get up to the last complete 4 chars
-		l = placeHolders > 0 ? b64.length - 4 : b64.length;
-
-		for (i = 0, j = 0; i < l; i += 4, j += 3) {
-			tmp = (lookup.indexOf(b64[i]) << 18) | (lookup.indexOf(b64[i + 1]) << 12) | (lookup.indexOf(b64[i + 2]) << 6) | lookup.indexOf(b64[i + 3]);
-			arr.push((tmp & 0xFF0000) >> 16);
-			arr.push((tmp & 0xFF00) >> 8);
-			arr.push(tmp & 0xFF);
-		}
-
-		if (placeHolders === 2) {
-			tmp = (lookup.indexOf(b64[i]) << 2) | (lookup.indexOf(b64[i + 1]) >> 4);
-			arr.push(tmp & 0xFF);
-		} else if (placeHolders === 1) {
-			tmp = (lookup.indexOf(b64[i]) << 10) | (lookup.indexOf(b64[i + 1]) << 4) | (lookup.indexOf(b64[i + 2]) >> 2);
-			arr.push((tmp >> 8) & 0xFF);
-			arr.push(tmp & 0xFF);
-		}
-
-		return arr;
-	}
-
-	function uint8ToBase64(uint8) {
-		var i,
-			extraBytes = uint8.length % 3, // if we have 1 byte left, pad 2 bytes
-			output = "",
-			temp, length;
-
-		function tripletToBase64 (num) {
-			return lookup[num >> 18 & 0x3F] + lookup[num >> 12 & 0x3F] + lookup[num >> 6 & 0x3F] + lookup[num & 0x3F];
-		};
-
-		// go through the array every three bytes, we'll deal with trailing stuff later
-		for (i = 0, length = uint8.length - extraBytes; i < length; i += 3) {
-			temp = (uint8[i] << 16) + (uint8[i + 1] << 8) + (uint8[i + 2]);
-			output += tripletToBase64(temp);
-		}
-
-		// pad the end with zeros, but make sure to not forget the extra bytes
-		switch (extraBytes) {
-			case 1:
-				temp = uint8[uint8.length - 1];
-				output += lookup[temp >> 2];
-				output += lookup[(temp << 4) & 0x3F];
-				output += '==';
-				break;
-			case 2:
-				temp = (uint8[uint8.length - 2] << 8) + (uint8[uint8.length - 1]);
-				output += lookup[temp >> 10];
-				output += lookup[(temp >> 4) & 0x3F];
-				output += lookup[(temp << 2) & 0x3F];
-				output += '=';
-				break;
-		}
-
-		return output;
-	}
-
-	module.exports.toByteArray = b64ToByteArray;
-	module.exports.fromByteArray = uint8ToBase64;
-}());
-
-},{}],5:[function(require,module,exports){
-
-
-//
-// The shims in this file are not fully implemented shims for the ES5
-// features, but do work for the particular usecases there is in
-// the other modules.
-//
-
-var toString = Object.prototype.toString;
-var hasOwnProperty = Object.prototype.hasOwnProperty;
-
-// Array.isArray is supported in IE9
-function isArray(xs) {
-  return toString.call(xs) === '[object Array]';
-}
-exports.isArray = typeof Array.isArray === 'function' ? Array.isArray : isArray;
-
-// Array.prototype.indexOf is supported in IE9
-exports.indexOf = function indexOf(xs, x) {
-  if (xs.indexOf) return xs.indexOf(x);
-  for (var i = 0; i < xs.length; i++) {
-    if (x === xs[i]) return i;
-  }
-  return -1;
-};
-
-// Array.prototype.filter is supported in IE9
-exports.filter = function filter(xs, fn) {
-  if (xs.filter) return xs.filter(fn);
-  var res = [];
-  for (var i = 0; i < xs.length; i++) {
-    if (fn(xs[i], i, xs)) res.push(xs[i]);
-  }
-  return res;
-};
-
-// Array.prototype.forEach is supported in IE9
-exports.forEach = function forEach(xs, fn, self) {
-  if (xs.forEach) return xs.forEach(fn, self);
-  for (var i = 0; i < xs.length; i++) {
-    fn.call(self, xs[i], i, xs);
-  }
-};
-
-// Array.prototype.map is supported in IE9
-exports.map = function map(xs, fn) {
-  if (xs.map) return xs.map(fn);
-  var out = new Array(xs.length);
-  for (var i = 0; i < xs.length; i++) {
-    out[i] = fn(xs[i], i, xs);
-  }
-  return out;
-};
-
-// Array.prototype.reduce is supported in IE9
-exports.reduce = function reduce(array, callback, opt_initialValue) {
-  if (array.reduce) return array.reduce(callback, opt_initialValue);
-  var value, isValueSet = false;
-
-  if (2 < arguments.length) {
-    value = opt_initialValue;
-    isValueSet = true;
-  }
-  for (var i = 0, l = array.length; l > i; ++i) {
-    if (array.hasOwnProperty(i)) {
-      if (isValueSet) {
-        value = callback(value, array[i], i, array);
-      }
-      else {
-        value = array[i];
-        isValueSet = true;
-      }
-    }
-  }
-
-  return value;
-};
-
-// String.prototype.substr - negative index don't work in IE8
-if ('ab'.substr(-1) !== 'b') {
-  exports.substr = function (str, start, length) {
-    // did we get a negative start, calculate how much it is from the beginning of the string
-    if (start < 0) start = str.length + start;
-
-    // call the original function
-    return str.substr(start, length);
+    });
   };
 } else {
-  exports.substr = function (str, start, length) {
-    return str.substr(start, length);
-  };
+  // old school shim for old browsers
+  module.exports = function inherits(ctor, superCtor) {
+    ctor.super_ = superCtor
+    var TempCtor = function () {}
+    TempCtor.prototype = superCtor.prototype
+    ctor.prototype = new TempCtor()
+    ctor.prototype.constructor = ctor
+  }
 }
 
-// String.prototype.trim is supported in IE9
-exports.trim = function (str) {
-  if (str.trim) return str.trim();
-  return str.replace(/^\s+|\s+$/g, '');
-};
+},{}],154:[function(_dereq_,module,exports){
+// shim for using process in browser
 
-// Function.prototype.bind is supported in IE9
-exports.bind = function () {
-  var args = Array.prototype.slice.call(arguments);
-  var fn = args.shift();
-  if (fn.bind) return fn.bind.apply(fn, args);
-  var self = args.shift();
-  return function () {
-    fn.apply(self, args.concat([Array.prototype.slice.call(arguments)]));
-  };
-};
+var process = module.exports = {};
 
-// Object.create is supported in IE9
-function create(prototype, properties) {
-  var object;
-  if (prototype === null) {
-    object = { '__proto__' : null };
-  }
-  else {
-    if (typeof prototype !== 'object') {
-      throw new TypeError(
-        'typeof prototype[' + (typeof prototype) + '] != \'object\''
-      );
+process.nextTick = (function () {
+    var canSetImmediate = typeof window !== 'undefined'
+    && window.setImmediate;
+    var canPost = typeof window !== 'undefined'
+    && window.postMessage && window.addEventListener
+    ;
+
+    if (canSetImmediate) {
+        return function (f) { return window.setImmediate(f) };
     }
-    var Type = function () {};
-    Type.prototype = prototype;
-    object = new Type();
-    object.__proto__ = prototype;
-  }
-  if (typeof properties !== 'undefined' && Object.defineProperties) {
-    Object.defineProperties(object, properties);
-  }
-  return object;
-}
-exports.create = typeof Object.create === 'function' ? Object.create : create;
 
-// Object.keys and Object.getOwnPropertyNames is supported in IE9 however
-// they do show a description and number property on Error objects
-function notObject(object) {
-  return ((typeof object != "object" && typeof object != "function") || object === null);
-}
+    if (canPost) {
+        var queue = [];
+        window.addEventListener('message', function (ev) {
+            var source = ev.source;
+            if ((source === window || source === null) && ev.data === 'process-tick') {
+                ev.stopPropagation();
+                if (queue.length > 0) {
+                    var fn = queue.shift();
+                    fn();
+                }
+            }
+        }, true);
 
-function keysShim(object) {
-  if (notObject(object)) {
-    throw new TypeError("Object.keys called on a non-object");
-  }
-
-  var result = [];
-  for (var name in object) {
-    if (hasOwnProperty.call(object, name)) {
-      result.push(name);
+        return function nextTick(fn) {
+            queue.push(fn);
+            window.postMessage('process-tick', '*');
+        };
     }
-  }
-  return result;
-}
 
-// getOwnPropertyNames is almost the same as Object.keys one key feature
-//  is that it returns hidden properties, since that can't be implemented,
-//  this feature gets reduced so it just shows the length property on arrays
-function propertyShim(object) {
-  if (notObject(object)) {
-    throw new TypeError("Object.getOwnPropertyNames called on a non-object");
-  }
-
-  var result = keysShim(object);
-  if (exports.isArray(object) && exports.indexOf(object, 'length') === -1) {
-    result.push('length');
-  }
-  return result;
-}
-
-var keys = typeof Object.keys === 'function' ? Object.keys : keysShim;
-var getOwnPropertyNames = typeof Object.getOwnPropertyNames === 'function' ?
-  Object.getOwnPropertyNames : propertyShim;
-
-if (new Error().hasOwnProperty('description')) {
-  var ERROR_PROPERTY_FILTER = function (obj, array) {
-    if (toString.call(obj) === '[object Error]') {
-      array = exports.filter(array, function (name) {
-        return name !== 'description' && name !== 'number' && name !== 'message';
-      });
-    }
-    return array;
-  };
-
-  exports.keys = function (object) {
-    return ERROR_PROPERTY_FILTER(object, keys(object));
-  };
-  exports.getOwnPropertyNames = function (object) {
-    return ERROR_PROPERTY_FILTER(object, getOwnPropertyNames(object));
-  };
-} else {
-  exports.keys = keys;
-  exports.getOwnPropertyNames = getOwnPropertyNames;
-}
-
-// Object.getOwnPropertyDescriptor - supported in IE8 but only on dom elements
-function valueObject(value, key) {
-  return { value: value[key] };
-}
-
-if (typeof Object.getOwnPropertyDescriptor === 'function') {
-  try {
-    Object.getOwnPropertyDescriptor({'a': 1}, 'a');
-    exports.getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
-  } catch (e) {
-    // IE8 dom element issue - use a try catch and default to valueObject
-    exports.getOwnPropertyDescriptor = function (value, key) {
-      try {
-        return Object.getOwnPropertyDescriptor(value, key);
-      } catch (e) {
-        return valueObject(value, key);
-      }
+    return function nextTick(fn) {
+        setTimeout(fn, 0);
     };
-  }
-} else {
-  exports.getOwnPropertyDescriptor = valueObject;
+})();
+
+process.title = 'browser';
+process.browser = true;
+process.env = {};
+process.argv = [];
+
+function noop() {}
+
+process.on = noop;
+process.addListener = noop;
+process.once = noop;
+process.off = noop;
+process.removeListener = noop;
+process.removeAllListeners = noop;
+process.emit = noop;
+
+process.binding = function (name) {
+    throw new Error('process.binding is not supported');
 }
 
-},{}],6:[function(require,module,exports){
+// TODO(shtylman)
+process.cwd = function () { return '/' };
+process.chdir = function (dir) {
+    throw new Error('process.chdir is not supported');
+};
+
+},{}],155:[function(_dereq_,module,exports){
+module.exports = function isBuffer(arg) {
+  return arg && typeof arg === 'object'
+    && typeof arg.copy === 'function'
+    && typeof arg.fill === 'function'
+    && typeof arg.readUInt8 === 'function';
+}
+},{}],156:[function(_dereq_,module,exports){
+(function (process,global){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -16427,325 +15335,6 @@ if (typeof Object.getOwnPropertyDescriptor === 'function') {
 // DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-// UTILITY
-var util = require('util');
-var shims = require('_shims');
-var pSlice = Array.prototype.slice;
-
-// 1. The assert module provides functions that throw
-// AssertionError's when particular conditions are not met. The
-// assert module must conform to the following interface.
-
-var assert = module.exports = ok;
-
-// 2. The AssertionError is defined in assert.
-// new assert.AssertionError({ message: message,
-//                             actual: actual,
-//                             expected: expected })
-
-assert.AssertionError = function AssertionError(options) {
-  this.name = 'AssertionError';
-  this.actual = options.actual;
-  this.expected = options.expected;
-  this.operator = options.operator;
-  this.message = options.message || getMessage(this);
-};
-
-// assert.AssertionError instanceof Error
-util.inherits(assert.AssertionError, Error);
-
-function replacer(key, value) {
-  if (util.isUndefined(value)) {
-    return '' + value;
-  }
-  if (util.isNumber(value) && (isNaN(value) || !isFinite(value))) {
-    return value.toString();
-  }
-  if (util.isFunction(value) || util.isRegExp(value)) {
-    return value.toString();
-  }
-  return value;
-}
-
-function truncate(s, n) {
-  if (util.isString(s)) {
-    return s.length < n ? s : s.slice(0, n);
-  } else {
-    return s;
-  }
-}
-
-function getMessage(self) {
-  return truncate(JSON.stringify(self.actual, replacer), 128) + ' ' +
-         self.operator + ' ' +
-         truncate(JSON.stringify(self.expected, replacer), 128);
-}
-
-// At present only the three keys mentioned above are used and
-// understood by the spec. Implementations or sub modules can pass
-// other keys to the AssertionError's constructor - they will be
-// ignored.
-
-// 3. All of the following functions must throw an AssertionError
-// when a corresponding condition is not met, with a message that
-// may be undefined if not provided.  All assertion methods provide
-// both the actual and expected values to the assertion error for
-// display purposes.
-
-function fail(actual, expected, message, operator, stackStartFunction) {
-  throw new assert.AssertionError({
-    message: message,
-    actual: actual,
-    expected: expected,
-    operator: operator,
-    stackStartFunction: stackStartFunction
-  });
-}
-
-// EXTENSION! allows for well behaved errors defined elsewhere.
-assert.fail = fail;
-
-// 4. Pure assertion tests whether a value is truthy, as determined
-// by !!guard.
-// assert.ok(guard, message_opt);
-// This statement is equivalent to assert.equal(true, !!guard,
-// message_opt);. To test strictly for the value true, use
-// assert.strictEqual(true, guard, message_opt);.
-
-function ok(value, message) {
-  if (!value) fail(value, true, message, '==', assert.ok);
-}
-assert.ok = ok;
-
-// 5. The equality assertion tests shallow, coercive equality with
-// ==.
-// assert.equal(actual, expected, message_opt);
-
-assert.equal = function equal(actual, expected, message) {
-  if (actual != expected) fail(actual, expected, message, '==', assert.equal);
-};
-
-// 6. The non-equality assertion tests for whether two objects are not equal
-// with != assert.notEqual(actual, expected, message_opt);
-
-assert.notEqual = function notEqual(actual, expected, message) {
-  if (actual == expected) {
-    fail(actual, expected, message, '!=', assert.notEqual);
-  }
-};
-
-// 7. The equivalence assertion tests a deep equality relation.
-// assert.deepEqual(actual, expected, message_opt);
-
-assert.deepEqual = function deepEqual(actual, expected, message) {
-  if (!_deepEqual(actual, expected)) {
-    fail(actual, expected, message, 'deepEqual', assert.deepEqual);
-  }
-};
-
-function _deepEqual(actual, expected) {
-  // 7.1. All identical values are equivalent, as determined by ===.
-  if (actual === expected) {
-    return true;
-
-  } else if (util.isBuffer(actual) && util.isBuffer(expected)) {
-    if (actual.length != expected.length) return false;
-
-    for (var i = 0; i < actual.length; i++) {
-      if (actual[i] !== expected[i]) return false;
-    }
-
-    return true;
-
-  // 7.2. If the expected value is a Date object, the actual value is
-  // equivalent if it is also a Date object that refers to the same time.
-  } else if (util.isDate(actual) && util.isDate(expected)) {
-    return actual.getTime() === expected.getTime();
-
-  // 7.3 If the expected value is a RegExp object, the actual value is
-  // equivalent if it is also a RegExp object with the same source and
-  // properties (`global`, `multiline`, `lastIndex`, `ignoreCase`).
-  } else if (util.isRegExp(actual) && util.isRegExp(expected)) {
-    return actual.source === expected.source &&
-           actual.global === expected.global &&
-           actual.multiline === expected.multiline &&
-           actual.lastIndex === expected.lastIndex &&
-           actual.ignoreCase === expected.ignoreCase;
-
-  // 7.4. Other pairs that do not both pass typeof value == 'object',
-  // equivalence is determined by ==.
-  } else if (!util.isObject(actual) && !util.isObject(expected)) {
-    return actual == expected;
-
-  // 7.5 For all other Object pairs, including Array objects, equivalence is
-  // determined by having the same number of owned properties (as verified
-  // with Object.prototype.hasOwnProperty.call), the same set of keys
-  // (although not necessarily the same order), equivalent values for every
-  // corresponding key, and an identical 'prototype' property. Note: this
-  // accounts for both named and indexed properties on Arrays.
-  } else {
-    return objEquiv(actual, expected);
-  }
-}
-
-function isArguments(object) {
-  return Object.prototype.toString.call(object) == '[object Arguments]';
-}
-
-function objEquiv(a, b) {
-  if (util.isNullOrUndefined(a) || util.isNullOrUndefined(b))
-    return false;
-  // an identical 'prototype' property.
-  if (a.prototype !== b.prototype) return false;
-  //~~~I've managed to break Object.keys through screwy arguments passing.
-  //   Converting to array solves the problem.
-  if (isArguments(a)) {
-    if (!isArguments(b)) {
-      return false;
-    }
-    a = pSlice.call(a);
-    b = pSlice.call(b);
-    return _deepEqual(a, b);
-  }
-  try {
-    var ka = shims.keys(a),
-        kb = shims.keys(b),
-        key, i;
-  } catch (e) {//happens when one is a string literal and the other isn't
-    return false;
-  }
-  // having the same number of owned properties (keys incorporates
-  // hasOwnProperty)
-  if (ka.length != kb.length)
-    return false;
-  //the same set of keys (although not necessarily the same order),
-  ka.sort();
-  kb.sort();
-  //~~~cheap key test
-  for (i = ka.length - 1; i >= 0; i--) {
-    if (ka[i] != kb[i])
-      return false;
-  }
-  //equivalent values for every corresponding key, and
-  //~~~possibly expensive deep test
-  for (i = ka.length - 1; i >= 0; i--) {
-    key = ka[i];
-    if (!_deepEqual(a[key], b[key])) return false;
-  }
-  return true;
-}
-
-// 8. The non-equivalence assertion tests for any deep inequality.
-// assert.notDeepEqual(actual, expected, message_opt);
-
-assert.notDeepEqual = function notDeepEqual(actual, expected, message) {
-  if (_deepEqual(actual, expected)) {
-    fail(actual, expected, message, 'notDeepEqual', assert.notDeepEqual);
-  }
-};
-
-// 9. The strict equality assertion tests strict equality, as determined by ===.
-// assert.strictEqual(actual, expected, message_opt);
-
-assert.strictEqual = function strictEqual(actual, expected, message) {
-  if (actual !== expected) {
-    fail(actual, expected, message, '===', assert.strictEqual);
-  }
-};
-
-// 10. The strict non-equality assertion tests for strict inequality, as
-// determined by !==.  assert.notStrictEqual(actual, expected, message_opt);
-
-assert.notStrictEqual = function notStrictEqual(actual, expected, message) {
-  if (actual === expected) {
-    fail(actual, expected, message, '!==', assert.notStrictEqual);
-  }
-};
-
-function expectedException(actual, expected) {
-  if (!actual || !expected) {
-    return false;
-  }
-
-  if (Object.prototype.toString.call(expected) == '[object RegExp]') {
-    return expected.test(actual);
-  } else if (actual instanceof expected) {
-    return true;
-  } else if (expected.call({}, actual) === true) {
-    return true;
-  }
-
-  return false;
-}
-
-function _throws(shouldThrow, block, expected, message) {
-  var actual;
-
-  if (util.isString(expected)) {
-    message = expected;
-    expected = null;
-  }
-
-  try {
-    block();
-  } catch (e) {
-    actual = e;
-  }
-
-  message = (expected && expected.name ? ' (' + expected.name + ').' : '.') +
-            (message ? ' ' + message : '.');
-
-  if (shouldThrow && !actual) {
-    fail(actual, expected, 'Missing expected exception' + message);
-  }
-
-  if (!shouldThrow && expectedException(actual, expected)) {
-    fail(actual, expected, 'Got unwanted exception' + message);
-  }
-
-  if ((shouldThrow && actual && expected &&
-      !expectedException(actual, expected)) || (!shouldThrow && actual)) {
-    throw actual;
-  }
-}
-
-// 11. Expected to throw an error:
-// assert.throws(block, Error_opt, message_opt);
-
-assert.throws = function(block, /*optional*/error, /*optional*/message) {
-  _throws.apply(this, [true].concat(pSlice.call(arguments)));
-};
-
-// EXTENSION! This is annoying to write outside this module.
-assert.doesNotThrow = function(block, /*optional*/message) {
-  _throws.apply(this, [false].concat(pSlice.call(arguments)));
-};
-
-assert.ifError = function(err) { if (err) {throw err;}};
-},{"_shims":5,"util":7}],7:[function(require,module,exports){
-// Copyright Joyent, Inc. and other Node contributors.
-//
-// Permission is hereby granted, free of charge, to any person obtaining a
-// copy of this software and associated documentation files (the
-// "Software"), to deal in the Software without restriction, including
-// without limitation the rights to use, copy, modify, merge, publish,
-// distribute, sublicense, and/or sell copies of the Software, and to permit
-// persons to whom the Software is furnished to do so, subject to the
-// following conditions:
-//
-// The above copyright notice and this permission notice shall be included
-// in all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
-// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
-// USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-var shims = require('_shims');
 
 var formatRegExp = /%[sdj%]/g;
 exports.format = function(f) {
@@ -16785,6 +15374,62 @@ exports.format = function(f) {
   }
   return str;
 };
+
+
+// Mark that a method should not be used.
+// Returns a modified function which warns once by default.
+// If --no-deprecation is set, then it is a no-op.
+exports.deprecate = function(fn, msg) {
+  // Allow for deprecating things in the process of starting up.
+  if (isUndefined(global.process)) {
+    return function() {
+      return exports.deprecate(fn, msg).apply(this, arguments);
+    };
+  }
+
+  if (process.noDeprecation === true) {
+    return fn;
+  }
+
+  var warned = false;
+  function deprecated() {
+    if (!warned) {
+      if (process.throwDeprecation) {
+        throw new Error(msg);
+      } else if (process.traceDeprecation) {
+        console.trace(msg);
+      } else {
+        console.error(msg);
+      }
+      warned = true;
+    }
+    return fn.apply(this, arguments);
+  }
+
+  return deprecated;
+};
+
+
+var debugs = {};
+var debugEnviron;
+exports.debuglog = function(set) {
+  if (isUndefined(debugEnviron))
+    debugEnviron = process.env.NODE_DEBUG || '';
+  set = set.toUpperCase();
+  if (!debugs[set]) {
+    if (new RegExp('\\b' + set + '\\b', 'i').test(debugEnviron)) {
+      var pid = process.pid;
+      debugs[set] = function() {
+        var msg = exports.format.apply(exports, arguments);
+        console.error('%s %d: %s', set, pid, msg);
+      };
+    } else {
+      debugs[set] = function() {};
+    }
+  }
+  return debugs[set];
+};
+
 
 /**
  * Echos the value of a value. Trys to print the value out
@@ -16872,7 +15517,7 @@ function stylizeNoColor(str, styleType) {
 function arrayToHash(array) {
   var hash = {};
 
-  shims.forEach(array, function(val, idx) {
+  array.forEach(function(val, idx) {
     hash[val] = true;
   });
 
@@ -16890,7 +15535,7 @@ function formatValue(ctx, value, recurseTimes) {
       value.inspect !== exports.inspect &&
       // Also filter out any prototype objects using the circular check.
       !(value.constructor && value.constructor.prototype === value)) {
-    var ret = value.inspect(recurseTimes);
+    var ret = value.inspect(recurseTimes, ctx);
     if (!isString(ret)) {
       ret = formatValue(ctx, ret, recurseTimes);
     }
@@ -16904,11 +15549,18 @@ function formatValue(ctx, value, recurseTimes) {
   }
 
   // Look up the keys of the object.
-  var keys = shims.keys(value);
+  var keys = Object.keys(value);
   var visibleKeys = arrayToHash(keys);
 
   if (ctx.showHidden) {
-    keys = shims.getOwnPropertyNames(value);
+    keys = Object.getOwnPropertyNames(value);
+  }
+
+  // IE doesn't make error fields non-enumerable
+  // http://msdn.microsoft.com/en-us/library/ie/dww52sbt(v=vs.94).aspx
+  if (isError(value)
+      && (keys.indexOf('message') >= 0 || keys.indexOf('description') >= 0)) {
+    return formatError(value);
   }
 
   // Some type of object without properties can be shortcutted.
@@ -17020,8 +15672,7 @@ function formatArray(ctx, value, recurseTimes, visibleKeys, keys) {
       output.push('');
     }
   }
-
-  shims.forEach(keys, function(key) {
+  keys.forEach(function(key) {
     if (!key.match(/^\d+$/)) {
       output.push(formatProperty(ctx, value, recurseTimes, visibleKeys,
           key, true));
@@ -17033,7 +15684,7 @@ function formatArray(ctx, value, recurseTimes, visibleKeys, keys) {
 
 function formatProperty(ctx, value, recurseTimes, visibleKeys, key, array) {
   var name, str, desc;
-  desc = shims.getOwnPropertyDescriptor(value, key) || { value: value[key] };
+  desc = Object.getOwnPropertyDescriptor(value, key) || { value: value[key] };
   if (desc.get) {
     if (desc.set) {
       str = ctx.stylize('[Getter/Setter]', 'special');
@@ -17045,12 +15696,11 @@ function formatProperty(ctx, value, recurseTimes, visibleKeys, key, array) {
       str = ctx.stylize('[Setter]', 'special');
     }
   }
-
   if (!hasOwnProperty(visibleKeys, key)) {
     name = '[' + key + ']';
   }
   if (!str) {
-    if (shims.indexOf(ctx.seen, desc.value) < 0) {
+    if (ctx.seen.indexOf(desc.value) < 0) {
       if (isNull(recurseTimes)) {
         str = formatValue(ctx, desc.value, null);
       } else {
@@ -17093,7 +15743,7 @@ function formatProperty(ctx, value, recurseTimes, visibleKeys, key, array) {
 
 function reduceToSingleString(output, base, braces) {
   var numLinesEst = 0;
-  var length = shims.reduce(output, function(prev, cur) {
+  var length = output.reduce(function(prev, cur) {
     numLinesEst++;
     if (cur.indexOf('\n') >= 0) numLinesEst++;
     return prev + cur.replace(/\u001b\[\d\d?m/g, '').length + 1;
@@ -17115,7 +15765,7 @@ function reduceToSingleString(output, base, braces) {
 // NOTE: These type checking functions intentionally don't use `instanceof`
 // because it is fragile and can be easily faked with `Object.create()`.
 function isArray(ar) {
-  return shims.isArray(ar);
+  return Array.isArray(ar);
 }
 exports.isArray = isArray;
 
@@ -17160,7 +15810,7 @@ function isRegExp(re) {
 exports.isRegExp = isRegExp;
 
 function isObject(arg) {
-  return typeof arg === 'object' && arg;
+  return typeof arg === 'object' && arg !== null;
 }
 exports.isObject = isObject;
 
@@ -17170,7 +15820,8 @@ function isDate(d) {
 exports.isDate = isDate;
 
 function isError(e) {
-  return isObject(e) && objectToString(e) === '[object Error]';
+  return isObject(e) &&
+      (objectToString(e) === '[object Error]' || e instanceof Error);
 }
 exports.isError = isError;
 
@@ -17189,10 +15840,7 @@ function isPrimitive(arg) {
 }
 exports.isPrimitive = isPrimitive;
 
-function isBuffer(arg) {
-  return arg instanceof Buffer;
-}
-exports.isBuffer = isBuffer;
+exports.isBuffer = _dereq_('./support/isBuffer');
 
 function objectToString(o) {
   return Object.prototype.toString.call(o);
@@ -17236,23 +15884,13 @@ exports.log = function() {
  *     prototype.
  * @param {function} superCtor Constructor function to inherit prototype from.
  */
-exports.inherits = function(ctor, superCtor) {
-  ctor.super_ = superCtor;
-  ctor.prototype = shims.create(superCtor.prototype, {
-    constructor: {
-      value: ctor,
-      enumerable: false,
-      writable: true,
-      configurable: true
-    }
-  });
-};
+exports.inherits = _dereq_('inherits');
 
 exports._extend = function(origin, add) {
   // Don't do anything if add isn't an object
   if (!add || !isObject(add)) return origin;
 
-  var keys = shims.keys(add);
+  var keys = Object.keys(add);
   var i = keys.length;
   while (i--) {
     origin[keys[i]] = add[keys[i]];
@@ -17264,66 +15902,10 @@ function hasOwnProperty(obj, prop) {
   return Object.prototype.hasOwnProperty.call(obj, prop);
 }
 
-},{"_shims":5}]},{},[])
-;;module.exports=require("buffer-browserify")
-
-},{}],136:[function(require,module,exports){
-// shim for using process in browser
-
-var process = module.exports = {};
-
-process.nextTick = (function () {
-    var canSetImmediate = typeof window !== 'undefined'
-    && window.setImmediate;
-    var canPost = typeof window !== 'undefined'
-    && window.postMessage && window.addEventListener
-    ;
-
-    if (canSetImmediate) {
-        return function (f) { return window.setImmediate(f) };
-    }
-
-    if (canPost) {
-        var queue = [];
-        window.addEventListener('message', function (ev) {
-            var source = ev.source;
-            if ((source === window || source === null) && ev.data === 'process-tick') {
-                ev.stopPropagation();
-                if (queue.length > 0) {
-                    var fn = queue.shift();
-                    fn();
-                }
-            }
-        }, true);
-
-        return function nextTick(fn) {
-            queue.push(fn);
-            window.postMessage('process-tick', '*');
-        };
-    }
-
-    return function nextTick(fn) {
-        setTimeout(fn, 0);
-    };
-})();
-
-process.title = 'browser';
-process.browser = true;
-process.env = {};
-process.argv = [];
-
-process.binding = function (name) {
-    throw new Error('process.binding is not supported');
-}
-
-// TODO(shtylman)
-process.cwd = function () { return '/' };
-process.chdir = function (dir) {
-    throw new Error('process.chdir is not supported');
-};
-
-},{}],137:[function(require,module,exports){
-var Buffer=require("__browserify_Buffer").Buffer;(function () {
+}).call(this,_dereq_("FWaASH"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"./support/isBuffer":155,"FWaASH":154,"inherits":153}],157:[function(_dereq_,module,exports){
+(function (Buffer){
+(function () {
   "use strict";
 
   function btoa(str) {
@@ -17342,15 +15924,16 @@ var Buffer=require("__browserify_Buffer").Buffer;(function () {
   module.exports = btoa;
 }());
 
-},{"__browserify_Buffer":135}],138:[function(require,module,exports){
-"use strict";
+}).call(this,_dereq_("buffer").Buffer)
+},{"buffer":144}],158:[function(_dereq_,module,exports){
+'use strict';
 
-var _ = require('underscore');
-var Promise = require('bluebird');
-var request = Promise.promisify(require('request'));
+var _ = _dereq_('underscore');
+var Promise = _dereq_('bluebird');
+var request = Promise.promisify(_dereq_('request'));
 
-var jxt = require('jxt');
-var XRD = require('./lib/xrd');
+var jxt = _dereq_('jxt');
+var XRD = _dereq_('./lib/xrd');
 
 
 module.exports = function (opts, cb) {
@@ -17386,11 +15969,11 @@ module.exports = function (opts, cb) {
     }).nodeify(cb);
 };
 
-},{"./lib/xrd":139,"bluebird":85,"jxt":161,"request":121,"underscore":184}],139:[function(require,module,exports){
-"use strict";
+},{"./lib/xrd":159,"bluebird":107,"jxt":195,"request":142,"underscore":218}],159:[function(_dereq_,module,exports){
+'use strict';
 
-var _ = require('underscore');
-var jxt = require('jxt');
+var _ = _dereq_('underscore');
+var jxt = _dereq_('jxt');
 
 
 var NS = 'http://docs.oasis-open.org/ns/xri/xrd-1.0';
@@ -17437,13 +16020,241 @@ var Link = jxt.define({
 
 jxt.extend(XRD, Link, 'links');
 
-},{"jxt":161,"underscore":184}],140:[function(require,module,exports){
-module.exports = require('./lib/sessionManager');
+},{"jxt":195,"underscore":218}],160:[function(_dereq_,module,exports){
+module.exports = _dereq_('./lib/sessionManager');
 
-},{"./lib/sessionManager":143}],141:[function(require,module,exports){
-var bows = require('bows');
-var async = require('async');
-var WildEmitter = require('wildemitter');
+},{"./lib/sessionManager":164}],161:[function(_dereq_,module,exports){
+var _ = _dereq_('underscore');
+var util = _dereq_('util');
+var bows = _dereq_('bows');
+var JingleSession = _dereq_('./genericSession');
+var RTCPeerConnection = _dereq_('rtcpeerconnection');
+var FileTransfer = _dereq_('filetransfer');
+
+
+var log = bows('JingleFile');
+
+
+function FileSession(opts) {
+    JingleSession.call(this, opts);
+
+    var self = this;
+
+    var config = this.parent.config.peerConnectionConfig;
+    var constraints = this.parent.config.peerConnectionConstraints;
+    config.useJingle = true;
+
+    this.pc = new RTCPeerConnection(config, constraints);
+    this.pc.on('addChannel', this._onChannelAdded.bind(this));
+
+    this.pc.on('ice', this._onIceCandidate.bind(this));
+    this.pc.on('iceConnectionStateChange', function () {
+        switch (self.pc.iceConnectionState) {
+        case 'failed':
+            // currently, in chrome only the initiator goes to failed
+            // so we need to signal this to the peer
+            if (self.pc.isInitiator) {
+                self.parent.emit('iceFailed', self);
+            }
+            break;
+        }
+    });
+    this.sender = new FileTransfer.Sender();
+    this.sender.on('progress', function (sent, size) {
+        log(self.sid + ': Send progress ' + sent + '/' + size);
+    });
+    this.sender.on('sentFile', function (metadata) {
+        log(self.sid + ': Sent file ' + metadata.name);
+
+        // send hash via description update
+        var content = self.pc.localDescription.contents[0];
+        delete content.transport;
+        content.description = {
+            descType: 'filetransfer',
+            offer: {
+                hash: {
+                    algo: metadata.algo,
+                    value: metadata.hash
+                }
+            }
+        };
+        self.send('description-info', { contents: [content] });
+        self.parent.emit('sentFile', self, metadata);
+    });
+
+    this.receiver = new FileTransfer.Receiver();
+    this.receiver.on('receivedFile', function (file) {
+        self.receivedFile = file;
+        self.maybeReceivedFile();
+    });
+    this.receiver.on('progress', function (received, size) {
+        log(self.sid + ': Receive progress ' + received + '/' + size);
+    });
+}
+
+util.inherits(FileSession, JingleSession);
+
+FileSession.prototype._onChannelAdded = function (channel) {
+    this.receiver.receive(null, channel);
+};
+
+FileSession.prototype = _.extend(FileSession.prototype, {
+    start: function (file) {
+        var self = this;
+        this.state = 'pending';
+        this.pc.isInitiator = true;
+        var sendChannel = this.pc.createDataChannel('filetransfer');
+        sendChannel.onopen = function () {
+            self.sender.send(file, sendChannel);
+        };
+
+        var constraints = { mandatory: {
+            OfferToReceiveAudio: false,
+            OfferToReceiveVideo: false
+        }};
+        this.pc.offer(constraints, function (err, sessDesc) {
+            // amend xep-0234 info
+            sessDesc.jingle.contents[0].description = {
+                descType: 'filetransfer',
+                offer: {
+                    date: file.lastModifiedDate,
+                    //desc: '...',
+                    name: file.name,
+                    //range: null,
+                    size: file.size,
+                    hash: {
+                        algo: 'sha-1',
+                        value: ''
+                    }
+                }
+            };
+            self.send('session-initiate', sessDesc.jingle);
+        });
+    },
+    end: function (reason, silence) {
+        this.pc.close();
+        JingleSession.prototype.end.call(this, reason, silence);
+    },
+    accept: function () {
+        var self = this;
+
+        log(this.sid + ': Accepted incoming session');
+
+        this.state = 'active';
+        this.pc.answer(function (err, answer) {
+            if (err) {
+                return log(self.sid + ': Could not create WebRTC answer', err);
+            }
+            // FIXME: do we need to add the 0234 parts again? whyyyyyy...
+
+            // work around firefox...
+            answer.jingle.contents[0].name = 'data';
+
+            self.send('session-accept', answer.jingle);
+        });
+    },
+    onSessionInitiate: function (changes, cb) {
+        var self = this;
+
+        log(self.sid + ': Initiating incoming session');
+
+        this.state = 'pending';
+        this.pc.isInitiator = false;
+        // strip XEP-0234 parts
+        var desc = changes.contents[0].description;
+        this.receiver.metadata = desc.offer.toJSON();
+
+        // set hash used by peer
+        if (this.receiver.metadata.hash) {
+            this.receiver.config.hash = this.receiver.metadata.hash.algo;
+        }
+        // FIXME: checks on name, size and maxiumum allowed size
+
+        // then feed to SJJ
+        changes.contents[0].description = {
+            descType: 'datachannel'
+        };
+        this.pc.handleOffer({type: 'offer', jingle: changes}, function (err) {
+            if (err) {
+                log(self.sid + ': Could not create WebRTC answer', err);
+                return cb({condition: 'general-error'});
+            }
+            cb();
+        });
+    },
+    onSessionAccept: function (changes, cb) {
+        var self = this;
+
+        log(this.sid + ': Activating accepted outbound session');
+
+        this.state = 'active';
+        changes.contents[0].description = {
+            descType: 'datachannel'
+        };
+        this.pc.handleAnswer({type: 'answer', jingle: changes}, function (err) {
+            if (err) {
+                log(self.sid + ': Could not process WebRTC answer', err);
+                return cb({condition: 'general-error'});
+            }
+
+            self.parent.emit('accepted', self);
+            cb();
+        });
+    },
+    onSessionTerminate: function (changes, cb) {
+        log(this.sid + ': Terminating session');
+        this.pc.close();
+        JingleSession.prototype.end.call(this, changes.reason, true);
+        cb();
+    },
+    onTransportInfo: function (changes, cb) {
+        var self = this;
+
+        log(this.sid + ': Adding ICE candidate');
+
+        this.pc.processIce(changes, function (err) {
+            if (err) {
+                log(self.sid + ': Could not process ICE candidate', err);
+            }
+            cb();
+        });
+    },
+    onDescriptionInfo: function (changes, cb) {
+        // ignore anything but the value (which is the only thing that can change in a meaningful way)
+        var hash = changes.contents[0].description.offer.hash;
+        this.receiver.metadata.hash = hash;
+        if (this.receiver.metadata.actualhash) {
+            this.maybeReceivedFile();
+        } else {
+            // file is not yet complete
+        }
+        cb();
+    },
+    _onIceCandidate: function (candidateInfo) {
+        log(this.sid + ': Discovered new ICE candidate', candidateInfo.jingle);
+        candidateInfo.jingle.contents[0].name = 'data';
+        this.send('transport-info', candidateInfo.jingle);
+    },
+    maybeReceivedFile: function () {
+        if (!this.receiver.metadata.hash.value) {
+            // hash not known yet
+        } else if (this.receiver.metadata.hash.value === this.receiver.metadata.actualhash) {
+            log(this.sid + ': Hash matches');
+            this.parent.emit('receivedFile', this, this.receivedFile, this.receiver.metadata);
+            this.end('success');
+        } else {
+            log(this.sid + ': Hash mismatch, terminating');
+            this.end('media-error');
+        }
+    }
+});
+
+module.exports = FileSession;
+
+},{"./genericSession":162,"bows":166,"filetransfer":168,"rtcpeerconnection":187,"underscore":192,"util":156}],162:[function(_dereq_,module,exports){
+var bows = _dereq_('bows');
+var async = _dereq_('async');
+var WildEmitter = _dereq_('wildemitter');
 
 
 var log = bows('JingleSession');
@@ -17453,6 +16264,15 @@ function actionToMethod(action) {
     var words = action.split('-');
     return 'on' + words[0][0].toUpperCase() + words[0].substr(1) + words[1][0].toUpperCase() + words[1].substr(1);
 }
+
+// actions defined in http://xmpp.org/extensions/xep-0166.html#def-action
+var actions = [
+    'content-accept', 'content-add', 'content-modify',
+    'content-reject', 'content-remove', 'description-info',
+    'session-accept', 'session-info', 'session-initiate',
+    'session-terminate', 'transport-accept', 'transport-info',
+    'transport-reject', 'transport-replace'
+];
 
 
 function JingleSession(opts) {
@@ -17469,7 +16289,16 @@ function JingleSession(opts) {
         var cb = task.cb;
 
         log(self.sid + ': ' + action);
-        self[action](changes, function (err) {
+
+        if (actions.indexOf(action) === -1) {
+            log(this.sid + ': Invalid action ' + action);
+            cb({condition: 'bad-request'});
+            next();
+            return;
+        }
+
+        var method = actionToMethod(action);
+        self[method](changes, function (err) {
             cb(err);
             next();
         });
@@ -17484,12 +16313,8 @@ JingleSession.prototype = Object.create(WildEmitter.prototype, {
 
 
 JingleSession.prototype.process = function (action, changes, cb) {
-    var self = this;
-
-    var method = actionToMethod(action);
-
     this.processingQueue.push({
-        action: method,
+        action: action,
         changes: changes,
         cb: cb
     });
@@ -17530,22 +16355,22 @@ Object.defineProperty(JingleSession.prototype, 'state', {
 });
 Object.defineProperty(JingleSession.prototype, 'starting', {
     get: function () {
-        return this._state == 'starting';
+        return this._state === 'starting';
     }
 });
 Object.defineProperty(JingleSession.prototype, 'pending', {
     get: function () {
-        return this._state == 'pending';
+        return this._state === 'pending';
     }
 });
 Object.defineProperty(JingleSession.prototype, 'active', {
     get: function () {
-        return this._state == 'active';
+        return this._state === 'active';
     }
 });
 Object.defineProperty(JingleSession.prototype, 'ended', {
     get: function () {
-        return this._state == 'ended';
+        return this._state === 'ended';
     }
 });
 
@@ -17568,14 +16393,6 @@ JingleSession.prototype.end = function (reason, silence) {
     this.parent.emit('terminated', this, reason);
 };
 
-var actions = [
-    'content-accept', 'content-add', 'content-modify',
-    'content-reject', 'content-remove', 'description-info',
-    'session-accept', 'session-info', 'session-initiate',
-    'session-terminate', 'transport-accept', 'transport-info',
-    'transport-reject', 'transport-replace'
-];
-
 actions.forEach(function (action) {
     var method = actionToMethod(action);
     JingleSession.prototype[method] = function (changes, cb) {
@@ -17586,12 +16403,12 @@ actions.forEach(function (action) {
 
 module.exports = JingleSession;
 
-},{"async":144,"bows":145,"wildemitter":160}],142:[function(require,module,exports){
-var _ = require('underscore');
-var util = require('util');
-var bows = require('bows');
-var JingleSession = require('./genericSession');
-var RTCPeerConnection = require('rtcpeerconnection');
+},{"async":165,"bows":166,"wildemitter":194}],163:[function(_dereq_,module,exports){
+var _ = _dereq_('underscore');
+var util = _dereq_('util');
+var bows = _dereq_('bows');
+var JingleSession = _dereq_('./genericSession');
+var RTCPeerConnection = _dereq_('rtcpeerconnection');
 
 
 var log = bows('JingleMedia');
@@ -17607,11 +16424,25 @@ function MediaSession(opts) {
     config.useJingle = true;
 
     this.pc = new RTCPeerConnection(config, constraints);
-    this.pc.on('ice', this.onIceCandidate.bind(this));
-    this.pc.on('addStream', this.onStreamAdded.bind(this));
-    this.pc.on('removeStream', this.onStreamRemoved.bind(this));
+    this.pc.on('ice', this._onIceCandidate.bind(this));
+    this.pc.on('addStream', this._onStreamAdded.bind(this));
+    this.pc.on('removeStream', this._onStreamRemoved.bind(this));
+    this.pc.on('iceConnectionStateChange', function () {
+        switch (self.pc.iceConnectionState) {
+        case 'failed':
+            // currently, in chrome only the initiator goes to failed
+            // so we need to signal this to the peer
+            if (self.pc.isInitiator) {
+                self.parent.emit('iceFailed', self);
+            }
+            break;
+        }
+    });
 
-    if (this.parent.localStream) {
+    if (opts.stream) {
+        this.pc.addStream(opts.stream);
+        this.localStream = opts.stream;
+    } else if (this.parent.localStream) {
         this.pc.addStream(this.parent.localStream);
         this.localStream = this.parent.localStream;
     } else {
@@ -17633,21 +16464,38 @@ Object.defineProperty(MediaSession.prototype, 'streams', {
 
 
 MediaSession.prototype = _.extend(MediaSession.prototype, {
-    start: function () {
+    start: function (constraints) {
         var self = this;
         this.state = 'pending';
         this.pc.isInitiator = true;
-        this.pc.offer(function (err, sessDesc) {
+        this.pc.offer(constraints, function (err, sessDesc) {
+            // a workaround for missing a=sendonly
+            // https://code.google.com/p/webrtc/issues/detail?id=1553
+            if (constraints && constraints.mandatory) {
+                sessDesc.jingle.contents.forEach(function (content) {
+                    if (!content.description || content.description.descType !== 'rtp') {
+                        return;
+                    }
+                    if (!constraints.mandatory.OfferToReceiveAudio &&
+                            content.description.media === 'audio') {
+                        content.senders = 'initiator';
+                    }
+                    if (!constraints.mandatory.OfferToReceiveVideo &&
+                            content.description.media === 'video') {
+                        content.senders = 'initiator';
+                    }
+                });
+            }
             self.send('session-initiate', sessDesc.jingle);
         });
     },
-    end: function (reason) {
+    end: function (reason, silence) {
         var self = this;
         this.pc.close();
         _.each(this.streams, function (stream) {
             self.onStreamRemoved({stream: stream});
         });
-        JingleSession.prototype.end.call(this, reason);
+        JingleSession.prototype.end.call(this, reason, silence);
     },
     accept: function () {
         var self = this;
@@ -17764,21 +16612,23 @@ MediaSession.prototype = _.extend(MediaSession.prototype, {
 
         cb();
     },
-    onIceCandidate: function (candidateInfo) {
+    _onIceCandidate: function (candidateInfo) {
         log(this.sid + ': Discovered new ICE candidate', candidateInfo.jingle);
         this.send('transport-info', candidateInfo.jingle);
     },
-    onStreamAdded: function (event) {
-        var self = this;
+    _onStreamAdded: function (event) {
         log(this.sid + ': Remote media stream added');
 
+        // unfortunately, firefox does not support this yet
+        /*
         event.stream.onended = function () {
             self.onStreamRemoved({stream: event.stream});
         };
+        */
 
         this.parent.emit('peerStreamAdded', this, event.stream);
     },
-    onStreamRemoved: function (event) {
+    _onStreamRemoved: function (event) {
         log(this.sid + ': Remote media stream removed');
         this.parent.emit('peerStreamRemoved', this, event.stream);
     }
@@ -17787,30 +16637,29 @@ MediaSession.prototype = _.extend(MediaSession.prototype, {
 
 module.exports = MediaSession;
 
-},{"./genericSession":141,"bows":145,"rtcpeerconnection":153,"underscore":158,"util":124}],143:[function(require,module,exports){
-var _ = require('underscore');
-var bows = require('bows');
-var hark = require('hark');
-var webrtc = require('webrtcsupport');
-var mockconsole = require('mockconsole');
-var getUserMedia = require('getusermedia');
-var WildEmitter = require('wildemitter');
-var GainController = require('mediastream-gain');
+},{"./genericSession":162,"bows":166,"rtcpeerconnection":187,"underscore":192,"util":156}],164:[function(_dereq_,module,exports){
+var _ = _dereq_('underscore');
+var bows = _dereq_('bows');
+var hark = _dereq_('hark');
+var webrtc = _dereq_('webrtcsupport');
+var getUserMedia = _dereq_('getusermedia');
+var WildEmitter = _dereq_('wildemitter');
+var GainController = _dereq_('mediastream-gain');
 
-var GenericSession = require('./genericSession');
-var MediaSession = require('./mediaSession');
+var GenericSession = _dereq_('./genericSession');
+var MediaSession = _dereq_('./mediaSession');
+var FileSession = _dereq_('./fileSession');
 
 
 var log = bows('Jingle');
 
 
 function Jingle(opts) {
-    var self = this;
     opts = opts || {};
     var config = this.config = {
         debug: false,
         peerConnectionConfig: {
-            iceServers: [{"url": "stun:stun.l.google.com:19302"}]
+            iceServers: [{'url': 'stun:stun.l.google.com:19302'}]
         },
         peerConnectionConstraints: {
             optional: [
@@ -17851,6 +16700,7 @@ function Jingle(opts) {
             'urn:xmpp:jingle:apps:dtls:0',
             'urn:xmpp:jingle:apps:grouping:0',
             'urn:xmpp:jingle:transports:ice-udp:1',
+            'urn:xmpp:jingle:transports.dtls-sctp:1',
             'urn:ietf:rfc:3264',
             'urn:ietf:rfc:5576',
             'urn:ietf:rfc:5888'
@@ -17899,13 +16749,16 @@ Jingle.prototype.startLocalMedia = function (mediaConstraints, cb) {
         } else {
             log('Could not start local media');
         }
-        if (cb) cb(err, stream);
+        if (cb) {
+            return cb(err, stream);
+        }
     });
 };
 
 Jingle.prototype.stopLocalMedia = function () {
     if (this.localStream) {
         this.localStream.stop();
+        this.localStream = null;
         this.emit('localStreamStopped');
     }
 };
@@ -17917,14 +16770,20 @@ Jingle.prototype.setupAudioMonitor = function (stream) {
     var timeout;
 
     audio.on('speaking', function () {
-        if (self.hardMuted) return;
+        if (self.hardMuted) {
+            return;
+        }
         self.setMicIfEnabled(1);
         self.emit('speaking');
     });
 
     audio.on('stopped_speaking', function () {
-        if (self.hardMuted) return;
-        if (timeout) clearTimeout(timeout);
+        if (self.hardMuted) {
+            return;
+        }
+        if (timeout) {
+            clearTimeout(timeout);
+        }
 
         timeout = setTimeout(function () {
             self.setMicIfEnabled(0.5);
@@ -17934,7 +16793,9 @@ Jingle.prototype.setupAudioMonitor = function (stream) {
 };
 
 Jingle.prototype.setMicIfEnabled = function (volume) {
-    if (!this.config.autoAdjustMic) return;
+    if (!this.config.autoAdjustMic) {
+        return;
+    }
     this.gainController.setGain(volume);
 };
 
@@ -18038,7 +16899,7 @@ Jingle.prototype.process = function (req) {
             jingleCondition: 'out-of-order'
         });
     } else if (Object.keys(this.peers[sender] || {}).length) {
-        // Check if we need to have a tie breaker because we already have 
+        // Check if we need to have a tie breaker because we already have
         // a different session that is using the requested content types.
         sids = Object.keys(this.peers[sender]);
         for (var i = 0; i < sids.length; i++) {
@@ -18069,6 +16930,8 @@ Jingle.prototype.process = function (req) {
         };
         if (contentTypes.indexOf('rtp') >= 0) {
             session = new MediaSession(opts);
+        } else if (contentTypes.indexOf('filetransfer') >= 0) {
+            session = new FileSession(opts);
         } else {
             session = new GenericSession(opts);
         }
@@ -18097,8 +16960,30 @@ Jingle.prototype.process = function (req) {
     });
 };
 
-Jingle.prototype.createMediaSession = function (peer, sid) {
+Jingle.prototype.createMediaSession = function (peer, sid, stream) {
     var session = new MediaSession({
+        sid: sid,
+        peer: peer,
+        initiator: true,
+        stream: stream,
+        parent: this
+    });
+
+    sid = session.sid;
+
+    this.sessions[sid] = session;
+    if (!this.peers[peer]) {
+        this.peers[peer] = [];
+    }
+    this.peers[peer].push(session);
+
+    log('Outgoing session', session.sid, session);
+    this.emit('outgoing', session);
+    return session;
+};
+
+Jingle.prototype.createFileTransferSession = function (peer, sid) {
+    var session = new FileSession({
         sid: sid,
         peer: peer,
         initiator: true,
@@ -18118,19 +17003,37 @@ Jingle.prototype.createMediaSession = function (peer, sid) {
     return session;
 };
 
-Jingle.prototype.endPeerSessions = function (peer) {
+Jingle.prototype.endPeerSessions = function (peer, silence) {
     log('Ending all sessions with', peer);
     var sessions = this.peers[peer] || [];
     sessions.forEach(function (session) {
-        session.end();
+        session.end('gone', silence);
+    });
+    delete this.peers[peer];
+};
+
+Jingle.prototype.endAllPeerSessions = function () {
+    log('Ending all peer sessions');
+    var self = this;
+    Object.keys(this.peers).forEach(function (peer) {
+        self.endPeerSessions(peer);
     });
 };
 
 
 module.exports = Jingle;
 
-},{"./genericSession":141,"./mediaSession":142,"bows":145,"getusermedia":147,"hark":148,"mediastream-gain":150,"mockconsole":151,"underscore":158,"webrtcsupport":159,"wildemitter":160}],144:[function(require,module,exports){
-var process=require("__browserify_process");/*global setImmediate: false, setTimeout: false, console: false */
+},{"./fileSession":161,"./genericSession":162,"./mediaSession":163,"bows":166,"getusermedia":183,"hark":184,"mediastream-gain":185,"underscore":192,"webrtcsupport":193,"wildemitter":194}],165:[function(_dereq_,module,exports){
+(function (process){
+/*!
+ * async
+ * https://github.com/caolan/async
+ *
+ * Copyright 2010-2014 Caolan McMahon
+ * Released under the MIT license
+ */
+/*jshint onevar: false, indent:4 */
+/*global setImmediate: false, setTimeout: false, console: false */
 (function () {
 
     var async = {};
@@ -18158,6 +17061,12 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
     }
 
     //// cross-browser compatiblity functions ////
+
+    var _toString = Object.prototype.toString;
+
+    var _isArray = Array.isArray || function (obj) {
+        return _toString.call(obj) === '[object Array]';
+    };
 
     var _each = function (arr, iterator) {
         if (arr.forEach) {
@@ -18240,19 +17149,20 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
         }
         var completed = 0;
         _each(arr, function (x) {
-            iterator(x, only_once(function (err) {
-                if (err) {
-                    callback(err);
-                    callback = function () {};
-                }
-                else {
-                    completed += 1;
-                    if (completed >= arr.length) {
-                        callback(null);
-                    }
-                }
-            }));
+            iterator(x, only_once(done) );
         });
+        function done(err) {
+          if (err) {
+              callback(err);
+              callback = function () {};
+          }
+          else {
+              completed += 1;
+              if (completed >= arr.length) {
+                  callback();
+              }
+          }
+        }
     };
     async.forEach = async.each;
 
@@ -18271,7 +17181,7 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
                 else {
                     completed += 1;
                     if (completed >= arr.length) {
-                        callback(null);
+                        callback();
                     }
                     else {
                         iterate();
@@ -18351,18 +17261,26 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
 
 
     var _asyncMap = function (eachfn, arr, iterator, callback) {
-        var results = [];
         arr = _map(arr, function (x, i) {
             return {index: i, value: x};
         });
-        eachfn(arr, function (x, callback) {
-            iterator(x.value, function (err, v) {
-                results[x.index] = v;
-                callback(err);
+        if (!callback) {
+            eachfn(arr, function (x, callback) {
+                iterator(x.value, function (err) {
+                    callback(err);
+                });
             });
-        }, function (err) {
-            callback(err, results);
-        });
+        } else {
+            var results = [];
+            eachfn(arr, function (x, callback) {
+                iterator(x.value, function (err, v) {
+                    results[x.index] = v;
+                    callback(err);
+                });
+            }, function (err) {
+                callback(err, results);
+            });
+        }
     };
     async.map = doParallel(_asyncMap);
     async.mapSeries = doSeries(_asyncMap);
@@ -18528,8 +17446,9 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
     async.auto = function (tasks, callback) {
         callback = callback || function () {};
         var keys = _keys(tasks);
-        if (!keys.length) {
-            return callback(null);
+        var remainingTasks = keys.length
+        if (!remainingTasks) {
+            return callback();
         }
 
         var results = {};
@@ -18547,20 +17466,24 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
             }
         };
         var taskComplete = function () {
+            remainingTasks--
             _each(listeners.slice(0), function (fn) {
                 fn();
             });
         };
 
         addListener(function () {
-            if (_keys(results).length === keys.length) {
-                callback(null, results);
+            if (!remainingTasks) {
+                var theCallback = callback;
+                // prevent final callback from calling itself if it errors
                 callback = function () {};
+
+                theCallback(null, results);
             }
         });
 
         _each(keys, function (k) {
-            var task = (tasks[k] instanceof Function) ? [tasks[k]]: tasks[k];
+            var task = _isArray(tasks[k]) ? tasks[k]: [tasks[k]];
             var taskCallback = function (err) {
                 var args = Array.prototype.slice.call(arguments, 1);
                 if (args.length <= 1) {
@@ -18602,9 +17525,40 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
         });
     };
 
+    async.retry = function(times, task, callback) {
+        var DEFAULT_TIMES = 5;
+        var attempts = [];
+        // Use defaults if times not passed
+        if (typeof times === 'function') {
+            callback = task;
+            task = times;
+            times = DEFAULT_TIMES;
+        }
+        // Make sure times is a number
+        times = parseInt(times, 10) || DEFAULT_TIMES;
+        var wrappedTask = function(wrappedCallback, wrappedResults) {
+            var retryAttempt = function(task, finalAttempt) {
+                return function(seriesCallback) {
+                    task(function(err, result){
+                        seriesCallback(!err || finalAttempt, {err: err, result: result});
+                    }, wrappedResults);
+                };
+            };
+            while (times) {
+                attempts.push(retryAttempt(task, !(times-=1)));
+            }
+            async.series(attempts, function(done, data){
+                data = data[data.length - 1];
+                (wrappedCallback || callback)(data.err, data.result);
+            });
+        }
+        // If a callback is passed, run this as a controll flow
+        return callback ? wrappedTask() : wrappedTask
+    };
+
     async.waterfall = function (tasks, callback) {
         callback = callback || function () {};
-        if (tasks.constructor !== Array) {
+        if (!_isArray(tasks)) {
           var err = new Error('First argument to waterfall must be an array of functions');
           return callback(err);
         }
@@ -18637,7 +17591,7 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
 
     var _parallel = function(eachfn, tasks, callback) {
         callback = callback || function () {};
-        if (tasks.constructor === Array) {
+        if (_isArray(tasks)) {
             eachfn.map(tasks, function (fn, callback) {
                 if (fn) {
                     fn(function (err) {
@@ -18677,7 +17631,7 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
 
     async.series = function (tasks, callback) {
         callback = callback || function () {};
-        if (tasks.constructor === Array) {
+        if (_isArray(tasks)) {
             async.mapSeries(tasks, function (fn, callback) {
                 if (fn) {
                     fn(function (err) {
@@ -18765,7 +17719,8 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
             if (err) {
                 return callback(err);
             }
-            if (test()) {
+            var args = Array.prototype.slice.call(arguments, 1);
+            if (test.apply(null, args)) {
                 async.doWhilst(iterator, test, callback);
             }
             else {
@@ -18793,7 +17748,8 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
             if (err) {
                 return callback(err);
             }
-            if (!test()) {
+            var args = Array.prototype.slice.call(arguments, 1);
+            if (!test.apply(null, args)) {
                 async.doUntil(iterator, test, callback);
             }
             else {
@@ -18807,8 +17763,19 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
             concurrency = 1;
         }
         function _insert(q, data, pos, callback) {
-          if(data.constructor !== Array) {
+          if (!q.started){
+            q.started = true;
+          }
+          if (!_isArray(data)) {
               data = [data];
+          }
+          if(data.length == 0) {
+             // call drain immediately if there are no tasks
+             return async.setImmediate(function() {
+                 if (q.drain) {
+                     q.drain();
+                 }
+             });
           }
           _each(data, function(task) {
               var item = {
@@ -18822,7 +17789,7 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
                 q.tasks.push(item);
               }
 
-              if (q.saturated && q.tasks.length === concurrency) {
+              if (q.saturated && q.tasks.length === q.concurrency) {
                   q.saturated();
               }
               async.setImmediate(q.process);
@@ -18836,14 +17803,20 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
             saturated: null,
             empty: null,
             drain: null,
+            started: false,
+            paused: false,
             push: function (data, callback) {
               _insert(q, data, false, callback);
+            },
+            kill: function () {
+              q.drain = null;
+              q.tasks = [];
             },
             unshift: function (data, callback) {
               _insert(q, data, true, callback);
             },
             process: function () {
-                if (workers < q.concurrency && q.tasks.length) {
+                if (!q.paused && workers < q.concurrency && q.tasks.length) {
                     var task = q.tasks.shift();
                     if (q.empty && q.tasks.length === 0) {
                         q.empty();
@@ -18868,6 +17841,19 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
             },
             running: function () {
                 return workers;
+            },
+            idle: function() {
+                return q.tasks.length + workers === 0;
+            },
+            pause: function () {
+                if (q.paused === true) { return; }
+                q.paused = true;
+                q.process();
+            },
+            resume: function () {
+                if (q.paused === false) { return; }
+                q.paused = false;
+                q.process();
             }
         };
         return q;
@@ -18883,8 +17869,9 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
             saturated: null,
             empty: null,
             drain: null,
+            drained: true,
             push: function (data, callback) {
-                if(data.constructor !== Array) {
+                if (!_isArray(data)) {
                     data = [data];
                 }
                 _each(data, function(task) {
@@ -18892,6 +17879,7 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
                         data: task,
                         callback: typeof callback === 'function' ? callback : null
                     });
+                    cargo.drained = false;
                     if (cargo.saturated && tasks.length === payload) {
                         cargo.saturated();
                     }
@@ -18901,13 +17889,14 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
             process: function process() {
                 if (working) return;
                 if (tasks.length === 0) {
-                    if(cargo.drain) cargo.drain();
+                    if(cargo.drain && !cargo.drained) cargo.drain();
+                    cargo.drained = true;
                     return;
                 }
 
                 var ts = typeof payload === 'number'
                             ? tasks.splice(0, payload)
-                            : tasks.splice(0);
+                            : tasks.splice(0, tasks.length);
 
                 var ds = _map(ts, function (task) {
                     return task.data;
@@ -18975,7 +17964,9 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
             var callback = args.pop();
             var key = hasher.apply(null, args);
             if (key in memo) {
-                callback.apply(null, memo[key]);
+                async.nextTick(function () {
+                    callback.apply(null, memo[key]);
+                });
             }
             else if (key in queues) {
                 queues[key].push(callback);
@@ -19019,8 +18010,8 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
         return async.mapSeries(counter, iterator, callback);
     };
 
-    async.compose = function (/* functions... */) {
-        var fns = Array.prototype.reverse.call(arguments);
+    async.seq = function (/* functions... */) {
+        var fns = arguments;
         return function () {
             var that = this;
             var args = Array.prototype.slice.call(arguments);
@@ -19036,6 +18027,10 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
                 callback.apply(that, [err].concat(results));
             });
         };
+    };
+
+    async.compose = function (/* functions... */) {
+      return async.seq.apply(null, Array.prototype.reverse.call(arguments));
     };
 
     var _applyEach = function (eachfn, fns /*args...*/) {
@@ -19072,15 +18067,15 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
         next();
     };
 
+    // Node.js
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = async;
+    }
     // AMD / RequireJS
-    if (typeof define !== 'undefined' && define.amd) {
+    else if (typeof define !== 'undefined' && define.amd) {
         define([], function () {
             return async;
         });
-    }
-    // Node.js
-    else if (typeof module !== 'undefined' && module.exports) {
-        module.exports = async;
     }
     // included directly via <script> tag
     else {
@@ -19089,7 +18084,8 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
 
 }());
 
-},{"__browserify_process":136}],145:[function(require,module,exports){
+}).call(this,_dereq_("FWaASH"))
+},{"FWaASH":154}],166:[function(_dereq_,module,exports){
 (function() {
   function checkColorSupport() {
     var chrome = !!window.chrome,
@@ -19102,7 +18098,7 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
   var inNode = typeof window === 'undefined',
       ls = !inNode && window.localStorage,
       debug = ls.debug,
-      logger = require('andlog'),
+      logger = _dereq_('andlog'),
       hue = 0,
       padLength = 15,
       noop = function() {},
@@ -19159,7 +18155,7 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
   }
 }).call();
 
-},{"andlog":146}],146:[function(require,module,exports){
+},{"andlog":167}],167:[function(_dereq_,module,exports){
 // follow @HenrikJoreteg and @andyet if you like this ;)
 (function () {
     var inNode = typeof window === 'undefined',
@@ -19189,7 +18185,1320 @@ var process=require("__browserify_process");/*global setImmediate: false, setTim
     }
 })();
 
-},{}],147:[function(require,module,exports){
+},{}],168:[function(_dereq_,module,exports){
+var async = _dereq_('async');
+//var webrtcsupport = require('webrtcsupport');
+var WildEmitter = _dereq_('wildemitter');
+var util = _dereq_('util');
+var hashes = _dereq_('iana-hashes');
+
+function Sender(opts) {
+    WildEmitter.call(this);
+    var self = this;
+    var options = opts || {};
+    this.config = {
+        chunksize: 768,
+        pacing: 10,
+        hash: 'sha-1' // note: this uses iana hash names
+    };
+    // set our config from options
+    var item;
+    for (item in options) {
+        this.config[item] = options[item];
+    }
+
+    this.file = null;
+    this.channel = null;
+    this.hash = null;
+
+    // paced sender
+    // TODO: do we have to do this?
+    this.processingQueue = async.queue(function (task, next) {
+        if (task.type == 'chunk') {
+            var reader = new window.FileReader();
+            reader.onload = (function() {
+                return function(e) {
+                    self.channel.send(e.target.result);
+
+                    self.hash.update(new Uint8Array(e.target.result));
+
+                    self.emit('progress', task.start, task.file.size);
+
+                    window.setTimeout(next, self.config.pacing); // pacing
+                };
+            })(task.file);
+            var slice = task.file.slice(task.start, task.start + task.size);
+            reader.readAsArrayBuffer(slice);
+        } else if (task.type == 'complete') {
+            self.emit('sentFile', {hash: self.hash.digest('hex'), algo: self.config.hash });
+            next();
+        }
+    });
+}
+util.inherits(Sender, WildEmitter);
+
+Sender.prototype.send = function (file, channel) {
+    this.file = file;
+    this.hash = hashes.createHash(this.config.hash);
+
+    this.channel = channel;
+    // FIXME: hook to channel.onopen?
+    for (var start = 0; start < this.file.size; start += this.config.chunksize) {
+        this.processingQueue.push({
+            type: 'chunk',
+            file: file,
+            start: start,
+            size: this.config.chunksize
+        });
+    }
+    this.processingQueue.push({
+        type: 'complete'
+    });
+};
+
+function Receiver(opts) {
+    WildEmitter.call(this);
+
+    var options = opts || {};
+    this.config = {
+        hash: 'sha-1'
+    };
+    // set our config from options
+    var item;
+    for (item in options) {
+        this.config[item] = options[item];
+    }
+    this.receiveBuffer = [];
+    this.received = 0;
+    this.metadata = {};
+    this.channel = null;
+    this.hash = null;
+}
+util.inherits(Receiver, WildEmitter);
+
+Receiver.prototype.receive = function (metadata, channel) {
+    var self = this;
+
+    if (metadata) {
+        this.metadata = metadata;
+    }
+    this.hash = hashes.createHash(this.config.hash);
+
+    this.channel = channel;
+    // chrome only supports arraybuffers and those make it easier to calc the hash
+    channel.binaryType = 'arraybuffer';
+    this.channel.onmessage = function (event) {
+        var len = event.data.byteLength;
+        self.received += len;
+        self.receiveBuffer.push(event.data);
+
+        self.hash.update(new Uint8Array(event.data));
+
+        self.emit('progress', self.received, self.metadata.size);
+        if (self.received == self.metadata.size) {
+            self.metadata.actualhash = self.hash.digest('hex');
+            self.emit('receivedFile', new window.Blob(self.receiveBuffer), self.metadata);
+            self.receiveBuffer = []; // discard receivebuffer
+        } else if (self.received > self.metadata.size) {
+            // FIXME
+            console.error('received more than expected, discarding...');
+            self.receiveBuffer = []; // just discard...
+
+        }
+    };
+};
+
+module.exports = {};
+module.exports.support = window && window.File && window.FileReader && window.Blob;
+module.exports.Sender = Sender;
+module.exports.Receiver = Receiver;
+
+},{"async":165,"iana-hashes":169,"util":156,"wildemitter":194}],169:[function(_dereq_,module,exports){
+var crypto = _dereq_('crypto');
+
+var mapping = {
+    md2: 'md2',
+    md5: 'md5',
+    'sha-1': 'sha1',
+    'sha-224': 'sha224',
+    'sha-256': 'sha256',
+    'sha-384': 'sha384',
+    'sha-512': 'sha512'
+};
+
+var names = Object.keys(mapping);
+
+
+exports.getHashes = function () {
+    var result = [];
+    var available = crypto.getHashes();
+    for (var i = 0, len = names.length; i < len; i++) {
+        if (available.indexOf(mapping[names[i]]) >= 0) {
+            result.push(names[i]);
+        }
+    }
+    return result;
+};
+
+exports.createHash = function (algorithm) {
+    algorithm = algorithm.toLowerCase();
+    if (mapping[algorithm]) {
+        algorithm = mapping[algorithm];
+    }
+    return crypto.createHash(algorithm);
+};
+
+exports.createHmac = function (algorithm, key) {
+    algorithm = algorithm.toLowerCase();
+    if (mapping[algorithm]) {
+        algorithm = mapping[algorithm];
+    }
+    return crypto.createHmac(algorithm, key);
+};
+
+},{"crypto":173}],170:[function(_dereq_,module,exports){
+(function (Buffer){
+var createHash = _dereq_('sha.js')
+
+var md5 = toConstructor(_dereq_('./md5'))
+var rmd160 = toConstructor(_dereq_('ripemd160'))
+
+function toConstructor (fn) {
+  return function () {
+    var buffers = []
+    var m= {
+      update: function (data, enc) {
+        if(!Buffer.isBuffer(data)) data = new Buffer(data, enc)
+        buffers.push(data)
+        return this
+      },
+      digest: function (enc) {
+        var buf = Buffer.concat(buffers)
+        var r = fn(buf)
+        buffers = null
+        return enc ? r.toString(enc) : r
+      }
+    }
+    return m
+  }
+}
+
+module.exports = function (alg) {
+  if('md5' === alg) return new md5()
+  if('rmd160' === alg) return new rmd160()
+  return createHash(alg)
+}
+
+}).call(this,_dereq_("buffer").Buffer)
+},{"./md5":174,"buffer":144,"ripemd160":175,"sha.js":177}],171:[function(_dereq_,module,exports){
+(function (Buffer){
+var createHash = _dereq_('./create-hash')
+
+var blocksize = 64
+var zeroBuffer = new Buffer(blocksize); zeroBuffer.fill(0)
+
+module.exports = Hmac
+
+function Hmac (alg, key) {
+  if(!(this instanceof Hmac)) return new Hmac(alg, key)
+  this._opad = opad
+  this._alg = alg
+
+  key = this._key = !Buffer.isBuffer(key) ? new Buffer(key) : key
+
+  if(key.length > blocksize) {
+    key = createHash(alg).update(key).digest()
+  } else if(key.length < blocksize) {
+    key = Buffer.concat([key, zeroBuffer], blocksize)
+  }
+
+  var ipad = this._ipad = new Buffer(blocksize)
+  var opad = this._opad = new Buffer(blocksize)
+
+  for(var i = 0; i < blocksize; i++) {
+    ipad[i] = key[i] ^ 0x36
+    opad[i] = key[i] ^ 0x5C
+  }
+
+  this._hash = createHash(alg).update(ipad)
+}
+
+Hmac.prototype.update = function (data, enc) {
+  this._hash.update(data, enc)
+  return this
+}
+
+Hmac.prototype.digest = function (enc) {
+  var h = this._hash.digest()
+  return createHash(this._alg).update(this._opad).update(h).digest(enc)
+}
+
+
+}).call(this,_dereq_("buffer").Buffer)
+},{"./create-hash":170,"buffer":144}],172:[function(_dereq_,module,exports){
+(function (Buffer){
+var intSize = 4;
+var zeroBuffer = new Buffer(intSize); zeroBuffer.fill(0);
+var chrsz = 8;
+
+function toArray(buf, bigEndian) {
+  if ((buf.length % intSize) !== 0) {
+    var len = buf.length + (intSize - (buf.length % intSize));
+    buf = Buffer.concat([buf, zeroBuffer], len);
+  }
+
+  var arr = [];
+  var fn = bigEndian ? buf.readInt32BE : buf.readInt32LE;
+  for (var i = 0; i < buf.length; i += intSize) {
+    arr.push(fn.call(buf, i));
+  }
+  return arr;
+}
+
+function toBuffer(arr, size, bigEndian) {
+  var buf = new Buffer(size);
+  var fn = bigEndian ? buf.writeInt32BE : buf.writeInt32LE;
+  for (var i = 0; i < arr.length; i++) {
+    fn.call(buf, arr[i], i * 4, true);
+  }
+  return buf;
+}
+
+function hash(buf, fn, hashSize, bigEndian) {
+  if (!Buffer.isBuffer(buf)) buf = new Buffer(buf);
+  var arr = fn(toArray(buf, bigEndian), buf.length * chrsz);
+  return toBuffer(arr, hashSize, bigEndian);
+}
+
+module.exports = { hash: hash };
+
+}).call(this,_dereq_("buffer").Buffer)
+},{"buffer":144}],173:[function(_dereq_,module,exports){
+(function (Buffer){
+var rng = _dereq_('./rng')
+
+function error () {
+  var m = [].slice.call(arguments).join(' ')
+  throw new Error([
+    m,
+    'we accept pull requests',
+    'http://github.com/dominictarr/crypto-browserify'
+    ].join('\n'))
+}
+
+exports.createHash = _dereq_('./create-hash')
+
+exports.createHmac = _dereq_('./create-hmac')
+
+exports.randomBytes = function(size, callback) {
+  if (callback && callback.call) {
+    try {
+      callback.call(this, undefined, new Buffer(rng(size)))
+    } catch (err) { callback(err) }
+  } else {
+    return new Buffer(rng(size))
+  }
+}
+
+function each(a, f) {
+  for(var i in a)
+    f(a[i], i)
+}
+
+exports.getHashes = function () {
+  return ['sha1', 'sha256', 'md5', 'rmd160']
+
+}
+
+var p = _dereq_('./pbkdf2')(exports.createHmac)
+exports.pbkdf2 = p.pbkdf2
+exports.pbkdf2Sync = p.pbkdf2Sync
+
+
+// the least I can do is make error messages for the rest of the node.js/crypto api.
+each(['createCredentials'
+, 'createCipher'
+, 'createCipheriv'
+, 'createDecipher'
+, 'createDecipheriv'
+, 'createSign'
+, 'createVerify'
+, 'createDiffieHellman'
+], function (name) {
+  exports[name] = function () {
+    error('sorry,', name, 'is not implemented yet')
+  }
+})
+
+}).call(this,_dereq_("buffer").Buffer)
+},{"./create-hash":170,"./create-hmac":171,"./pbkdf2":181,"./rng":182,"buffer":144}],174:[function(_dereq_,module,exports){
+/*
+ * A JavaScript implementation of the RSA Data Security, Inc. MD5 Message
+ * Digest Algorithm, as defined in RFC 1321.
+ * Version 2.1 Copyright (C) Paul Johnston 1999 - 2002.
+ * Other contributors: Greg Holt, Andrew Kepert, Ydnar, Lostinet
+ * Distributed under the BSD License
+ * See http://pajhome.org.uk/crypt/md5 for more info.
+ */
+
+var helpers = _dereq_('./helpers');
+
+/*
+ * Calculate the MD5 of an array of little-endian words, and a bit length
+ */
+function core_md5(x, len)
+{
+  /* append padding */
+  x[len >> 5] |= 0x80 << ((len) % 32);
+  x[(((len + 64) >>> 9) << 4) + 14] = len;
+
+  var a =  1732584193;
+  var b = -271733879;
+  var c = -1732584194;
+  var d =  271733878;
+
+  for(var i = 0; i < x.length; i += 16)
+  {
+    var olda = a;
+    var oldb = b;
+    var oldc = c;
+    var oldd = d;
+
+    a = md5_ff(a, b, c, d, x[i+ 0], 7 , -680876936);
+    d = md5_ff(d, a, b, c, x[i+ 1], 12, -389564586);
+    c = md5_ff(c, d, a, b, x[i+ 2], 17,  606105819);
+    b = md5_ff(b, c, d, a, x[i+ 3], 22, -1044525330);
+    a = md5_ff(a, b, c, d, x[i+ 4], 7 , -176418897);
+    d = md5_ff(d, a, b, c, x[i+ 5], 12,  1200080426);
+    c = md5_ff(c, d, a, b, x[i+ 6], 17, -1473231341);
+    b = md5_ff(b, c, d, a, x[i+ 7], 22, -45705983);
+    a = md5_ff(a, b, c, d, x[i+ 8], 7 ,  1770035416);
+    d = md5_ff(d, a, b, c, x[i+ 9], 12, -1958414417);
+    c = md5_ff(c, d, a, b, x[i+10], 17, -42063);
+    b = md5_ff(b, c, d, a, x[i+11], 22, -1990404162);
+    a = md5_ff(a, b, c, d, x[i+12], 7 ,  1804603682);
+    d = md5_ff(d, a, b, c, x[i+13], 12, -40341101);
+    c = md5_ff(c, d, a, b, x[i+14], 17, -1502002290);
+    b = md5_ff(b, c, d, a, x[i+15], 22,  1236535329);
+
+    a = md5_gg(a, b, c, d, x[i+ 1], 5 , -165796510);
+    d = md5_gg(d, a, b, c, x[i+ 6], 9 , -1069501632);
+    c = md5_gg(c, d, a, b, x[i+11], 14,  643717713);
+    b = md5_gg(b, c, d, a, x[i+ 0], 20, -373897302);
+    a = md5_gg(a, b, c, d, x[i+ 5], 5 , -701558691);
+    d = md5_gg(d, a, b, c, x[i+10], 9 ,  38016083);
+    c = md5_gg(c, d, a, b, x[i+15], 14, -660478335);
+    b = md5_gg(b, c, d, a, x[i+ 4], 20, -405537848);
+    a = md5_gg(a, b, c, d, x[i+ 9], 5 ,  568446438);
+    d = md5_gg(d, a, b, c, x[i+14], 9 , -1019803690);
+    c = md5_gg(c, d, a, b, x[i+ 3], 14, -187363961);
+    b = md5_gg(b, c, d, a, x[i+ 8], 20,  1163531501);
+    a = md5_gg(a, b, c, d, x[i+13], 5 , -1444681467);
+    d = md5_gg(d, a, b, c, x[i+ 2], 9 , -51403784);
+    c = md5_gg(c, d, a, b, x[i+ 7], 14,  1735328473);
+    b = md5_gg(b, c, d, a, x[i+12], 20, -1926607734);
+
+    a = md5_hh(a, b, c, d, x[i+ 5], 4 , -378558);
+    d = md5_hh(d, a, b, c, x[i+ 8], 11, -2022574463);
+    c = md5_hh(c, d, a, b, x[i+11], 16,  1839030562);
+    b = md5_hh(b, c, d, a, x[i+14], 23, -35309556);
+    a = md5_hh(a, b, c, d, x[i+ 1], 4 , -1530992060);
+    d = md5_hh(d, a, b, c, x[i+ 4], 11,  1272893353);
+    c = md5_hh(c, d, a, b, x[i+ 7], 16, -155497632);
+    b = md5_hh(b, c, d, a, x[i+10], 23, -1094730640);
+    a = md5_hh(a, b, c, d, x[i+13], 4 ,  681279174);
+    d = md5_hh(d, a, b, c, x[i+ 0], 11, -358537222);
+    c = md5_hh(c, d, a, b, x[i+ 3], 16, -722521979);
+    b = md5_hh(b, c, d, a, x[i+ 6], 23,  76029189);
+    a = md5_hh(a, b, c, d, x[i+ 9], 4 , -640364487);
+    d = md5_hh(d, a, b, c, x[i+12], 11, -421815835);
+    c = md5_hh(c, d, a, b, x[i+15], 16,  530742520);
+    b = md5_hh(b, c, d, a, x[i+ 2], 23, -995338651);
+
+    a = md5_ii(a, b, c, d, x[i+ 0], 6 , -198630844);
+    d = md5_ii(d, a, b, c, x[i+ 7], 10,  1126891415);
+    c = md5_ii(c, d, a, b, x[i+14], 15, -1416354905);
+    b = md5_ii(b, c, d, a, x[i+ 5], 21, -57434055);
+    a = md5_ii(a, b, c, d, x[i+12], 6 ,  1700485571);
+    d = md5_ii(d, a, b, c, x[i+ 3], 10, -1894986606);
+    c = md5_ii(c, d, a, b, x[i+10], 15, -1051523);
+    b = md5_ii(b, c, d, a, x[i+ 1], 21, -2054922799);
+    a = md5_ii(a, b, c, d, x[i+ 8], 6 ,  1873313359);
+    d = md5_ii(d, a, b, c, x[i+15], 10, -30611744);
+    c = md5_ii(c, d, a, b, x[i+ 6], 15, -1560198380);
+    b = md5_ii(b, c, d, a, x[i+13], 21,  1309151649);
+    a = md5_ii(a, b, c, d, x[i+ 4], 6 , -145523070);
+    d = md5_ii(d, a, b, c, x[i+11], 10, -1120210379);
+    c = md5_ii(c, d, a, b, x[i+ 2], 15,  718787259);
+    b = md5_ii(b, c, d, a, x[i+ 9], 21, -343485551);
+
+    a = safe_add(a, olda);
+    b = safe_add(b, oldb);
+    c = safe_add(c, oldc);
+    d = safe_add(d, oldd);
+  }
+  return Array(a, b, c, d);
+
+}
+
+/*
+ * These functions implement the four basic operations the algorithm uses.
+ */
+function md5_cmn(q, a, b, x, s, t)
+{
+  return safe_add(bit_rol(safe_add(safe_add(a, q), safe_add(x, t)), s),b);
+}
+function md5_ff(a, b, c, d, x, s, t)
+{
+  return md5_cmn((b & c) | ((~b) & d), a, b, x, s, t);
+}
+function md5_gg(a, b, c, d, x, s, t)
+{
+  return md5_cmn((b & d) | (c & (~d)), a, b, x, s, t);
+}
+function md5_hh(a, b, c, d, x, s, t)
+{
+  return md5_cmn(b ^ c ^ d, a, b, x, s, t);
+}
+function md5_ii(a, b, c, d, x, s, t)
+{
+  return md5_cmn(c ^ (b | (~d)), a, b, x, s, t);
+}
+
+/*
+ * Add integers, wrapping at 2^32. This uses 16-bit operations internally
+ * to work around bugs in some JS interpreters.
+ */
+function safe_add(x, y)
+{
+  var lsw = (x & 0xFFFF) + (y & 0xFFFF);
+  var msw = (x >> 16) + (y >> 16) + (lsw >> 16);
+  return (msw << 16) | (lsw & 0xFFFF);
+}
+
+/*
+ * Bitwise rotate a 32-bit number to the left.
+ */
+function bit_rol(num, cnt)
+{
+  return (num << cnt) | (num >>> (32 - cnt));
+}
+
+module.exports = function md5(buf) {
+  return helpers.hash(buf, core_md5, 16);
+};
+
+},{"./helpers":172}],175:[function(_dereq_,module,exports){
+(function (Buffer){
+
+module.exports = ripemd160
+
+
+
+/*
+CryptoJS v3.1.2
+code.google.com/p/crypto-js
+(c) 2009-2013 by Jeff Mott. All rights reserved.
+code.google.com/p/crypto-js/wiki/License
+*/
+/** @preserve
+(c) 2012 by Cédric Mesnil. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+    - Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+    - Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+// Constants table
+var zl = [
+    0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15,
+    7,  4, 13,  1, 10,  6, 15,  3, 12,  0,  9,  5,  2, 14, 11,  8,
+    3, 10, 14,  4,  9, 15,  8,  1,  2,  7,  0,  6, 13, 11,  5, 12,
+    1,  9, 11, 10,  0,  8, 12,  4, 13,  3,  7, 15, 14,  5,  6,  2,
+    4,  0,  5,  9,  7, 12,  2, 10, 14,  1,  3,  8, 11,  6, 15, 13];
+var zr = [
+    5, 14,  7,  0,  9,  2, 11,  4, 13,  6, 15,  8,  1, 10,  3, 12,
+    6, 11,  3,  7,  0, 13,  5, 10, 14, 15,  8, 12,  4,  9,  1,  2,
+    15,  5,  1,  3,  7, 14,  6,  9, 11,  8, 12,  2, 10,  0,  4, 13,
+    8,  6,  4,  1,  3, 11, 15,  0,  5, 12,  2, 13,  9,  7, 10, 14,
+    12, 15, 10,  4,  1,  5,  8,  7,  6,  2, 13, 14,  0,  3,  9, 11];
+var sl = [
+     11, 14, 15, 12,  5,  8,  7,  9, 11, 13, 14, 15,  6,  7,  9,  8,
+    7, 6,   8, 13, 11,  9,  7, 15,  7, 12, 15,  9, 11,  7, 13, 12,
+    11, 13,  6,  7, 14,  9, 13, 15, 14,  8, 13,  6,  5, 12,  7,  5,
+      11, 12, 14, 15, 14, 15,  9,  8,  9, 14,  5,  6,  8,  6,  5, 12,
+    9, 15,  5, 11,  6,  8, 13, 12,  5, 12, 13, 14, 11,  8,  5,  6 ];
+var sr = [
+    8,  9,  9, 11, 13, 15, 15,  5,  7,  7,  8, 11, 14, 14, 12,  6,
+    9, 13, 15,  7, 12,  8,  9, 11,  7,  7, 12,  7,  6, 15, 13, 11,
+    9,  7, 15, 11,  8,  6,  6, 14, 12, 13,  5, 14, 13, 13,  7,  5,
+    15,  5,  8, 11, 14, 14,  6, 14,  6,  9, 12,  9, 12,  5, 15,  8,
+    8,  5, 12,  9, 12,  5, 14,  6,  8, 13,  6,  5, 15, 13, 11, 11 ];
+
+var hl =  [ 0x00000000, 0x5A827999, 0x6ED9EBA1, 0x8F1BBCDC, 0xA953FD4E];
+var hr =  [ 0x50A28BE6, 0x5C4DD124, 0x6D703EF3, 0x7A6D76E9, 0x00000000];
+
+var bytesToWords = function (bytes) {
+  var words = [];
+  for (var i = 0, b = 0; i < bytes.length; i++, b += 8) {
+    words[b >>> 5] |= bytes[i] << (24 - b % 32);
+  }
+  return words;
+};
+
+var wordsToBytes = function (words) {
+  var bytes = [];
+  for (var b = 0; b < words.length * 32; b += 8) {
+    bytes.push((words[b >>> 5] >>> (24 - b % 32)) & 0xFF);
+  }
+  return bytes;
+};
+
+var processBlock = function (H, M, offset) {
+
+  // Swap endian
+  for (var i = 0; i < 16; i++) {
+    var offset_i = offset + i;
+    var M_offset_i = M[offset_i];
+
+    // Swap
+    M[offset_i] = (
+        (((M_offset_i << 8)  | (M_offset_i >>> 24)) & 0x00ff00ff) |
+        (((M_offset_i << 24) | (M_offset_i >>> 8))  & 0xff00ff00)
+    );
+  }
+
+  // Working variables
+  var al, bl, cl, dl, el;
+  var ar, br, cr, dr, er;
+
+  ar = al = H[0];
+  br = bl = H[1];
+  cr = cl = H[2];
+  dr = dl = H[3];
+  er = el = H[4];
+  // Computation
+  var t;
+  for (var i = 0; i < 80; i += 1) {
+    t = (al +  M[offset+zl[i]])|0;
+    if (i<16){
+        t +=  f1(bl,cl,dl) + hl[0];
+    } else if (i<32) {
+        t +=  f2(bl,cl,dl) + hl[1];
+    } else if (i<48) {
+        t +=  f3(bl,cl,dl) + hl[2];
+    } else if (i<64) {
+        t +=  f4(bl,cl,dl) + hl[3];
+    } else {// if (i<80) {
+        t +=  f5(bl,cl,dl) + hl[4];
+    }
+    t = t|0;
+    t =  rotl(t,sl[i]);
+    t = (t+el)|0;
+    al = el;
+    el = dl;
+    dl = rotl(cl, 10);
+    cl = bl;
+    bl = t;
+
+    t = (ar + M[offset+zr[i]])|0;
+    if (i<16){
+        t +=  f5(br,cr,dr) + hr[0];
+    } else if (i<32) {
+        t +=  f4(br,cr,dr) + hr[1];
+    } else if (i<48) {
+        t +=  f3(br,cr,dr) + hr[2];
+    } else if (i<64) {
+        t +=  f2(br,cr,dr) + hr[3];
+    } else {// if (i<80) {
+        t +=  f1(br,cr,dr) + hr[4];
+    }
+    t = t|0;
+    t =  rotl(t,sr[i]) ;
+    t = (t+er)|0;
+    ar = er;
+    er = dr;
+    dr = rotl(cr, 10);
+    cr = br;
+    br = t;
+  }
+  // Intermediate hash value
+  t    = (H[1] + cl + dr)|0;
+  H[1] = (H[2] + dl + er)|0;
+  H[2] = (H[3] + el + ar)|0;
+  H[3] = (H[4] + al + br)|0;
+  H[4] = (H[0] + bl + cr)|0;
+  H[0] =  t;
+};
+
+function f1(x, y, z) {
+  return ((x) ^ (y) ^ (z));
+}
+
+function f2(x, y, z) {
+  return (((x)&(y)) | ((~x)&(z)));
+}
+
+function f3(x, y, z) {
+  return (((x) | (~(y))) ^ (z));
+}
+
+function f4(x, y, z) {
+  return (((x) & (z)) | ((y)&(~(z))));
+}
+
+function f5(x, y, z) {
+  return ((x) ^ ((y) |(~(z))));
+}
+
+function rotl(x,n) {
+  return (x<<n) | (x>>>(32-n));
+}
+
+function ripemd160(message) {
+  var H = [0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0];
+
+  if (typeof message == 'string')
+    message = new Buffer(message, 'utf8');
+
+  var m = bytesToWords(message);
+
+  var nBitsLeft = message.length * 8;
+  var nBitsTotal = message.length * 8;
+
+  // Add padding
+  m[nBitsLeft >>> 5] |= 0x80 << (24 - nBitsLeft % 32);
+  m[(((nBitsLeft + 64) >>> 9) << 4) + 14] = (
+      (((nBitsTotal << 8)  | (nBitsTotal >>> 24)) & 0x00ff00ff) |
+      (((nBitsTotal << 24) | (nBitsTotal >>> 8))  & 0xff00ff00)
+  );
+
+  for (var i=0 ; i<m.length; i += 16) {
+    processBlock(H, m, i);
+  }
+
+  // Swap endian
+  for (var i = 0; i < 5; i++) {
+      // Shortcut
+    var H_i = H[i];
+
+    // Swap
+    H[i] = (((H_i << 8)  | (H_i >>> 24)) & 0x00ff00ff) |
+          (((H_i << 24) | (H_i >>> 8))  & 0xff00ff00);
+  }
+
+  var digestbytes = wordsToBytes(H);
+  return new Buffer(digestbytes);
+}
+
+
+
+}).call(this,_dereq_("buffer").Buffer)
+},{"buffer":144}],176:[function(_dereq_,module,exports){
+var u = _dereq_('./util')
+var write = u.write
+var fill = u.zeroFill
+
+module.exports = function (Buffer) {
+
+  //prototype class for hash functions
+  function Hash (blockSize, finalSize) {
+    this._block = new Buffer(blockSize) //new Uint32Array(blockSize/4)
+    this._finalSize = finalSize
+    this._blockSize = blockSize
+    this._len = 0
+    this._s = 0
+  }
+
+  Hash.prototype.init = function () {
+    this._s = 0
+    this._len = 0
+  }
+
+  function lengthOf(data, enc) {
+    if(enc == null)     return data.byteLength || data.length
+    if(enc == 'ascii' || enc == 'binary')  return data.length
+    if(enc == 'hex')    return data.length/2
+    if(enc == 'base64') return data.length/3
+  }
+
+  Hash.prototype.update = function (data, enc) {
+    var bl = this._blockSize
+
+    //I'd rather do this with a streaming encoder, like the opposite of
+    //http://nodejs.org/api/string_decoder.html
+    var length
+      if(!enc && 'string' === typeof data)
+        enc = 'utf8'
+
+    if(enc) {
+      if(enc === 'utf-8')
+        enc = 'utf8'
+
+      if(enc === 'base64' || enc === 'utf8')
+        data = new Buffer(data, enc), enc = null
+
+      length = lengthOf(data, enc)
+    } else
+      length = data.byteLength || data.length
+
+    var l = this._len += length
+    var s = this._s = (this._s || 0)
+    var f = 0
+    var buffer = this._block
+    while(s < l) {
+      var t = Math.min(length, f + bl)
+      write(buffer, data, enc, s%bl, f, t)
+      var ch = (t - f);
+      s += ch; f += ch
+
+      if(!(s%bl))
+        this._update(buffer)
+    }
+    this._s = s
+
+    return this
+
+  }
+
+  Hash.prototype.digest = function (enc) {
+    var bl = this._blockSize
+    var fl = this._finalSize
+    var len = this._len*8
+
+    var x = this._block
+
+    var bits = len % (bl*8)
+
+    //add end marker, so that appending 0's creats a different hash.
+    x[this._len % bl] = 0x80
+    fill(this._block, this._len % bl + 1)
+
+    if(bits >= fl*8) {
+      this._update(this._block)
+      u.zeroFill(this._block, 0)
+    }
+
+    //TODO: handle case where the bit length is > Math.pow(2, 29)
+    x.writeInt32BE(len, fl + 4) //big endian
+
+    var hash = this._update(this._block) || this._hash()
+    if(enc == null) return hash
+    return hash.toString(enc)
+  }
+
+  Hash.prototype._update = function () {
+    throw new Error('_update must be implemented by subclass')
+  }
+
+  return Hash
+}
+
+},{"./util":180}],177:[function(_dereq_,module,exports){
+var exports = module.exports = function (alg) {
+  var Alg = exports[alg]
+  if(!Alg) throw new Error(alg + ' is not supported (we accept pull requests)')
+  return new Alg()
+}
+
+var Buffer = _dereq_('buffer').Buffer
+var Hash   = _dereq_('./hash')(Buffer)
+
+exports.sha =
+exports.sha1 = _dereq_('./sha1')(Buffer, Hash)
+exports.sha256 = _dereq_('./sha256')(Buffer, Hash)
+
+},{"./hash":176,"./sha1":178,"./sha256":179,"buffer":144}],178:[function(_dereq_,module,exports){
+/*
+ * A JavaScript implementation of the Secure Hash Algorithm, SHA-1, as defined
+ * in FIPS PUB 180-1
+ * Version 2.1a Copyright Paul Johnston 2000 - 2002.
+ * Other contributors: Greg Holt, Andrew Kepert, Ydnar, Lostinet
+ * Distributed under the BSD License
+ * See http://pajhome.org.uk/crypt/md5 for details.
+ */
+module.exports = function (Buffer, Hash) {
+
+  var inherits = _dereq_('util').inherits
+
+  inherits(Sha1, Hash)
+
+  var A = 0|0
+  var B = 4|0
+  var C = 8|0
+  var D = 12|0
+  var E = 16|0
+
+  var BE = false
+  var LE = true
+
+  var W = new Int32Array(80)
+
+  var POOL = []
+
+  function Sha1 () {
+    if(POOL.length)
+      return POOL.pop().init()
+
+    if(!(this instanceof Sha1)) return new Sha1()
+    this._w = W
+    Hash.call(this, 16*4, 14*4)
+  
+    this._h = null
+    this.init()
+  }
+
+  Sha1.prototype.init = function () {
+    this._a = 0x67452301
+    this._b = 0xefcdab89
+    this._c = 0x98badcfe
+    this._d = 0x10325476
+    this._e = 0xc3d2e1f0
+
+    Hash.prototype.init.call(this)
+    return this
+  }
+
+  Sha1.prototype._POOL = POOL
+
+  // assume that array is a Uint32Array with length=16,
+  // and that if it is the last block, it already has the length and the 1 bit appended.
+
+
+  var isDV = new Buffer(1) instanceof DataView
+  function readInt32BE (X, i) {
+    return isDV
+      ? X.getInt32(i, false)
+      : X.readInt32BE(i)
+  }
+
+  Sha1.prototype._update = function (array) {
+
+    var X = this._block
+    var h = this._h
+    var a, b, c, d, e, _a, _b, _c, _d, _e
+
+    a = _a = this._a
+    b = _b = this._b
+    c = _c = this._c
+    d = _d = this._d
+    e = _e = this._e
+
+    var w = this._w
+
+    for(var j = 0; j < 80; j++) {
+      var W = w[j]
+        = j < 16
+        //? X.getInt32(j*4, false)
+        //? readInt32BE(X, j*4) //*/ X.readInt32BE(j*4) //*/
+        ? X.readInt32BE(j*4)
+        : rol(w[j - 3] ^ w[j -  8] ^ w[j - 14] ^ w[j - 16], 1)
+
+      var t =
+        add(
+          add(rol(a, 5), sha1_ft(j, b, c, d)),
+          add(add(e, W), sha1_kt(j))
+        );
+
+      e = d
+      d = c
+      c = rol(b, 30)
+      b = a
+      a = t
+    }
+
+    this._a = add(a, _a)
+    this._b = add(b, _b)
+    this._c = add(c, _c)
+    this._d = add(d, _d)
+    this._e = add(e, _e)
+  }
+
+  Sha1.prototype._hash = function () {
+    if(POOL.length < 100) POOL.push(this)
+    var H = new Buffer(20)
+    //console.log(this._a|0, this._b|0, this._c|0, this._d|0, this._e|0)
+    H.writeInt32BE(this._a|0, A)
+    H.writeInt32BE(this._b|0, B)
+    H.writeInt32BE(this._c|0, C)
+    H.writeInt32BE(this._d|0, D)
+    H.writeInt32BE(this._e|0, E)
+    return H
+  }
+
+  /*
+   * Perform the appropriate triplet combination function for the current
+   * iteration
+   */
+  function sha1_ft(t, b, c, d) {
+    if(t < 20) return (b & c) | ((~b) & d);
+    if(t < 40) return b ^ c ^ d;
+    if(t < 60) return (b & c) | (b & d) | (c & d);
+    return b ^ c ^ d;
+  }
+
+  /*
+   * Determine the appropriate additive constant for the current iteration
+   */
+  function sha1_kt(t) {
+    return (t < 20) ?  1518500249 : (t < 40) ?  1859775393 :
+           (t < 60) ? -1894007588 : -899497514;
+  }
+
+  /*
+   * Add integers, wrapping at 2^32. This uses 16-bit operations internally
+   * to work around bugs in some JS interpreters.
+   * //dominictarr: this is 10 years old, so maybe this can be dropped?)
+   *
+   */
+  function add(x, y) {
+    return (x + y ) | 0
+  //lets see how this goes on testling.
+  //  var lsw = (x & 0xFFFF) + (y & 0xFFFF);
+  //  var msw = (x >> 16) + (y >> 16) + (lsw >> 16);
+  //  return (msw << 16) | (lsw & 0xFFFF);
+  }
+
+  /*
+   * Bitwise rotate a 32-bit number to the left.
+   */
+  function rol(num, cnt) {
+    return (num << cnt) | (num >>> (32 - cnt));
+  }
+
+  return Sha1
+}
+
+},{"util":156}],179:[function(_dereq_,module,exports){
+
+/**
+ * A JavaScript implementation of the Secure Hash Algorithm, SHA-256, as defined
+ * in FIPS 180-2
+ * Version 2.2-beta Copyright Angel Marin, Paul Johnston 2000 - 2009.
+ * Other contributors: Greg Holt, Andrew Kepert, Ydnar, Lostinet
+ *
+ */
+
+var inherits = _dereq_('util').inherits
+var BE       = false
+var LE       = true
+var u        = _dereq_('./util')
+
+module.exports = function (Buffer, Hash) {
+
+  var K = [
+      0x428A2F98, 0x71374491, 0xB5C0FBCF, 0xE9B5DBA5,
+      0x3956C25B, 0x59F111F1, 0x923F82A4, 0xAB1C5ED5,
+      0xD807AA98, 0x12835B01, 0x243185BE, 0x550C7DC3,
+      0x72BE5D74, 0x80DEB1FE, 0x9BDC06A7, 0xC19BF174,
+      0xE49B69C1, 0xEFBE4786, 0x0FC19DC6, 0x240CA1CC,
+      0x2DE92C6F, 0x4A7484AA, 0x5CB0A9DC, 0x76F988DA,
+      0x983E5152, 0xA831C66D, 0xB00327C8, 0xBF597FC7,
+      0xC6E00BF3, 0xD5A79147, 0x06CA6351, 0x14292967,
+      0x27B70A85, 0x2E1B2138, 0x4D2C6DFC, 0x53380D13,
+      0x650A7354, 0x766A0ABB, 0x81C2C92E, 0x92722C85,
+      0xA2BFE8A1, 0xA81A664B, 0xC24B8B70, 0xC76C51A3,
+      0xD192E819, 0xD6990624, 0xF40E3585, 0x106AA070,
+      0x19A4C116, 0x1E376C08, 0x2748774C, 0x34B0BCB5,
+      0x391C0CB3, 0x4ED8AA4A, 0x5B9CCA4F, 0x682E6FF3,
+      0x748F82EE, 0x78A5636F, 0x84C87814, 0x8CC70208,
+      0x90BEFFFA, 0xA4506CEB, 0xBEF9A3F7, 0xC67178F2
+    ]
+
+  inherits(Sha256, Hash)
+  var W = new Array(64)
+  var POOL = []
+  function Sha256() {
+    if(POOL.length) {
+      //return POOL.shift().init()
+    }
+    //this._data = new Buffer(32)
+
+    this.init()
+
+    this._w = W //new Array(64)
+
+    Hash.call(this, 16*4, 14*4)
+  };
+
+  Sha256.prototype.init = function () {
+
+    this._a = 0x6a09e667|0
+    this._b = 0xbb67ae85|0
+    this._c = 0x3c6ef372|0
+    this._d = 0xa54ff53a|0
+    this._e = 0x510e527f|0
+    this._f = 0x9b05688c|0
+    this._g = 0x1f83d9ab|0
+    this._h = 0x5be0cd19|0
+
+    this._len = this._s = 0
+
+    return this
+  }
+
+  var safe_add = function(x, y) {
+    var lsw = (x & 0xFFFF) + (y & 0xFFFF);
+    var msw = (x >> 16) + (y >> 16) + (lsw >> 16);
+    return (msw << 16) | (lsw & 0xFFFF);
+  }
+
+  function S (X, n) {
+    return (X >>> n) | (X << (32 - n));
+  }
+
+  function R (X, n) {
+    return (X >>> n);
+  }
+
+  function Ch (x, y, z) {
+    return ((x & y) ^ ((~x) & z));
+  }
+
+  function Maj (x, y, z) {
+    return ((x & y) ^ (x & z) ^ (y & z));
+  }
+
+  function Sigma0256 (x) {
+    return (S(x, 2) ^ S(x, 13) ^ S(x, 22));
+  }
+
+  function Sigma1256 (x) {
+    return (S(x, 6) ^ S(x, 11) ^ S(x, 25));
+  }
+
+  function Gamma0256 (x) {
+    return (S(x, 7) ^ S(x, 18) ^ R(x, 3));
+  }
+
+  function Gamma1256 (x) {
+    return (S(x, 17) ^ S(x, 19) ^ R(x, 10));
+  }
+
+  Sha256.prototype._update = function(m) {
+    var M = this._block
+    var W = this._w
+    var a, b, c, d, e, f, g, h
+    var T1, T2
+
+    a = this._a | 0
+    b = this._b | 0
+    c = this._c | 0
+    d = this._d | 0
+    e = this._e | 0
+    f = this._f | 0
+    g = this._g | 0
+    h = this._h | 0
+
+    for (var j = 0; j < 64; j++) {
+      var w = W[j] = j < 16
+        ? M.readInt32BE(j * 4)
+        : Gamma1256(W[j - 2]) + W[j - 7] + Gamma0256(W[j - 15]) + W[j - 16]
+
+      T1 = h + Sigma1256(e) + Ch(e, f, g) + K[j] + w
+
+      T2 = Sigma0256(a) + Maj(a, b, c);
+      h = g; g = f; f = e; e = d + T1; d = c; c = b; b = a; a = T1 + T2;
+    }
+
+    this._a = (a + this._a) | 0
+    this._b = (b + this._b) | 0
+    this._c = (c + this._c) | 0
+    this._d = (d + this._d) | 0
+    this._e = (e + this._e) | 0
+    this._f = (f + this._f) | 0
+    this._g = (g + this._g) | 0
+    this._h = (h + this._h) | 0
+
+  };
+
+  Sha256.prototype._hash = function () {
+    if(POOL.length < 10)
+      POOL.push(this)
+
+    var H = new Buffer(32)
+
+    H.writeInt32BE(this._a,  0)
+    H.writeInt32BE(this._b,  4)
+    H.writeInt32BE(this._c,  8)
+    H.writeInt32BE(this._d, 12)
+    H.writeInt32BE(this._e, 16)
+    H.writeInt32BE(this._f, 20)
+    H.writeInt32BE(this._g, 24)
+    H.writeInt32BE(this._h, 28)
+
+    return H
+  }
+
+  return Sha256
+
+}
+
+},{"./util":180,"util":156}],180:[function(_dereq_,module,exports){
+exports.write = write
+exports.zeroFill = zeroFill
+
+exports.toString = toString
+
+function write (buffer, string, enc, start, from, to, LE) {
+  var l = (to - from)
+  if(enc === 'ascii' || enc === 'binary') {
+    for( var i = 0; i < l; i++) {
+      buffer[start + i] = string.charCodeAt(i + from)
+    }
+  }
+  else if(enc == null) {
+    for( var i = 0; i < l; i++) {
+      buffer[start + i] = string[i + from]
+    }
+  }
+  else if(enc === 'hex') {
+    for(var i = 0; i < l; i++) {
+      var j = from + i
+      buffer[start + i] = parseInt(string[j*2] + string[(j*2)+1], 16)
+    }
+  }
+  else if(enc === 'base64') {
+    throw new Error('base64 encoding not yet supported')
+  }
+  else
+    throw new Error(enc +' encoding not yet supported')
+}
+
+//always fill to the end!
+function zeroFill(buf, from) {
+  for(var i = from; i < buf.length; i++)
+    buf[i] = 0
+}
+
+
+},{}],181:[function(_dereq_,module,exports){
+(function (Buffer){
+// JavaScript PBKDF2 Implementation
+// Based on http://git.io/qsv2zw
+// Licensed under LGPL v3
+// Copyright (c) 2013 jduncanator
+
+var blocksize = 64
+var zeroBuffer = new Buffer(blocksize); zeroBuffer.fill(0)
+
+module.exports = function (createHmac, exports) {
+  exports = exports || {}
+
+  exports.pbkdf2 = function(password, salt, iterations, keylen, cb) {
+    if('function' !== typeof cb)
+      throw new Error('No callback provided to pbkdf2');
+    setTimeout(function () {
+      cb(null, exports.pbkdf2Sync(password, salt, iterations, keylen))
+    })
+  }
+
+  exports.pbkdf2Sync = function(key, salt, iterations, keylen) {
+    if('number' !== typeof iterations)
+      throw new TypeError('Iterations not a number')
+    if(iterations < 0)
+      throw new TypeError('Bad iterations')
+    if('number' !== typeof keylen)
+      throw new TypeError('Key length not a number')
+    if(keylen < 0)
+      throw new TypeError('Bad key length')
+
+    //stretch key to the correct length that hmac wants it,
+    //otherwise this will happen every time hmac is called
+    //twice per iteration.
+    var key = !Buffer.isBuffer(key) ? new Buffer(key) : key
+
+    if(key.length > blocksize) {
+      key = createHash(alg).update(key).digest()
+    } else if(key.length < blocksize) {
+      key = Buffer.concat([key, zeroBuffer], blocksize)
+    }
+
+    var HMAC;
+    var cplen, p = 0, i = 1, itmp = new Buffer(4), digtmp;
+    var out = new Buffer(keylen);
+    out.fill(0);
+    while(keylen) {
+      if(keylen > 20)
+        cplen = 20;
+      else
+        cplen = keylen;
+
+      /* We are unlikely to ever use more than 256 blocks (5120 bits!)
+         * but just in case...
+         */
+        itmp[0] = (i >> 24) & 0xff;
+        itmp[1] = (i >> 16) & 0xff;
+          itmp[2] = (i >> 8) & 0xff;
+          itmp[3] = i & 0xff;
+
+          HMAC = createHmac('sha1', key);
+          HMAC.update(salt)
+          HMAC.update(itmp);
+        digtmp = HMAC.digest();
+        digtmp.copy(out, p, 0, cplen);
+
+        for(var j = 1; j < iterations; j++) {
+          HMAC = createHmac('sha1', key);
+          HMAC.update(digtmp);
+          digtmp = HMAC.digest();
+          for(var k = 0; k < cplen; k++) {
+            out[k] ^= digtmp[k];
+          }
+        }
+      keylen -= cplen;
+      i++;
+      p += cplen;
+    }
+
+    return out;
+  }
+
+  return exports
+}
+
+}).call(this,_dereq_("buffer").Buffer)
+},{"buffer":144}],182:[function(_dereq_,module,exports){
+(function (Buffer){
+// Original code adapted from Robert Kieffer.
+// details at https://github.com/broofa/node-uuid
+
+
+(function() {
+  var _global = this;
+
+  var mathRNG, whatwgRNG;
+
+  // NOTE: Math.random() does not guarantee "cryptographic quality"
+  mathRNG = function(size) {
+    var bytes = new Buffer(size);
+    var r;
+
+    for (var i = 0, r; i < size; i++) {
+      if ((i & 0x03) == 0) r = Math.random() * 0x100000000;
+      bytes[i] = r >>> ((i & 0x03) << 3) & 0xff;
+    }
+
+    return bytes;
+  }
+
+  if (_global.crypto && crypto.getRandomValues) {
+    whatwgRNG = function(size) {
+      var bytes = new Buffer(size); //in browserify, this is an extended Uint8Array
+      crypto.getRandomValues(bytes);
+      return bytes;
+    }
+  }
+
+  module.exports = whatwgRNG || mathRNG;
+
+}())
+
+}).call(this,_dereq_("buffer").Buffer)
+},{"buffer":144}],183:[function(_dereq_,module,exports){
 // getUserMedia helper by @HenrikJoreteg
 var func = (window.navigator.getUserMedia ||
             window.navigator.webkitGetUserMedia ||
@@ -19253,14 +19562,14 @@ module.exports = function (constraints, cb) {
     });
 };
 
-},{}],148:[function(require,module,exports){
-var WildEmitter = require('wildemitter');
+},{}],184:[function(_dereq_,module,exports){
+var WildEmitter = _dereq_('wildemitter');
 
 function getMaxVolume (analyser, fftBins) {
   var maxVolume = -Infinity;
   analyser.getFloatFrequencyData(fftBins);
 
-  for(var i=0, ii=fftBins.length; i < ii; i++) {
+  for(var i=4, ii=fftBins.length; i < ii; i++) {
     if (fftBins[i] > maxVolume && fftBins[i] < 0) {
       maxVolume = fftBins[i];
     }
@@ -19282,10 +19591,12 @@ module.exports = function(stream, options) {
 
   //Config
   var options = options || {},
-      smoothing = (options.smoothing || 0.5),
-      interval = (options.interval || 100),
+      smoothing = (options.smoothing || 0.1),
+      interval = (options.interval || 50),
       threshold = options.threshold,
-      play = options.play;
+      play = options.play,
+      history = options.history || 10,
+      running = true;
 
   //Setup Audio Context
   if (!audioContext) {
@@ -19299,15 +19610,15 @@ module.exports = function(stream, options) {
   fftBins = new Float32Array(analyser.fftSize);
 
   if (stream.jquery) stream = stream[0];
-  if (stream instanceof HTMLAudioElement) {
+  if (stream instanceof HTMLAudioElement || stream instanceof HTMLVideoElement) {
     //Audio Tag
     sourceNode = audioContext.createMediaElementSource(stream);
     if (typeof play === 'undefined') play = true;
-    threshold = threshold || -65;
+    threshold = threshold || -50;
   } else {
     //WebRTC Stream
     sourceNode = audioContext.createMediaStreamSource(stream);
-    threshold = threshold || -45;
+    threshold = threshold || -50;
   }
 
   sourceNode.connect(analyser);
@@ -19322,26 +19633,55 @@ module.exports = function(stream, options) {
   harker.setInterval = function(i) {
     interval = i;
   };
+  
+  harker.stop = function() {
+    running = false;
+    harker.emit('volume_change', -100, threshold);
+    if (harker.speaking) {
+      harker.speaking = false;
+      harker.emit('stopped_speaking');
+    }
+  };
+  harker.speakingHistory = [];
+  for (var i = 0; i < history; i++) {
+      harker.speakingHistory.push(0);
+  }
 
   // Poll the analyser node to determine if speaking
   // and emit events if changed
   var looper = function() {
     setTimeout(function() {
+    
+      //check if stop has been called
+      if(!running) {
+        return;
+      }
+      
       var currentVolume = getMaxVolume(analyser, fftBins);
 
       harker.emit('volume_change', currentVolume, threshold);
 
-      if (currentVolume > threshold) {
-        if (!harker.speaking) {
+      var history = 0;
+      if (currentVolume > threshold && !harker.speaking) {
+        // trigger quickly, short history
+        for (var i = harker.speakingHistory.length - 3; i < harker.speakingHistory.length; i++) {
+          history += harker.speakingHistory[i];
+        }
+        if (history >= 2) {
           harker.speaking = true;
           harker.emit('speaking');
         }
-      } else {
-        if (harker.speaking) {
+      } else if (currentVolume < threshold && harker.speaking) {
+        for (var i = 0; i < harker.speakingHistory.length; i++) {
+          history += harker.speakingHistory[i];
+        }
+        if (history == 0) {
           harker.speaking = false;
           harker.emit('stopped_speaking');
         }
       }
+      harker.speakingHistory.shift();
+      harker.speakingHistory.push(0 + (currentVolume > threshold));
 
       looper();
     }, interval);
@@ -19352,145 +19692,8 @@ module.exports = function(stream, options) {
   return harker;
 }
 
-},{"wildemitter":149}],149:[function(require,module,exports){
-/*
-WildEmitter.js is a slim little event emitter by @henrikjoreteg largely based 
-on @visionmedia's Emitter from UI Kit.
-
-Why? I wanted it standalone.
-
-I also wanted support for wildcard emitters like this:
-
-emitter.on('*', function (eventName, other, event, payloads) {
-    
-});
-
-emitter.on('somenamespace*', function (eventName, payloads) {
-    
-});
-
-Please note that callbacks triggered by wildcard registered events also get 
-the event name as the first argument.
-*/
-module.exports = WildEmitter;
-
-function WildEmitter() {
-    this.callbacks = {};
-}
-
-// Listen on the given `event` with `fn`. Store a group name if present.
-WildEmitter.prototype.on = function (event, groupName, fn) {
-    var hasGroup = (arguments.length === 3),
-        group = hasGroup ? arguments[1] : undefined, 
-        func = hasGroup ? arguments[2] : arguments[1];
-    func._groupName = group;
-    (this.callbacks[event] = this.callbacks[event] || []).push(func);
-    return this;
-};
-
-// Adds an `event` listener that will be invoked a single
-// time then automatically removed.
-WildEmitter.prototype.once = function (event, groupName, fn) {
-    var self = this,
-        hasGroup = (arguments.length === 3),
-        group = hasGroup ? arguments[1] : undefined, 
-        func = hasGroup ? arguments[2] : arguments[1];
-    function on() {
-        self.off(event, on);
-        func.apply(this, arguments);
-    }
-    this.on(event, group, on);
-    return this;
-};
-
-// Unbinds an entire group
-WildEmitter.prototype.releaseGroup = function (groupName) {
-    var item, i, len, handlers;
-    for (item in this.callbacks) {
-        handlers = this.callbacks[item];
-        for (i = 0, len = handlers.length; i < len; i++) {
-            if (handlers[i]._groupName === groupName) {
-                //console.log('removing');
-                // remove it and shorten the array we're looping through
-                handlers.splice(i, 1);
-                i--;
-                len--;
-            }
-        }
-    }
-    return this;
-};
-
-// Remove the given callback for `event` or all
-// registered callbacks.
-WildEmitter.prototype.off = function (event, fn) {
-    var callbacks = this.callbacks[event],
-        i;
-    
-    if (!callbacks) return this;
-
-    // remove all handlers
-    if (arguments.length === 1) {
-        delete this.callbacks[event];
-        return this;
-    }
-
-    // remove specific handler
-    i = callbacks.indexOf(fn);
-    callbacks.splice(i, 1);
-    return this;
-};
-
-// Emit `event` with the given args.
-// also calls any `*` handlers
-WildEmitter.prototype.emit = function (event) {
-    var args = [].slice.call(arguments, 1),
-        callbacks = this.callbacks[event],
-        specialCallbacks = this.getWildcardCallbacks(event),
-        i,
-        len,
-        item;
-
-    if (callbacks) {
-        for (i = 0, len = callbacks.length; i < len; ++i) {
-            if (callbacks[i]) {
-                callbacks[i].apply(this, args);
-            } else {
-                break;
-            }
-        }
-    }
-
-    if (specialCallbacks) {
-        for (i = 0, len = specialCallbacks.length; i < len; ++i) {
-            if (specialCallbacks[i]) {
-                specialCallbacks[i].apply(this, [event].concat(args));
-            } else {
-                break;
-            }
-        }
-    }
-
-    return this;
-};
-
-// Helper for for finding special wildcard event handlers that match the event
-WildEmitter.prototype.getWildcardCallbacks = function (eventName) {
-    var item,
-        split,
-        result = [];
-
-    for (item in this.callbacks) {
-        split = item.split('*');
-        if (item === '*' || (split.length === 2 && eventName.slice(0, split[1].length) === split[1])) {
-            result = result.concat(this.callbacks[item]);
-        }
-    }
-    return result;
-};
-
-},{}],150:[function(require,module,exports){
-var support = require('webrtcsupport');
+},{"wildemitter":194}],185:[function(_dereq_,module,exports){
+var support = _dereq_('webrtcsupport');
 
 
 function GainController(stream) {
@@ -19536,24 +19739,12 @@ GainController.prototype.on = function () {
 
 module.exports = GainController;
 
-},{"webrtcsupport":159}],151:[function(require,module,exports){
-var methods = "assert,count,debug,dir,dirxml,error,exception,group,groupCollapsed,groupEnd,info,log,markTimeline,profile,profileEnd,time,timeEnd,trace,warn".split(",");
-var l = methods.length;
-var fn = function () {};
-var mockconsole = {};
-
-while (l--) {
-    mockconsole[methods[l]] = fn;
-}
-
-module.exports = mockconsole;
-
-},{}],152:[function(require,module,exports){
+},{"webrtcsupport":193}],186:[function(_dereq_,module,exports){
 // based on https://github.com/ESTOS/strophe.jingle/
 // adds wildemitter support
-var util = require('util');
-var webrtc = require('webrtcsupport');
-var WildEmitter = require('wildemitter');
+var util = _dereq_('util');
+var webrtc = _dereq_('webrtcsupport');
+var WildEmitter = _dereq_('wildemitter');
 
 function dumpSDP(description) {
     return 'type: ' + description.type + '\r\n' + description.sdp;
@@ -19622,16 +19813,35 @@ function TraceablePeerConnection(config, constraints) {
             self.ondatachannel(event);
         }
     };
+    this.getLocalStreams = this.peerconnection.getLocalStreams.bind(this.peerconnection);
+    this.getRemoteStreams = this.peerconnection.getRemoteStreams.bind(this.peerconnection);
 }
 
 util.inherits(TraceablePeerConnection, WildEmitter);
 
-if (TraceablePeerConnection.prototype.__defineGetter__ !== undefined) {
-    TraceablePeerConnection.prototype.__defineGetter__('signalingState', function () { return this.peerconnection.signalingState; });
-    TraceablePeerConnection.prototype.__defineGetter__('iceConnectionState', function () { return this.peerconnection.iceConnectionState; });
-    TraceablePeerConnection.prototype.__defineGetter__('localDescription', function () { return this.peerconnection.localDescription; });
-    TraceablePeerConnection.prototype.__defineGetter__('remoteDescription', function () { return this.peerconnection.remoteDescription; });
-}
+Object.defineProperty(TraceablePeerConnection.prototype, 'signalingState', {
+    get: function () {
+        return this.peerconnection.signalingState;
+    }
+});
+
+Object.defineProperty(TraceablePeerConnection.prototype, 'iceConnectionState', {
+    get: function () {
+        return this.peerconnection.iceConnectionState;
+    }
+});
+
+Object.defineProperty(TraceablePeerConnection.prototype, 'localDescription', {
+    get: function () {
+        return this.peerconnection.localDescription;
+    }
+});
+
+Object.defineProperty(TraceablePeerConnection.prototype, 'remoteDescription', {
+    get: function () {
+        return this.peerconnection.remoteDescription;
+    }
+});
 
 TraceablePeerConnection.prototype.addStream = function (stream) {
     this.trace('addStream', stream.id);
@@ -19684,7 +19894,9 @@ TraceablePeerConnection.prototype.close = function () {
         window.clearInterval(this.statsinterval);
         this.statsinterval = null;
     }
-    this.peerconnection.close();
+    if (this.peerconnection.signalingState != 'closed') {
+        this.peerconnection.close();
+    }
 };
 
 TraceablePeerConnection.prototype.createOffer = function (successCallback, failureCallback, constraints) {
@@ -19739,7 +19951,7 @@ TraceablePeerConnection.prototype.addIceCandidate = function (candidate, success
 
 TraceablePeerConnection.prototype.getStats = function (callback, errback) {
     if (navigator.mozGetUserMedia) {
-        // ignore for now...
+        this.peerconnection.getStats(null, callback, errback);
     } else {
         this.peerconnection.getStats(callback);
     }
@@ -19747,13 +19959,13 @@ TraceablePeerConnection.prototype.getStats = function (callback, errback) {
 
 module.exports = TraceablePeerConnection;
 
-},{"util":124,"webrtcsupport":159,"wildemitter":160}],153:[function(require,module,exports){
-var _ = require('underscore');
-var util = require('util');
-var webrtc = require('webrtcsupport');
-var SJJ = require('sdp-jingle-json');
-var WildEmitter = require('wildemitter');
-var peerconn = require('traceablepeerconnection');
+},{"util":156,"webrtcsupport":193,"wildemitter":194}],187:[function(_dereq_,module,exports){
+var _ = _dereq_('underscore');
+var util = _dereq_('util');
+var webrtc = _dereq_('webrtcsupport');
+var SJJ = _dereq_('sdp-jingle-json');
+var WildEmitter = _dereq_('wildemitter');
+var peerconn = _dereq_('traceablepeerconnection');
 
 function PeerConnection(config, constraints) {
     var self = this;
@@ -19764,6 +19976,10 @@ function PeerConnection(config, constraints) {
     config.iceServers = config.iceServers || [];
 
     this.pc = new peerconn(config, constraints);
+
+    this.getLocalStreams = this.pc.getLocalStreams.bind(this.pc);
+    this.getRemoteStreams = this.pc.getRemoteStreams.bind(this.pc);
+
     // proxy events 
     this.pc.on('*', function () {
         self.emit.apply(self, arguments);
@@ -19810,10 +20026,24 @@ function PeerConnection(config, constraints) {
             logger.log('PeerConnection event:', arguments);
         });
     }
+    this.hadLocalStunCandidate = false;
+    this.hadRemoteStunCandidate = false;
+    this.hadLocalRelayCandidate = false;
+    this.hadRemoteRelayCandidate = false;
 }
 
 util.inherits(PeerConnection, WildEmitter);
 
+Object.defineProperty(PeerConnection.prototype, 'signalingState', {
+    get: function () {
+        return this.pc.signalingState;
+    }
+});
+Object.defineProperty(PeerConnection.prototype, 'iceConnectionState', {
+    get: function () {
+        return this.pc.iceConnectionState;
+    }
+});
 
 // Add a stream to the peer connection object
 PeerConnection.prototype.addStream = function (stream) {
@@ -19838,7 +20068,6 @@ PeerConnection.prototype.processIce = function (update, cb) {
             var mid = content.name;
 
             candidates.forEach(function (candidate) {
-                console.log('addicecandidate');
                 var iceCandidate = SJJ.toCandidateSDP(candidate) + '\r\n';
                 self.pc.addIceCandidate(new webrtc.IceCandidate({
                     candidate: iceCandidate,
@@ -19855,10 +20084,22 @@ PeerConnection.prototype.processIce = function (update, cb) {
                 }
                 */
                 );
+                if (candidate.type === 'srflx') {
+                    self.hadRemoteStunCandidate = true;
+                }
+                else if (candidate.type === 'relay') {
+                    self.hadRemoteRelayCandidate = true;
+                }
             });
         });
     } else {
         self.pc.addIceCandidate(new webrtc.IceCandidate(update.candidate));
+        if (update.candidate.candidate.indexOf('typ srflx') !== -1) {
+            self.hadRemoteStunCandidate = true;
+        }
+        else if (update.candidate.candidate.indexOf('typ relay') !== -1) {
+            self.hadRemoteRelayCandidate = true;
+        }
     }
     cb();
 };
@@ -19931,6 +20172,7 @@ PeerConnection.prototype.handleOffer = function (offer, cb) {
     offer.type = 'offer';
     if (offer.jingle) {
         offer.sdp = SJJ.toSessionSDP(offer.jingle, self.config.sdpSessionID);
+        self.remoteDescription = offer.jingle;
     }
     self.pc.setRemoteDescription(new webrtc.SessionDescription(offer), function () {
         cb();
@@ -20074,6 +20316,12 @@ PeerConnection.prototype._onIce = function (event) {
                 }]
             };
         }
+        if (ice.candidate.indexOf('typ srflx') !== -1) {
+            this.hadLocalStunCandidate = true;
+        }
+        else if (ice.candidate.indexOf('typ relay') !== -1) {
+            this.hadLocalRelayCandidate = true;
+        }
 
         this.emit('ice', expandedCandidate);
     } else {
@@ -20100,11 +20348,42 @@ PeerConnection.prototype.createDataChannel = function (name, opts) {
     return channel;
 };
 
+// a wrapper around getStats which hides the differences (where possible)
+PeerConnection.prototype.getStats = function (cb) {
+    if (webrtc.prefix === 'moz') {
+        this.pc.getStats(
+            function (res) {
+                var items = [];
+                res.forEach(function (result) {
+                    items.push(result);
+                });
+                cb(null, items);
+            },
+            cb
+        );
+    } else {
+        this.pc.getStats(function (res) {
+            var items = [];
+            res.result().forEach(function (result) {
+                var item = {};
+                result.names().forEach(function (name) {
+                    item[name] = result.stat(name);
+                });
+                item.id = result.id;
+                item.type = result.type;
+                item.timestamp = result.timestamp;
+                items.push(item);
+            });
+            cb(null, items);
+        });
+    }
+};
+
 module.exports = PeerConnection;
 
-},{"sdp-jingle-json":154,"traceablepeerconnection":152,"underscore":158,"util":124,"webrtcsupport":159,"wildemitter":160}],154:[function(require,module,exports){
-var tosdp = require('./lib/tosdp');
-var tojson = require('./lib/tojson');
+},{"sdp-jingle-json":188,"traceablepeerconnection":186,"underscore":192,"util":156,"webrtcsupport":193,"wildemitter":194}],188:[function(_dereq_,module,exports){
+var tosdp = _dereq_('./lib/tosdp');
+var tojson = _dereq_('./lib/tojson');
 
 
 exports.toSessionSDP = tosdp.toSessionSDP;
@@ -20115,7 +20394,7 @@ exports.toSessionJSON = tojson.toSessionJSON;
 exports.toMediaJSON = tojson.toMediaJSON;
 exports.toCandidateJSON = tojson.toCandidateJSON;
 
-},{"./lib/tojson":156,"./lib/tosdp":157}],155:[function(require,module,exports){
+},{"./lib/tojson":190,"./lib/tosdp":191}],189:[function(_dereq_,module,exports){
 exports.lines = function (sdp) {
     return sdp.split('\r\n').filter(function (line) {
         return line.length > 0;
@@ -20191,6 +20470,18 @@ exports.rtpmap = function (line) {
     parsed.channels = parts.length == 3 ? parts[2] : '1';
     return parsed;
 };
+
+exports.sctpmap = function (line) {
+    // based on -05 draft
+    var parts = line.substr(10).split(' ');
+    var parsed = {
+        number: parts.shift(),
+        protocol: parts.shift(),
+        streams: parts.shift()
+    };
+    return parsed;
+};
+
 
 exports.fmtp = function (line) {
     var kv, key, value;
@@ -20349,8 +20640,8 @@ exports.groups = function (lines) {
     return parsed;
 };
 
-},{}],156:[function(require,module,exports){
-var parsers = require('./parsers');
+},{}],190:[function(_dereq_,module,exports){
+var parsers = _dereq_('./parsers');
 var idCounter = Math.random();
 
 exports._setIdCounter = function (counter) {
@@ -20403,16 +20694,19 @@ exports.toMediaJSON = function (media, session, creator) {
         transport: {
             transType: 'iceUdp',
             candidates: [],
-            fingerprints: []
+            fingerprints: [],
         }
     };
+    if (mline.media == 'application') {
+        // FIXME: the description is most likely to be independent
+        // of the SDP and should be processed by other parts of the library
+        content.description = {
+            descType: 'datachannel'
+        };
+        content.transport.sctp = [];
+    }
     var desc = content.description;
     var trans = content.transport;
-
-    var ssrc = parsers.findLine('a=ssrc:', lines);
-    if (ssrc) {
-        desc.ssrc = ssrc.substr(7).split(' ')[0];
-    }
 
     // If we have a mid, use that for the content name instead.
     var mid = parsers.findLine('a=mid:', lines);
@@ -20430,59 +20724,67 @@ exports.toMediaJSON = function (media, session, creator) {
         content.senders = 'none';
     }
 
-    var rtpmapLines = parsers.findLines('a=rtpmap:', lines);
-    rtpmapLines.forEach(function (line) {
-        var payload = parsers.rtpmap(line);
-        payload.feedback = [];
+    if (desc.descType == 'rtp') {
+        var ssrc = parsers.findLine('a=ssrc:', lines);
+        if (ssrc) {
+            desc.ssrc = ssrc.substr(7).split(' ')[0];
+        }
 
-        var fmtpLines = parsers.findLines('a=fmtp:' + payload.id, lines);
-        fmtpLines.forEach(function (line) {
-            payload.parameters = parsers.fmtp(line);
+        var rtpmapLines = parsers.findLines('a=rtpmap:', lines);
+        rtpmapLines.forEach(function (line) {
+            var payload = parsers.rtpmap(line);
+            payload.feedback = [];
+
+            var fmtpLines = parsers.findLines('a=fmtp:' + payload.id, lines);
+            fmtpLines.forEach(function (line) {
+                payload.parameters = parsers.fmtp(line);
+            });
+
+            var fbLines = parsers.findLines('a=rtcp-fb:' + payload.id, lines);
+            fbLines.forEach(function (line) {
+                payload.feedback.push(parsers.rtcpfb(line));
+            });
+
+            desc.payloads.push(payload);
         });
 
-        var fbLines = parsers.findLines('a=rtcp-fb:' + payload.id, lines);
+        var cryptoLines = parsers.findLines('a=crypto:', lines, sessionLines);
+        cryptoLines.forEach(function (line) {
+            desc.encryption.push(parsers.crypto(line));
+        });
+
+        if (parsers.findLine('a=rtcp-mux', lines)) {
+            desc.mux = true;
+        }
+
+        var fbLines = parsers.findLines('a=rtcp-fb:*', lines);
         fbLines.forEach(function (line) {
-            payload.feedback.push(parsers.rtcpfb(line));
+            desc.feedback.push(parsers.rtcpfb(line));
         });
 
-        desc.payloads.push(payload);
-    });
+        var extLines = parsers.findLines('a=extmap:', lines);
+        extLines.forEach(function (line) {
+            var ext = parsers.extmap(line);
 
-    var cryptoLines = parsers.findLines('a=crypto:', lines, sessionLines);
-    cryptoLines.forEach(function (line) {
-        desc.encryption.push(parsers.crypto(line));
-    });
+            var senders = {
+                sendonly: 'responder',
+                recvonly: 'initiator',
+                sendrecv: 'both',
+                inactive: 'none'
+            };
+            ext.senders = senders[ext.senders];
 
-    if (parsers.findLine('a=rtcp-mux', lines)) {
-        desc.mux = true;
+            desc.headerExtensions.push(ext);
+        });
+
+        var ssrcGroupLines = parsers.findLines('a=ssrc-group:', lines);
+        desc.sourceGroups = parsers.sourceGroups(ssrcGroupLines || []);
+
+        var ssrcLines = parsers.findLines('a=ssrc:', lines);
+        desc.sources = parsers.sources(ssrcLines || []);
     }
 
-    var fbLines = parsers.findLines('a=rtcp-fb:*', lines);
-    fbLines.forEach(function (line) {
-        desc.feedback.push(parsers.rtcpfb(line));
-    });
-
-    var extLines = parsers.findLines('a=extmap:', lines);
-    extLines.forEach(function (line) {
-        var ext = parsers.extmap(line);
-
-        var senders = {
-            sendonly: 'responder',
-            recvonly: 'initiator',
-            sendrecv: 'both',
-            inactive: 'none'
-        };
-        ext.senders = senders[ext.senders];
-
-        desc.headerExtensions.push(ext);
-    });
-
-    var ssrcGroupLines = parsers.findLines('a=ssrc-group:', lines);
-    desc.sourceGroups = parsers.sourceGroups(ssrcGroupLines || []);
-
-    var ssrcLines = parsers.findLines('a=ssrc:', lines);
-    desc.sources = parsers.sources(ssrcLines || []);
-
+    // transport specific attributes
     var fingerprintLines = parsers.findLines('a=fingerprint:', lines, sessionLines);
     fingerprintLines.forEach(function (line) {
         var fp = parsers.fingerprint(line);
@@ -20506,6 +20808,14 @@ exports.toMediaJSON = function (media, session, creator) {
         });
     }
 
+    if (desc.descType == 'datachannel') {
+        var sctpmapLines = parsers.findLines('a=sctpmap:', lines);
+        sctpmapLines.forEach(function (line) {
+            var sctp = parsers.sctpmap(line);
+            trans.sctp.push(sctp);
+        });
+    }
+
     return content;
 };
 
@@ -20515,7 +20825,7 @@ exports.toCandidateJSON = function (line) {
     return candidate;
 };
 
-},{"./parsers":155}],157:[function(require,module,exports){
+},{"./parsers":189}],191:[function(_dereq_,module,exports){
 var senders = {
     'initiator': 'sendonly',
     'responder': 'recvonly',
@@ -20557,22 +20867,36 @@ exports.toMediaSDP = function (content) {
     var payloads = desc.payloads || [];
     var fingerprints = (transport && transport.fingerprints) || [];
 
-    var mline = [desc.media, '1'];
-
-    if ((desc.encryption && desc.encryption.length > 0) || (fingerprints.length > 0)) {
-        mline.push('RTP/SAVPF');
+    var mline = [];
+    if (desc.descType == 'datachannel') {
+        mline.push('application');
+        mline.push('1');
+        mline.push('DTLS/SCTP');
+        if (transport.sctp) {
+            transport.sctp.forEach(function (map) {
+                mline.push(map.number);
+            });
+        }
     } else {
-        mline.push('RTP/AVPF');
+        mline.push(desc.media);
+        mline.push('1');
+        if ((desc.encryption && desc.encryption.length > 0) || (fingerprints.length > 0)) {
+            mline.push('RTP/SAVPF');
+        } else {
+            mline.push('RTP/AVPF');
+        }
+        payloads.forEach(function (payload) {
+            mline.push(payload.id);
+        });
     }
-    payloads.forEach(function (payload) {
-        mline.push(payload.id);
-    });
 
 
     sdp.push('m=' + mline.join(' '));
 
     sdp.push('c=IN IP4 0.0.0.0');
-    sdp.push('a=rtcp:1 IN IP4 0.0.0.0');
+    if (desc.descType == 'rtp') {
+        sdp.push('a=rtcp:1 IN IP4 0.0.0.0');
+    }
 
     if (transport) {
         if (transport.ufrag) {
@@ -20587,9 +20911,16 @@ exports.toMediaSDP = function (content) {
         fingerprints.forEach(function (fingerprint) {
             sdp.push('a=fingerprint:' + fingerprint.hash + ' ' + fingerprint.value);
         });
+        if (transport.sctp) {
+            transport.sctp.forEach(function (map) {
+                sdp.push('a=sctpmap:' + map.number + ' ' + map.protocol + ' ' + map.streams);
+            });
+        }
     }
 
-    sdp.push('a=' + (senders[content.senders] || 'sendrecv'));
+    if (desc.descType == 'rtp') {
+        sdp.push('a=' + (senders[content.senders] || 'sendrecv'));
+    }
     sdp.push('a=mid:' + content.name);
 
     if (desc.mux) {
@@ -20668,7 +20999,7 @@ exports.toCandidateSDP = function (candidate) {
 
     sdp.push(candidate.foundation);
     sdp.push(candidate.component);
-    sdp.push(candidate.protocol);
+    sdp.push(candidate.protocol.toUpperCase());
     sdp.push(candidate.priority);
     sdp.push(candidate.ip);
     sdp.push(candidate.port);
@@ -20691,7 +21022,7 @@ exports.toCandidateSDP = function (candidate) {
     return 'a=candidate:' + sdp.join(' ');
 };
 
-},{}],158:[function(require,module,exports){
+},{}],192:[function(_dereq_,module,exports){
 //     Underscore.js 1.6.0
 //     http://underscorejs.org
 //     (c) 2009-2014 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
@@ -22036,7 +22367,7 @@ exports.toCandidateSDP = function (candidate) {
   }
 }).call(this);
 
-},{}],159:[function(require,module,exports){
+},{}],193:[function(_dereq_,module,exports){
 // created by @HenrikJoreteg
 var prefix;
 var isChrome = false;
@@ -22074,7 +22405,7 @@ module.exports = {
     IceCandidate: IceCandidate
 };
 
-},{}],160:[function(require,module,exports){
+},{}],194:[function(_dereq_,module,exports){
 /*
 WildEmitter.js is a slim little event emitter by @henrikjoreteg largely based 
 on @visionmedia's Emitter from UI Kit.
@@ -22215,25 +22546,24 @@ WildEmitter.prototype.getWildcardCallbacks = function (eventName) {
     return result;
 };
 
-},{}],161:[function(require,module,exports){
-"use strict";
+},{}],195:[function(_dereq_,module,exports){
+'use strict';
 
-var _ = require('underscore');
-var core = require('./lib/core');
-var helpers = require('./lib/helpers');
-var types = require('./lib/types');
+var _ = _dereq_('underscore');
+var core = _dereq_('./lib/core');
+var helpers = _dereq_('./lib/helpers');
+var types = _dereq_('./lib/types');
 
 module.exports = _.extend({}, core, helpers, types);
 
-},{"./lib/core":162,"./lib/helpers":163,"./lib/types":164,"underscore":184}],162:[function(require,module,exports){
-"use strict";
+},{"./lib/core":196,"./lib/helpers":197,"./lib/types":198,"underscore":218}],196:[function(_dereq_,module,exports){
+'use strict';
 
-var _ = require('underscore');
-var xmlshim = require('ltx-dom-shim');
+var _ = _dereq_('underscore');
+var xmlshim = _dereq_('ltx-dom-shim');
 
-var helpers = require('./helpers');
-var types = require('./types');
-var find = helpers.find;
+var helpers = _dereq_('./helpers');
+var types = _dereq_('./types');
 
 var LOOKUP = {};
 var LOOKUP_EXT = {};
@@ -22275,7 +22605,9 @@ function toJSON(jxt) {
     for (prop in jxt) {
         if (!exclude[prop] && !((LOOKUP_EXT[jxt._NS + '|' + jxt._EL] || {})[prop]) && !jxt._extensions[prop] && prop[0] !== '_') {
             var val = jxt[prop];
-            if (typeof val == 'function') continue;
+            if (typeof val === 'function') {
+                continue;
+            }
             var type = Object.prototype.toString.call(val);
             if (type.indexOf('Object') >= 0) {
                 if (Object.keys(val).length > 0) {
@@ -22283,9 +22615,14 @@ function toJSON(jxt) {
                 }
             } else if (type.indexOf('Array') >= 0) {
                 if (val.length > 0) {
-                    result[prop] = val;
+                    var vals = [];
+                    for (var n in val) {
+                        var nval = val[n];
+                        vals.push(nval.toJSON !== undefined ? nval.toJSON() : nval);
+                    }
+                    result[prop] = vals;
                 }
-            } else if (!!val) {
+            } else if (val !== undefined && val !== false && val !== '') {
                 result[prop] = val;
             }
         }
@@ -22364,7 +22701,6 @@ exports.define = function (opts) {
 
         self.xml = xml || helpers.createElement(self._NS, self._EL, parentNS);
 
-        var prefixes = opts.prefixes || {};
         _.each(opts.prefixes || {}, function (namespace, prefix) {
             self.xml.setAttribute('xmlns:' + prefix, namespace);
         });
@@ -22414,11 +22750,11 @@ exports.define = function (opts) {
     return StanzaConstructor;
 };
 
-},{"./helpers":163,"./types":164,"ltx-dom-shim":165,"underscore":184}],163:[function(require,module,exports){
-"use strict";
+},{"./helpers":197,"./types":198,"ltx-dom-shim":199,"underscore":218}],197:[function(_dereq_,module,exports){
+'use strict';
 
-var _ = require('underscore');
-var xmlshim = require('ltx-dom-shim');
+var _ = _dereq_('underscore');
+var xmlshim = _dereq_('ltx-dom-shim');
 
 var XML_NS = exports.XML_NS = 'http://www.w3.org/XML/1998/namespace';
 
@@ -22434,7 +22770,7 @@ exports.createElement = function (NS, name, parentNS) {
 var find = exports.find = function (xml, NS, selector) {
     var children = xml.getElementsByTagName(selector);
     return _.filter(children, function (child) {
-        return child.namespaceURI === NS && child.parentNode == xml;
+        return child.namespaceURI === NS && child.parentNode === xml;
     });
 };
 
@@ -22551,21 +22887,18 @@ exports.getSubText = function (xml, NS, element, defaultVal) {
 
 exports.setSubText = function (xml, NS, element, value) {
     var subs = find(xml, NS, element);
-    if (!subs.length) {
-        if (value) {
-            var sub = exports.createElement(NS, element, xml.namespaceURI);
-            sub.textContent = value;
-            xml.appendChild(sub);
-        }
-    } else {
+    if (subs.length) {
         for (var i = 0; i < subs.length; i++) {
-            if (value) {
-                subs[i].textContent = value;
-                return;
-            } else {
-                xml.removeChild(subs[i]);
-            }
+            xml.removeChild(subs[i]);
         }
+    }
+
+    if (value) {
+        var sub = exports.createElement(NS, element, xml.namespaceURI);
+        if (value !== true) {
+            sub.textContent = value;
+        }
+        xml.appendChild(sub);
     }
 };
 
@@ -22604,6 +22937,20 @@ exports.setMultiSubText = function (xml, NS, element, value, builder) {
         if (val) {
             builder(val);
         }
+    });
+};
+
+exports.getMultiSubAttribute = function (xml, NS, element, attr) {
+    return exports.getMultiSubText(xml, NS, element, function (sub) {
+        return exports.getAttribute(sub, attr);
+    });
+};
+
+exports.setMultiSubAttribute = function (xml, NS, element, attr, value) {
+    exports.setMultiSubText(xml, NS, element, value, function (val) {
+        var sub = exports.createElement(NS, element, xml.namespaceURI);
+        exports.setAttribute(sub, attr, val);
+        xml.appendChild(sub);
     });
 };
 
@@ -22677,14 +23024,14 @@ exports.setBoolSub = function (xml, NS, element, value) {
     }
 };
 
-},{"ltx-dom-shim":165,"underscore":184}],164:[function(require,module,exports){
-"use strict";
+},{"ltx-dom-shim":199,"underscore":218}],198:[function(_dereq_,module,exports){
+'use strict';
 
-var _ = require('underscore');
-var fromB64 = require('atob');
-var toB64 = require('btoa');
+var _ = _dereq_('underscore');
+var fromB64 = _dereq_('atob');
+var toB64 = _dereq_('btoa');
 
-var helpers = require('./helpers');
+var helpers = _dereq_('./helpers');
 var find = helpers.find;
 
 
@@ -22715,6 +23062,8 @@ exports.subText = field(helpers.getSubText,
                         helpers.setSubText);
 exports.multiSubText = field(helpers.getMultiSubText,
                              helpers.setMultiSubText);
+exports.multiSubAttribute  = field(helpers.getMultiSubAttribute,
+                                   helpers.setMultiSubAttribute);
 exports.subLangText = field(helpers.getSubLangText,
                             helpers.setSubLangText);
 exports.boolSub = field(helpers.getBoolSub,
@@ -22731,7 +23080,7 @@ exports.langAttribute = field(
 
 exports.b64Text = field(
     function (xml) {
-        if (xml.textContent && xml.textContent != '=') {
+        if (xml.textContent && xml.textContent !== '=') {
             return fromB64(xml.textContent);
         }
         return '';
@@ -22745,12 +23094,18 @@ exports.dateAttribute = function (attr, now) {
     return {
         get: function () {
             var data = helpers.getAttribute(this.xml, attr);
-            if (data) return new Date(data);
-            if (now) return new Date(Date.now());
+            if (data) {
+                return new Date(data);
+            }
+            if (now) {
+                return new Date(Date.now());
+            }
         },
         set: function (value) {
-            if (!value) return;
-            if (typeof value != 'string') {
+            if (!value) {
+                return;
+            }
+            if (typeof value !== 'string') {
                 value = value.toISOString();
             }
             helpers.setAttribute(this.xml, attr, value);
@@ -22762,12 +23117,18 @@ exports.dateSub = function (NS, sub, now) {
     return {
         get: function () {
             var data = helpers.getSubText(this.xml, NS, sub);
-            if (data) return new Date(data);
-            if (now) return new Date(Date.now());
+            if (data) {
+                return new Date(data);
+            }
+            if (now) {
+                return new Date(Date.now());
+            }
         },
         set: function (value) {
-            if (!value) return;
-            if (typeof value != 'string') {
+            if (!value) {
+                return;
+            }
+            if (typeof value !== 'string') {
                 value = value.toISOString();
             }
             helpers.setSubText(this.xml, NS, sub, value);
@@ -22779,12 +23140,18 @@ exports.dateSubAttribute = function (NS, sub, attr, now) {
     return {
         get: function () {
             var data = helpers.getSubAttribute(this.xml, NS, sub, attr);
-            if (data) return new Date(data);
-            if (now) return new Date(Date.now());
+            if (data) {
+                return new Date(data);
+            }
+            if (now) {
+                return new Date(Date.now());
+            }
         },
         set: function (value) {
-            if (!value) return;
-            if (typeof value != 'string') {
+            if (!value) {
+                return;
+            }
+            if (typeof value !== 'string') {
                 value = value.toISOString();
             }
             helpers.setSubAttribute(this.xml, NS, sub, attr, value);
@@ -22792,11 +23159,20 @@ exports.dateSubAttribute = function (NS, sub, attr, now) {
     };
 };
 
-exports.numberAttribute = function (attr, isFloat) {
+exports.numberAttribute = function (attr, isFloat, defaultVal) {
     return {
         get: function () {
             var parse = isFloat ? parseFloat : parseInt;
-            return parse(helpers.getAttribute(this.xml, attr, '0'), 10);
+            var data = helpers.getAttribute(this.xml, attr, '');
+            if (!data) {
+                return defaultVal;
+            }
+            var parsed = parse(data, 10);
+            if (isNaN(parsed)) {
+                return defaultVal;
+            }
+
+            return parsed;
         },
         set: function (value) {
             helpers.setAttribute(this.xml, attr, value.toString());
@@ -22804,11 +23180,21 @@ exports.numberAttribute = function (attr, isFloat) {
     };
 };
 
-exports.numberSub = function (NS, sub, isFloat) {
+exports.numberSub = function (NS, sub, isFloat, defaultVal) {
     return {
         get: function () {
             var parse = isFloat ? parseFloat : parseInt;
-            return parse(helpers.getSubText(this.xml, NS, sub, '0'), 10);
+            var data = helpers.getSubText(this.xml, NS, sub, '');
+            if (!data) {
+                return defaultVal;
+            }
+
+            var parsed = parse(data, 10);
+            if (isNaN(parsed)) {
+                return defaultVal;
+            }
+
+            return parsed;
         },
         set: function (value) {
             helpers.setSubText(this.xml, NS, sub, value.toString());
@@ -22856,8 +23242,13 @@ exports.extension = function (ChildJXT) {
             return this._extensions[name];
         },
         set: function (value) {
-            var child = this[ChildJXT.prototype._name];
-            _.extend(child, value);
+            if (value) {
+                var child = this[ChildJXT.prototype._name];
+                if (value === true) {
+                    value = {};
+                }
+                _.extend(child, value);
+            }
         }
     };
 };
@@ -22870,7 +23261,7 @@ exports.multiExtension = function (ChildJXT) {
             var results = [];
 
             _.forEach(data, function (xml) {
-                results.push(new ChildJXT({}, xml, self).toJSON());
+                results.push(new ChildJXT({}, xml, self));
             });
             return results;
         },
@@ -22890,7 +23281,7 @@ exports.multiExtension = function (ChildJXT) {
     };
 };
 
-},{"./helpers":163,"atob":81,"btoa":137,"underscore":184}],165:[function(require,module,exports){
+},{"./helpers":197,"atob":104,"btoa":157,"underscore":218}],199:[function(_dereq_,module,exports){
 var parser = new window.DOMParser();
 var serializer = new window.XMLSerializer();
 
@@ -22906,12 +23297,13 @@ module.exports = {
     }
 };
 
-},{}],166:[function(require,module,exports){
-var Buffer=require("__browserify_Buffer").Buffer;//     uuid.js
+},{}],200:[function(_dereq_,module,exports){
+(function (Buffer){
+//     uuid.js
 //
-//     (c) 2010-2012 Robert Kieffer
-//     MIT License
-//     https://github.com/broofa/node-uuid
+//     Copyright (c) 2010-2012 Robert Kieffer
+//     MIT License - http://opensource.org/licenses/mit-license.php
+
 (function() {
   var _global = this;
 
@@ -22923,9 +23315,9 @@ var Buffer=require("__browserify_Buffer").Buffer;//     uuid.js
   // Node.js crypto-based RNG - http://nodejs.org/docs/v0.6.2/api/crypto.html
   //
   // Moderately fast, high quality
-  if (typeof(require) == 'function') {
+  if (typeof(_dereq_) == 'function') {
     try {
-      var _rb = require('crypto').randomBytes;
+      var _rb = _dereq_('crypto').randomBytes;
       _rng = _rb && function() {return _rb(16);};
     } catch(e) {}
   }
@@ -23133,7 +23525,7 @@ var Buffer=require("__browserify_Buffer").Buffer;//     uuid.js
   uuid.unparse = unparse;
   uuid.BufferClass = BufferClass;
 
-  if (_global.define && define.amd) {
+  if (typeof define === 'function' && define.amd) {
     // Publish as AMD module
     define(function() {return uuid;});
   } else if (typeof(module) != 'undefined' && module.exports) {
@@ -23151,9 +23543,10 @@ var Buffer=require("__browserify_Buffer").Buffer;//     uuid.js
 
     _global.uuid = uuid;
   }
-}());
+}).call(this);
 
-},{"__browserify_Buffer":135,"crypto":129}],167:[function(require,module,exports){
+}).call(this,_dereq_("buffer").Buffer)
+},{"buffer":144,"crypto":148}],201:[function(_dereq_,module,exports){
 (function(root, factory) {
   if (typeof exports === 'object') {
     // CommonJS
@@ -23209,13 +23602,13 @@ var Buffer=require("__browserify_Buffer").Buffer;//     uuid.js
   
 }));
 
-},{}],168:[function(require,module,exports){
+},{}],202:[function(_dereq_,module,exports){
 (function(root, factory) {
   if (typeof exports === 'object') {
     // CommonJS
     factory(exports,
             module,
-            require('./lib/mechanism'));
+            _dereq_('./lib/mechanism'));
   } else if (typeof define === 'function' && define.amd) {
     // AMD
     define(['exports',
@@ -23229,11 +23622,11 @@ var Buffer=require("__browserify_Buffer").Buffer;//     uuid.js
   
 }));
 
-},{"./lib/mechanism":167}],169:[function(require,module,exports){
+},{"./lib/mechanism":201}],203:[function(_dereq_,module,exports){
 (function(root, factory) {
   if (typeof exports === 'object') {
     // CommonJS
-    factory(exports, module, require('crypto'));
+    factory(exports, module, _dereq_('crypto'));
   } else if (typeof define === 'function' && define.amd) {
     // AMD
     define(['exports', 'module', 'crypto'], factory);
@@ -23419,9 +23812,9 @@ var Buffer=require("__browserify_Buffer").Buffer;//     uuid.js
   
 }));
 
-},{"crypto":129}],170:[function(require,module,exports){
-arguments[4][168][0].apply(exports,arguments)
-},{"./lib/mechanism":169}],171:[function(require,module,exports){
+},{"crypto":148}],204:[function(_dereq_,module,exports){
+arguments[4][202][0].apply(exports,arguments)
+},{"./lib/mechanism":203}],205:[function(_dereq_,module,exports){
 (function(root, factory) {
   if (typeof exports === 'object') {
     // CommonJS
@@ -23477,9 +23870,9 @@ arguments[4][168][0].apply(exports,arguments)
   
 }));
 
-},{}],172:[function(require,module,exports){
-arguments[4][168][0].apply(exports,arguments)
-},{"./lib/mechanism":171}],173:[function(require,module,exports){
+},{}],206:[function(_dereq_,module,exports){
+arguments[4][202][0].apply(exports,arguments)
+},{"./lib/mechanism":205}],207:[function(_dereq_,module,exports){
 (function(root, factory) {
   if (typeof exports === 'object') {
     // CommonJS
@@ -23546,13 +23939,13 @@ arguments[4][168][0].apply(exports,arguments)
   
 }));
 
-},{}],174:[function(require,module,exports){
-arguments[4][168][0].apply(exports,arguments)
-},{"./lib/mechanism":173}],175:[function(require,module,exports){
+},{}],208:[function(_dereq_,module,exports){
+arguments[4][202][0].apply(exports,arguments)
+},{"./lib/mechanism":207}],209:[function(_dereq_,module,exports){
 (function(root, factory) {
   if (typeof exports === 'object') {
     // CommonJS
-    factory(exports, module, require('crypto'), require('buffer'));
+    factory(exports, module, _dereq_('crypto'), _dereq_('buffer'));
   } else if (typeof define === 'function' && define.amd) {
     // AMD
     define(['exports', 'module', 'crypto', 'buffer'], factory);
@@ -23806,14 +24199,14 @@ arguments[4][168][0].apply(exports,arguments)
     exports = module.exports = Mechanism;
 }));
 
-},{"buffer":126,"crypto":177}],176:[function(require,module,exports){
-arguments[4][168][0].apply(exports,arguments)
-},{"./lib/mechanism":175}],177:[function(require,module,exports){
-var Buffer = require('buffer').Buffer
-var sha = require('./sha')
-var sha256 = require('./sha256')
-var rng = require('./rng')
-var md5 = require('./md5')
+},{"buffer":144,"crypto":211}],210:[function(_dereq_,module,exports){
+arguments[4][202][0].apply(exports,arguments)
+},{"./lib/mechanism":209}],211:[function(_dereq_,module,exports){
+var Buffer = _dereq_('buffer').Buffer
+var sha = _dereq_('./sha')
+var sha256 = _dereq_('./sha256')
+var rng = _dereq_('./rng')
+var md5 = _dereq_('./md5')
 
 var algorithms = {
   sha1: {
@@ -23938,7 +24331,7 @@ each(['createCredentials'
   }
 })
 
-},{"./md5":178,"./rng":179,"./sha":180,"./sha256":181,"buffer":126}],178:[function(require,module,exports){
+},{"./md5":212,"./rng":213,"./sha":214,"./sha256":215,"buffer":144}],212:[function(_dereq_,module,exports){
 /*
  * A JavaScript implementation of the RSA Data Security, Inc. MD5 Message
  * Digest Algorithm, as defined in RFC 1321.
@@ -24203,7 +24596,7 @@ exports.hex_hmac_md5 = hex_hmac_md5;
 exports.b64_hmac_md5 = b64_hmac_md5;
 exports.bin_hmac_md5 = str_hmac_md5;
 
-},{}],179:[function(require,module,exports){
+},{}],213:[function(_dereq_,module,exports){
 // Original code adapted from Robert Kieffer.
 // details at https://github.com/broofa/node-uuid
 (function() {
@@ -24241,7 +24634,7 @@ exports.bin_hmac_md5 = str_hmac_md5;
 
 }())
 
-},{}],180:[function(require,module,exports){
+},{}],214:[function(_dereq_,module,exports){
 /*
  * A JavaScript implementation of the Secure Hash Algorithm, SHA-1, as defined
  * in FIPS PUB 180-1
@@ -24453,7 +24846,7 @@ function binb2b64(binarray)
 }
 
 
-},{}],181:[function(require,module,exports){
+},{}],215:[function(_dereq_,module,exports){
 
 /**
  * A JavaScript implementation of the Secure Hash Algorithm, SHA-256, as defined
@@ -24629,7 +25022,7 @@ var core_hmac_sha256 = function(key, data) {
 };
 
 
-},{}],182:[function(require,module,exports){
+},{}],216:[function(_dereq_,module,exports){
 (function(root, factory) {
   if (typeof exports === 'object') {
     // CommonJS
@@ -24702,13 +25095,13 @@ var core_hmac_sha256 = function(key, data) {
   
 }));
 
-},{}],183:[function(require,module,exports){
+},{}],217:[function(_dereq_,module,exports){
 (function(root, factory) {
   if (typeof exports === 'object') {
     // CommonJS
     factory(exports,
             module,
-            require('./lib/factory'));
+            _dereq_('./lib/factory'));
   } else if (typeof define === 'function' && define.amd) {
     // AMD
     define(['exports',
@@ -24722,1287 +25115,10 @@ var core_hmac_sha256 = function(key, data) {
   
 }));
 
-},{"./lib/factory":182}],184:[function(require,module,exports){
-//     Underscore.js 1.5.2
-//     http://underscorejs.org
-//     (c) 2009-2013 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
-//     Underscore may be freely distributed under the MIT license.
-
-(function() {
-
-  // Baseline setup
-  // --------------
-
-  // Establish the root object, `window` in the browser, or `exports` on the server.
-  var root = this;
-
-  // Save the previous value of the `_` variable.
-  var previousUnderscore = root._;
-
-  // Establish the object that gets returned to break out of a loop iteration.
-  var breaker = {};
-
-  // Save bytes in the minified (but not gzipped) version:
-  var ArrayProto = Array.prototype, ObjProto = Object.prototype, FuncProto = Function.prototype;
-
-  // Create quick reference variables for speed access to core prototypes.
-  var
-    push             = ArrayProto.push,
-    slice            = ArrayProto.slice,
-    concat           = ArrayProto.concat,
-    toString         = ObjProto.toString,
-    hasOwnProperty   = ObjProto.hasOwnProperty;
-
-  // All **ECMAScript 5** native function implementations that we hope to use
-  // are declared here.
-  var
-    nativeForEach      = ArrayProto.forEach,
-    nativeMap          = ArrayProto.map,
-    nativeReduce       = ArrayProto.reduce,
-    nativeReduceRight  = ArrayProto.reduceRight,
-    nativeFilter       = ArrayProto.filter,
-    nativeEvery        = ArrayProto.every,
-    nativeSome         = ArrayProto.some,
-    nativeIndexOf      = ArrayProto.indexOf,
-    nativeLastIndexOf  = ArrayProto.lastIndexOf,
-    nativeIsArray      = Array.isArray,
-    nativeKeys         = Object.keys,
-    nativeBind         = FuncProto.bind;
-
-  // Create a safe reference to the Underscore object for use below.
-  var _ = function(obj) {
-    if (obj instanceof _) return obj;
-    if (!(this instanceof _)) return new _(obj);
-    this._wrapped = obj;
-  };
-
-  // Export the Underscore object for **Node.js**, with
-  // backwards-compatibility for the old `require()` API. If we're in
-  // the browser, add `_` as a global object via a string identifier,
-  // for Closure Compiler "advanced" mode.
-  if (typeof exports !== 'undefined') {
-    if (typeof module !== 'undefined' && module.exports) {
-      exports = module.exports = _;
-    }
-    exports._ = _;
-  } else {
-    root._ = _;
-  }
-
-  // Current version.
-  _.VERSION = '1.5.2';
-
-  // Collection Functions
-  // --------------------
-
-  // The cornerstone, an `each` implementation, aka `forEach`.
-  // Handles objects with the built-in `forEach`, arrays, and raw objects.
-  // Delegates to **ECMAScript 5**'s native `forEach` if available.
-  var each = _.each = _.forEach = function(obj, iterator, context) {
-    if (obj == null) return;
-    if (nativeForEach && obj.forEach === nativeForEach) {
-      obj.forEach(iterator, context);
-    } else if (obj.length === +obj.length) {
-      for (var i = 0, length = obj.length; i < length; i++) {
-        if (iterator.call(context, obj[i], i, obj) === breaker) return;
-      }
-    } else {
-      var keys = _.keys(obj);
-      for (var i = 0, length = keys.length; i < length; i++) {
-        if (iterator.call(context, obj[keys[i]], keys[i], obj) === breaker) return;
-      }
-    }
-  };
-
-  // Return the results of applying the iterator to each element.
-  // Delegates to **ECMAScript 5**'s native `map` if available.
-  _.map = _.collect = function(obj, iterator, context) {
-    var results = [];
-    if (obj == null) return results;
-    if (nativeMap && obj.map === nativeMap) return obj.map(iterator, context);
-    each(obj, function(value, index, list) {
-      results.push(iterator.call(context, value, index, list));
-    });
-    return results;
-  };
-
-  var reduceError = 'Reduce of empty array with no initial value';
-
-  // **Reduce** builds up a single result from a list of values, aka `inject`,
-  // or `foldl`. Delegates to **ECMAScript 5**'s native `reduce` if available.
-  _.reduce = _.foldl = _.inject = function(obj, iterator, memo, context) {
-    var initial = arguments.length > 2;
-    if (obj == null) obj = [];
-    if (nativeReduce && obj.reduce === nativeReduce) {
-      if (context) iterator = _.bind(iterator, context);
-      return initial ? obj.reduce(iterator, memo) : obj.reduce(iterator);
-    }
-    each(obj, function(value, index, list) {
-      if (!initial) {
-        memo = value;
-        initial = true;
-      } else {
-        memo = iterator.call(context, memo, value, index, list);
-      }
-    });
-    if (!initial) throw new TypeError(reduceError);
-    return memo;
-  };
-
-  // The right-associative version of reduce, also known as `foldr`.
-  // Delegates to **ECMAScript 5**'s native `reduceRight` if available.
-  _.reduceRight = _.foldr = function(obj, iterator, memo, context) {
-    var initial = arguments.length > 2;
-    if (obj == null) obj = [];
-    if (nativeReduceRight && obj.reduceRight === nativeReduceRight) {
-      if (context) iterator = _.bind(iterator, context);
-      return initial ? obj.reduceRight(iterator, memo) : obj.reduceRight(iterator);
-    }
-    var length = obj.length;
-    if (length !== +length) {
-      var keys = _.keys(obj);
-      length = keys.length;
-    }
-    each(obj, function(value, index, list) {
-      index = keys ? keys[--length] : --length;
-      if (!initial) {
-        memo = obj[index];
-        initial = true;
-      } else {
-        memo = iterator.call(context, memo, obj[index], index, list);
-      }
-    });
-    if (!initial) throw new TypeError(reduceError);
-    return memo;
-  };
-
-  // Return the first value which passes a truth test. Aliased as `detect`.
-  _.find = _.detect = function(obj, iterator, context) {
-    var result;
-    any(obj, function(value, index, list) {
-      if (iterator.call(context, value, index, list)) {
-        result = value;
-        return true;
-      }
-    });
-    return result;
-  };
-
-  // Return all the elements that pass a truth test.
-  // Delegates to **ECMAScript 5**'s native `filter` if available.
-  // Aliased as `select`.
-  _.filter = _.select = function(obj, iterator, context) {
-    var results = [];
-    if (obj == null) return results;
-    if (nativeFilter && obj.filter === nativeFilter) return obj.filter(iterator, context);
-    each(obj, function(value, index, list) {
-      if (iterator.call(context, value, index, list)) results.push(value);
-    });
-    return results;
-  };
-
-  // Return all the elements for which a truth test fails.
-  _.reject = function(obj, iterator, context) {
-    return _.filter(obj, function(value, index, list) {
-      return !iterator.call(context, value, index, list);
-    }, context);
-  };
-
-  // Determine whether all of the elements match a truth test.
-  // Delegates to **ECMAScript 5**'s native `every` if available.
-  // Aliased as `all`.
-  _.every = _.all = function(obj, iterator, context) {
-    iterator || (iterator = _.identity);
-    var result = true;
-    if (obj == null) return result;
-    if (nativeEvery && obj.every === nativeEvery) return obj.every(iterator, context);
-    each(obj, function(value, index, list) {
-      if (!(result = result && iterator.call(context, value, index, list))) return breaker;
-    });
-    return !!result;
-  };
-
-  // Determine if at least one element in the object matches a truth test.
-  // Delegates to **ECMAScript 5**'s native `some` if available.
-  // Aliased as `any`.
-  var any = _.some = _.any = function(obj, iterator, context) {
-    iterator || (iterator = _.identity);
-    var result = false;
-    if (obj == null) return result;
-    if (nativeSome && obj.some === nativeSome) return obj.some(iterator, context);
-    each(obj, function(value, index, list) {
-      if (result || (result = iterator.call(context, value, index, list))) return breaker;
-    });
-    return !!result;
-  };
-
-  // Determine if the array or object contains a given value (using `===`).
-  // Aliased as `include`.
-  _.contains = _.include = function(obj, target) {
-    if (obj == null) return false;
-    if (nativeIndexOf && obj.indexOf === nativeIndexOf) return obj.indexOf(target) != -1;
-    return any(obj, function(value) {
-      return value === target;
-    });
-  };
-
-  // Invoke a method (with arguments) on every item in a collection.
-  _.invoke = function(obj, method) {
-    var args = slice.call(arguments, 2);
-    var isFunc = _.isFunction(method);
-    return _.map(obj, function(value) {
-      return (isFunc ? method : value[method]).apply(value, args);
-    });
-  };
-
-  // Convenience version of a common use case of `map`: fetching a property.
-  _.pluck = function(obj, key) {
-    return _.map(obj, function(value){ return value[key]; });
-  };
-
-  // Convenience version of a common use case of `filter`: selecting only objects
-  // containing specific `key:value` pairs.
-  _.where = function(obj, attrs, first) {
-    if (_.isEmpty(attrs)) return first ? void 0 : [];
-    return _[first ? 'find' : 'filter'](obj, function(value) {
-      for (var key in attrs) {
-        if (attrs[key] !== value[key]) return false;
-      }
-      return true;
-    });
-  };
-
-  // Convenience version of a common use case of `find`: getting the first object
-  // containing specific `key:value` pairs.
-  _.findWhere = function(obj, attrs) {
-    return _.where(obj, attrs, true);
-  };
-
-  // Return the maximum element or (element-based computation).
-  // Can't optimize arrays of integers longer than 65,535 elements.
-  // See [WebKit Bug 80797](https://bugs.webkit.org/show_bug.cgi?id=80797)
-  _.max = function(obj, iterator, context) {
-    if (!iterator && _.isArray(obj) && obj[0] === +obj[0] && obj.length < 65535) {
-      return Math.max.apply(Math, obj);
-    }
-    if (!iterator && _.isEmpty(obj)) return -Infinity;
-    var result = {computed : -Infinity, value: -Infinity};
-    each(obj, function(value, index, list) {
-      var computed = iterator ? iterator.call(context, value, index, list) : value;
-      computed > result.computed && (result = {value : value, computed : computed});
-    });
-    return result.value;
-  };
-
-  // Return the minimum element (or element-based computation).
-  _.min = function(obj, iterator, context) {
-    if (!iterator && _.isArray(obj) && obj[0] === +obj[0] && obj.length < 65535) {
-      return Math.min.apply(Math, obj);
-    }
-    if (!iterator && _.isEmpty(obj)) return Infinity;
-    var result = {computed : Infinity, value: Infinity};
-    each(obj, function(value, index, list) {
-      var computed = iterator ? iterator.call(context, value, index, list) : value;
-      computed < result.computed && (result = {value : value, computed : computed});
-    });
-    return result.value;
-  };
-
-  // Shuffle an array, using the modern version of the 
-  // [Fisher-Yates shuffle](http://en.wikipedia.org/wiki/Fisher–Yates_shuffle).
-  _.shuffle = function(obj) {
-    var rand;
-    var index = 0;
-    var shuffled = [];
-    each(obj, function(value) {
-      rand = _.random(index++);
-      shuffled[index - 1] = shuffled[rand];
-      shuffled[rand] = value;
-    });
-    return shuffled;
-  };
-
-  // Sample **n** random values from an array.
-  // If **n** is not specified, returns a single random element from the array.
-  // The internal `guard` argument allows it to work with `map`.
-  _.sample = function(obj, n, guard) {
-    if (arguments.length < 2 || guard) {
-      return obj[_.random(obj.length - 1)];
-    }
-    return _.shuffle(obj).slice(0, Math.max(0, n));
-  };
-
-  // An internal function to generate lookup iterators.
-  var lookupIterator = function(value) {
-    return _.isFunction(value) ? value : function(obj){ return obj[value]; };
-  };
-
-  // Sort the object's values by a criterion produced by an iterator.
-  _.sortBy = function(obj, value, context) {
-    var iterator = lookupIterator(value);
-    return _.pluck(_.map(obj, function(value, index, list) {
-      return {
-        value: value,
-        index: index,
-        criteria: iterator.call(context, value, index, list)
-      };
-    }).sort(function(left, right) {
-      var a = left.criteria;
-      var b = right.criteria;
-      if (a !== b) {
-        if (a > b || a === void 0) return 1;
-        if (a < b || b === void 0) return -1;
-      }
-      return left.index - right.index;
-    }), 'value');
-  };
-
-  // An internal function used for aggregate "group by" operations.
-  var group = function(behavior) {
-    return function(obj, value, context) {
-      var result = {};
-      var iterator = value == null ? _.identity : lookupIterator(value);
-      each(obj, function(value, index) {
-        var key = iterator.call(context, value, index, obj);
-        behavior(result, key, value);
-      });
-      return result;
-    };
-  };
-
-  // Groups the object's values by a criterion. Pass either a string attribute
-  // to group by, or a function that returns the criterion.
-  _.groupBy = group(function(result, key, value) {
-    (_.has(result, key) ? result[key] : (result[key] = [])).push(value);
-  });
-
-  // Indexes the object's values by a criterion, similar to `groupBy`, but for
-  // when you know that your index values will be unique.
-  _.indexBy = group(function(result, key, value) {
-    result[key] = value;
-  });
-
-  // Counts instances of an object that group by a certain criterion. Pass
-  // either a string attribute to count by, or a function that returns the
-  // criterion.
-  _.countBy = group(function(result, key) {
-    _.has(result, key) ? result[key]++ : result[key] = 1;
-  });
-
-  // Use a comparator function to figure out the smallest index at which
-  // an object should be inserted so as to maintain order. Uses binary search.
-  _.sortedIndex = function(array, obj, iterator, context) {
-    iterator = iterator == null ? _.identity : lookupIterator(iterator);
-    var value = iterator.call(context, obj);
-    var low = 0, high = array.length;
-    while (low < high) {
-      var mid = (low + high) >>> 1;
-      iterator.call(context, array[mid]) < value ? low = mid + 1 : high = mid;
-    }
-    return low;
-  };
-
-  // Safely create a real, live array from anything iterable.
-  _.toArray = function(obj) {
-    if (!obj) return [];
-    if (_.isArray(obj)) return slice.call(obj);
-    if (obj.length === +obj.length) return _.map(obj, _.identity);
-    return _.values(obj);
-  };
-
-  // Return the number of elements in an object.
-  _.size = function(obj) {
-    if (obj == null) return 0;
-    return (obj.length === +obj.length) ? obj.length : _.keys(obj).length;
-  };
-
-  // Array Functions
-  // ---------------
-
-  // Get the first element of an array. Passing **n** will return the first N
-  // values in the array. Aliased as `head` and `take`. The **guard** check
-  // allows it to work with `_.map`.
-  _.first = _.head = _.take = function(array, n, guard) {
-    if (array == null) return void 0;
-    return (n == null) || guard ? array[0] : slice.call(array, 0, n);
-  };
-
-  // Returns everything but the last entry of the array. Especially useful on
-  // the arguments object. Passing **n** will return all the values in
-  // the array, excluding the last N. The **guard** check allows it to work with
-  // `_.map`.
-  _.initial = function(array, n, guard) {
-    return slice.call(array, 0, array.length - ((n == null) || guard ? 1 : n));
-  };
-
-  // Get the last element of an array. Passing **n** will return the last N
-  // values in the array. The **guard** check allows it to work with `_.map`.
-  _.last = function(array, n, guard) {
-    if (array == null) return void 0;
-    if ((n == null) || guard) {
-      return array[array.length - 1];
-    } else {
-      return slice.call(array, Math.max(array.length - n, 0));
-    }
-  };
-
-  // Returns everything but the first entry of the array. Aliased as `tail` and `drop`.
-  // Especially useful on the arguments object. Passing an **n** will return
-  // the rest N values in the array. The **guard**
-  // check allows it to work with `_.map`.
-  _.rest = _.tail = _.drop = function(array, n, guard) {
-    return slice.call(array, (n == null) || guard ? 1 : n);
-  };
-
-  // Trim out all falsy values from an array.
-  _.compact = function(array) {
-    return _.filter(array, _.identity);
-  };
-
-  // Internal implementation of a recursive `flatten` function.
-  var flatten = function(input, shallow, output) {
-    if (shallow && _.every(input, _.isArray)) {
-      return concat.apply(output, input);
-    }
-    each(input, function(value) {
-      if (_.isArray(value) || _.isArguments(value)) {
-        shallow ? push.apply(output, value) : flatten(value, shallow, output);
-      } else {
-        output.push(value);
-      }
-    });
-    return output;
-  };
-
-  // Flatten out an array, either recursively (by default), or just one level.
-  _.flatten = function(array, shallow) {
-    return flatten(array, shallow, []);
-  };
-
-  // Return a version of the array that does not contain the specified value(s).
-  _.without = function(array) {
-    return _.difference(array, slice.call(arguments, 1));
-  };
-
-  // Produce a duplicate-free version of the array. If the array has already
-  // been sorted, you have the option of using a faster algorithm.
-  // Aliased as `unique`.
-  _.uniq = _.unique = function(array, isSorted, iterator, context) {
-    if (_.isFunction(isSorted)) {
-      context = iterator;
-      iterator = isSorted;
-      isSorted = false;
-    }
-    var initial = iterator ? _.map(array, iterator, context) : array;
-    var results = [];
-    var seen = [];
-    each(initial, function(value, index) {
-      if (isSorted ? (!index || seen[seen.length - 1] !== value) : !_.contains(seen, value)) {
-        seen.push(value);
-        results.push(array[index]);
-      }
-    });
-    return results;
-  };
-
-  // Produce an array that contains the union: each distinct element from all of
-  // the passed-in arrays.
-  _.union = function() {
-    return _.uniq(_.flatten(arguments, true));
-  };
-
-  // Produce an array that contains every item shared between all the
-  // passed-in arrays.
-  _.intersection = function(array) {
-    var rest = slice.call(arguments, 1);
-    return _.filter(_.uniq(array), function(item) {
-      return _.every(rest, function(other) {
-        return _.indexOf(other, item) >= 0;
-      });
-    });
-  };
-
-  // Take the difference between one array and a number of other arrays.
-  // Only the elements present in just the first array will remain.
-  _.difference = function(array) {
-    var rest = concat.apply(ArrayProto, slice.call(arguments, 1));
-    return _.filter(array, function(value){ return !_.contains(rest, value); });
-  };
-
-  // Zip together multiple lists into a single array -- elements that share
-  // an index go together.
-  _.zip = function() {
-    var length = _.max(_.pluck(arguments, "length").concat(0));
-    var results = new Array(length);
-    for (var i = 0; i < length; i++) {
-      results[i] = _.pluck(arguments, '' + i);
-    }
-    return results;
-  };
-
-  // Converts lists into objects. Pass either a single array of `[key, value]`
-  // pairs, or two parallel arrays of the same length -- one of keys, and one of
-  // the corresponding values.
-  _.object = function(list, values) {
-    if (list == null) return {};
-    var result = {};
-    for (var i = 0, length = list.length; i < length; i++) {
-      if (values) {
-        result[list[i]] = values[i];
-      } else {
-        result[list[i][0]] = list[i][1];
-      }
-    }
-    return result;
-  };
-
-  // If the browser doesn't supply us with indexOf (I'm looking at you, **MSIE**),
-  // we need this function. Return the position of the first occurrence of an
-  // item in an array, or -1 if the item is not included in the array.
-  // Delegates to **ECMAScript 5**'s native `indexOf` if available.
-  // If the array is large and already in sort order, pass `true`
-  // for **isSorted** to use binary search.
-  _.indexOf = function(array, item, isSorted) {
-    if (array == null) return -1;
-    var i = 0, length = array.length;
-    if (isSorted) {
-      if (typeof isSorted == 'number') {
-        i = (isSorted < 0 ? Math.max(0, length + isSorted) : isSorted);
-      } else {
-        i = _.sortedIndex(array, item);
-        return array[i] === item ? i : -1;
-      }
-    }
-    if (nativeIndexOf && array.indexOf === nativeIndexOf) return array.indexOf(item, isSorted);
-    for (; i < length; i++) if (array[i] === item) return i;
-    return -1;
-  };
-
-  // Delegates to **ECMAScript 5**'s native `lastIndexOf` if available.
-  _.lastIndexOf = function(array, item, from) {
-    if (array == null) return -1;
-    var hasIndex = from != null;
-    if (nativeLastIndexOf && array.lastIndexOf === nativeLastIndexOf) {
-      return hasIndex ? array.lastIndexOf(item, from) : array.lastIndexOf(item);
-    }
-    var i = (hasIndex ? from : array.length);
-    while (i--) if (array[i] === item) return i;
-    return -1;
-  };
-
-  // Generate an integer Array containing an arithmetic progression. A port of
-  // the native Python `range()` function. See
-  // [the Python documentation](http://docs.python.org/library/functions.html#range).
-  _.range = function(start, stop, step) {
-    if (arguments.length <= 1) {
-      stop = start || 0;
-      start = 0;
-    }
-    step = arguments[2] || 1;
-
-    var length = Math.max(Math.ceil((stop - start) / step), 0);
-    var idx = 0;
-    var range = new Array(length);
-
-    while(idx < length) {
-      range[idx++] = start;
-      start += step;
-    }
-
-    return range;
-  };
-
-  // Function (ahem) Functions
-  // ------------------
-
-  // Reusable constructor function for prototype setting.
-  var ctor = function(){};
-
-  // Create a function bound to a given object (assigning `this`, and arguments,
-  // optionally). Delegates to **ECMAScript 5**'s native `Function.bind` if
-  // available.
-  _.bind = function(func, context) {
-    var args, bound;
-    if (nativeBind && func.bind === nativeBind) return nativeBind.apply(func, slice.call(arguments, 1));
-    if (!_.isFunction(func)) throw new TypeError;
-    args = slice.call(arguments, 2);
-    return bound = function() {
-      if (!(this instanceof bound)) return func.apply(context, args.concat(slice.call(arguments)));
-      ctor.prototype = func.prototype;
-      var self = new ctor;
-      ctor.prototype = null;
-      var result = func.apply(self, args.concat(slice.call(arguments)));
-      if (Object(result) === result) return result;
-      return self;
-    };
-  };
-
-  // Partially apply a function by creating a version that has had some of its
-  // arguments pre-filled, without changing its dynamic `this` context.
-  _.partial = function(func) {
-    var args = slice.call(arguments, 1);
-    return function() {
-      return func.apply(this, args.concat(slice.call(arguments)));
-    };
-  };
-
-  // Bind all of an object's methods to that object. Useful for ensuring that
-  // all callbacks defined on an object belong to it.
-  _.bindAll = function(obj) {
-    var funcs = slice.call(arguments, 1);
-    if (funcs.length === 0) throw new Error("bindAll must be passed function names");
-    each(funcs, function(f) { obj[f] = _.bind(obj[f], obj); });
-    return obj;
-  };
-
-  // Memoize an expensive function by storing its results.
-  _.memoize = function(func, hasher) {
-    var memo = {};
-    hasher || (hasher = _.identity);
-    return function() {
-      var key = hasher.apply(this, arguments);
-      return _.has(memo, key) ? memo[key] : (memo[key] = func.apply(this, arguments));
-    };
-  };
-
-  // Delays a function for the given number of milliseconds, and then calls
-  // it with the arguments supplied.
-  _.delay = function(func, wait) {
-    var args = slice.call(arguments, 2);
-    return setTimeout(function(){ return func.apply(null, args); }, wait);
-  };
-
-  // Defers a function, scheduling it to run after the current call stack has
-  // cleared.
-  _.defer = function(func) {
-    return _.delay.apply(_, [func, 1].concat(slice.call(arguments, 1)));
-  };
-
-  // Returns a function, that, when invoked, will only be triggered at most once
-  // during a given window of time. Normally, the throttled function will run
-  // as much as it can, without ever going more than once per `wait` duration;
-  // but if you'd like to disable the execution on the leading edge, pass
-  // `{leading: false}`. To disable execution on the trailing edge, ditto.
-  _.throttle = function(func, wait, options) {
-    var context, args, result;
-    var timeout = null;
-    var previous = 0;
-    options || (options = {});
-    var later = function() {
-      previous = options.leading === false ? 0 : new Date;
-      timeout = null;
-      result = func.apply(context, args);
-    };
-    return function() {
-      var now = new Date;
-      if (!previous && options.leading === false) previous = now;
-      var remaining = wait - (now - previous);
-      context = this;
-      args = arguments;
-      if (remaining <= 0) {
-        clearTimeout(timeout);
-        timeout = null;
-        previous = now;
-        result = func.apply(context, args);
-      } else if (!timeout && options.trailing !== false) {
-        timeout = setTimeout(later, remaining);
-      }
-      return result;
-    };
-  };
-
-  // Returns a function, that, as long as it continues to be invoked, will not
-  // be triggered. The function will be called after it stops being called for
-  // N milliseconds. If `immediate` is passed, trigger the function on the
-  // leading edge, instead of the trailing.
-  _.debounce = function(func, wait, immediate) {
-    var timeout, args, context, timestamp, result;
-    return function() {
-      context = this;
-      args = arguments;
-      timestamp = new Date();
-      var later = function() {
-        var last = (new Date()) - timestamp;
-        if (last < wait) {
-          timeout = setTimeout(later, wait - last);
-        } else {
-          timeout = null;
-          if (!immediate) result = func.apply(context, args);
-        }
-      };
-      var callNow = immediate && !timeout;
-      if (!timeout) {
-        timeout = setTimeout(later, wait);
-      }
-      if (callNow) result = func.apply(context, args);
-      return result;
-    };
-  };
-
-  // Returns a function that will be executed at most one time, no matter how
-  // often you call it. Useful for lazy initialization.
-  _.once = function(func) {
-    var ran = false, memo;
-    return function() {
-      if (ran) return memo;
-      ran = true;
-      memo = func.apply(this, arguments);
-      func = null;
-      return memo;
-    };
-  };
-
-  // Returns the first function passed as an argument to the second,
-  // allowing you to adjust arguments, run code before and after, and
-  // conditionally execute the original function.
-  _.wrap = function(func, wrapper) {
-    return function() {
-      var args = [func];
-      push.apply(args, arguments);
-      return wrapper.apply(this, args);
-    };
-  };
-
-  // Returns a function that is the composition of a list of functions, each
-  // consuming the return value of the function that follows.
-  _.compose = function() {
-    var funcs = arguments;
-    return function() {
-      var args = arguments;
-      for (var i = funcs.length - 1; i >= 0; i--) {
-        args = [funcs[i].apply(this, args)];
-      }
-      return args[0];
-    };
-  };
-
-  // Returns a function that will only be executed after being called N times.
-  _.after = function(times, func) {
-    return function() {
-      if (--times < 1) {
-        return func.apply(this, arguments);
-      }
-    };
-  };
-
-  // Object Functions
-  // ----------------
-
-  // Retrieve the names of an object's properties.
-  // Delegates to **ECMAScript 5**'s native `Object.keys`
-  _.keys = nativeKeys || function(obj) {
-    if (obj !== Object(obj)) throw new TypeError('Invalid object');
-    var keys = [];
-    for (var key in obj) if (_.has(obj, key)) keys.push(key);
-    return keys;
-  };
-
-  // Retrieve the values of an object's properties.
-  _.values = function(obj) {
-    var keys = _.keys(obj);
-    var length = keys.length;
-    var values = new Array(length);
-    for (var i = 0; i < length; i++) {
-      values[i] = obj[keys[i]];
-    }
-    return values;
-  };
-
-  // Convert an object into a list of `[key, value]` pairs.
-  _.pairs = function(obj) {
-    var keys = _.keys(obj);
-    var length = keys.length;
-    var pairs = new Array(length);
-    for (var i = 0; i < length; i++) {
-      pairs[i] = [keys[i], obj[keys[i]]];
-    }
-    return pairs;
-  };
-
-  // Invert the keys and values of an object. The values must be serializable.
-  _.invert = function(obj) {
-    var result = {};
-    var keys = _.keys(obj);
-    for (var i = 0, length = keys.length; i < length; i++) {
-      result[obj[keys[i]]] = keys[i];
-    }
-    return result;
-  };
-
-  // Return a sorted list of the function names available on the object.
-  // Aliased as `methods`
-  _.functions = _.methods = function(obj) {
-    var names = [];
-    for (var key in obj) {
-      if (_.isFunction(obj[key])) names.push(key);
-    }
-    return names.sort();
-  };
-
-  // Extend a given object with all the properties in passed-in object(s).
-  _.extend = function(obj) {
-    each(slice.call(arguments, 1), function(source) {
-      if (source) {
-        for (var prop in source) {
-          obj[prop] = source[prop];
-        }
-      }
-    });
-    return obj;
-  };
-
-  // Return a copy of the object only containing the whitelisted properties.
-  _.pick = function(obj) {
-    var copy = {};
-    var keys = concat.apply(ArrayProto, slice.call(arguments, 1));
-    each(keys, function(key) {
-      if (key in obj) copy[key] = obj[key];
-    });
-    return copy;
-  };
-
-   // Return a copy of the object without the blacklisted properties.
-  _.omit = function(obj) {
-    var copy = {};
-    var keys = concat.apply(ArrayProto, slice.call(arguments, 1));
-    for (var key in obj) {
-      if (!_.contains(keys, key)) copy[key] = obj[key];
-    }
-    return copy;
-  };
-
-  // Fill in a given object with default properties.
-  _.defaults = function(obj) {
-    each(slice.call(arguments, 1), function(source) {
-      if (source) {
-        for (var prop in source) {
-          if (obj[prop] === void 0) obj[prop] = source[prop];
-        }
-      }
-    });
-    return obj;
-  };
-
-  // Create a (shallow-cloned) duplicate of an object.
-  _.clone = function(obj) {
-    if (!_.isObject(obj)) return obj;
-    return _.isArray(obj) ? obj.slice() : _.extend({}, obj);
-  };
-
-  // Invokes interceptor with the obj, and then returns obj.
-  // The primary purpose of this method is to "tap into" a method chain, in
-  // order to perform operations on intermediate results within the chain.
-  _.tap = function(obj, interceptor) {
-    interceptor(obj);
-    return obj;
-  };
-
-  // Internal recursive comparison function for `isEqual`.
-  var eq = function(a, b, aStack, bStack) {
-    // Identical objects are equal. `0 === -0`, but they aren't identical.
-    // See the [Harmony `egal` proposal](http://wiki.ecmascript.org/doku.php?id=harmony:egal).
-    if (a === b) return a !== 0 || 1 / a == 1 / b;
-    // A strict comparison is necessary because `null == undefined`.
-    if (a == null || b == null) return a === b;
-    // Unwrap any wrapped objects.
-    if (a instanceof _) a = a._wrapped;
-    if (b instanceof _) b = b._wrapped;
-    // Compare `[[Class]]` names.
-    var className = toString.call(a);
-    if (className != toString.call(b)) return false;
-    switch (className) {
-      // Strings, numbers, dates, and booleans are compared by value.
-      case '[object String]':
-        // Primitives and their corresponding object wrappers are equivalent; thus, `"5"` is
-        // equivalent to `new String("5")`.
-        return a == String(b);
-      case '[object Number]':
-        // `NaN`s are equivalent, but non-reflexive. An `egal` comparison is performed for
-        // other numeric values.
-        return a != +a ? b != +b : (a == 0 ? 1 / a == 1 / b : a == +b);
-      case '[object Date]':
-      case '[object Boolean]':
-        // Coerce dates and booleans to numeric primitive values. Dates are compared by their
-        // millisecond representations. Note that invalid dates with millisecond representations
-        // of `NaN` are not equivalent.
-        return +a == +b;
-      // RegExps are compared by their source patterns and flags.
-      case '[object RegExp]':
-        return a.source == b.source &&
-               a.global == b.global &&
-               a.multiline == b.multiline &&
-               a.ignoreCase == b.ignoreCase;
-    }
-    if (typeof a != 'object' || typeof b != 'object') return false;
-    // Assume equality for cyclic structures. The algorithm for detecting cyclic
-    // structures is adapted from ES 5.1 section 15.12.3, abstract operation `JO`.
-    var length = aStack.length;
-    while (length--) {
-      // Linear search. Performance is inversely proportional to the number of
-      // unique nested structures.
-      if (aStack[length] == a) return bStack[length] == b;
-    }
-    // Objects with different constructors are not equivalent, but `Object`s
-    // from different frames are.
-    var aCtor = a.constructor, bCtor = b.constructor;
-    if (aCtor !== bCtor && !(_.isFunction(aCtor) && (aCtor instanceof aCtor) &&
-                             _.isFunction(bCtor) && (bCtor instanceof bCtor))) {
-      return false;
-    }
-    // Add the first object to the stack of traversed objects.
-    aStack.push(a);
-    bStack.push(b);
-    var size = 0, result = true;
-    // Recursively compare objects and arrays.
-    if (className == '[object Array]') {
-      // Compare array lengths to determine if a deep comparison is necessary.
-      size = a.length;
-      result = size == b.length;
-      if (result) {
-        // Deep compare the contents, ignoring non-numeric properties.
-        while (size--) {
-          if (!(result = eq(a[size], b[size], aStack, bStack))) break;
-        }
-      }
-    } else {
-      // Deep compare objects.
-      for (var key in a) {
-        if (_.has(a, key)) {
-          // Count the expected number of properties.
-          size++;
-          // Deep compare each member.
-          if (!(result = _.has(b, key) && eq(a[key], b[key], aStack, bStack))) break;
-        }
-      }
-      // Ensure that both objects contain the same number of properties.
-      if (result) {
-        for (key in b) {
-          if (_.has(b, key) && !(size--)) break;
-        }
-        result = !size;
-      }
-    }
-    // Remove the first object from the stack of traversed objects.
-    aStack.pop();
-    bStack.pop();
-    return result;
-  };
-
-  // Perform a deep comparison to check if two objects are equal.
-  _.isEqual = function(a, b) {
-    return eq(a, b, [], []);
-  };
-
-  // Is a given array, string, or object empty?
-  // An "empty" object has no enumerable own-properties.
-  _.isEmpty = function(obj) {
-    if (obj == null) return true;
-    if (_.isArray(obj) || _.isString(obj)) return obj.length === 0;
-    for (var key in obj) if (_.has(obj, key)) return false;
-    return true;
-  };
-
-  // Is a given value a DOM element?
-  _.isElement = function(obj) {
-    return !!(obj && obj.nodeType === 1);
-  };
-
-  // Is a given value an array?
-  // Delegates to ECMA5's native Array.isArray
-  _.isArray = nativeIsArray || function(obj) {
-    return toString.call(obj) == '[object Array]';
-  };
-
-  // Is a given variable an object?
-  _.isObject = function(obj) {
-    return obj === Object(obj);
-  };
-
-  // Add some isType methods: isArguments, isFunction, isString, isNumber, isDate, isRegExp.
-  each(['Arguments', 'Function', 'String', 'Number', 'Date', 'RegExp'], function(name) {
-    _['is' + name] = function(obj) {
-      return toString.call(obj) == '[object ' + name + ']';
-    };
-  });
-
-  // Define a fallback version of the method in browsers (ahem, IE), where
-  // there isn't any inspectable "Arguments" type.
-  if (!_.isArguments(arguments)) {
-    _.isArguments = function(obj) {
-      return !!(obj && _.has(obj, 'callee'));
-    };
-  }
-
-  // Optimize `isFunction` if appropriate.
-  if (typeof (/./) !== 'function') {
-    _.isFunction = function(obj) {
-      return typeof obj === 'function';
-    };
-  }
-
-  // Is a given object a finite number?
-  _.isFinite = function(obj) {
-    return isFinite(obj) && !isNaN(parseFloat(obj));
-  };
-
-  // Is the given value `NaN`? (NaN is the only number which does not equal itself).
-  _.isNaN = function(obj) {
-    return _.isNumber(obj) && obj != +obj;
-  };
-
-  // Is a given value a boolean?
-  _.isBoolean = function(obj) {
-    return obj === true || obj === false || toString.call(obj) == '[object Boolean]';
-  };
-
-  // Is a given value equal to null?
-  _.isNull = function(obj) {
-    return obj === null;
-  };
-
-  // Is a given variable undefined?
-  _.isUndefined = function(obj) {
-    return obj === void 0;
-  };
-
-  // Shortcut function for checking if an object has a given property directly
-  // on itself (in other words, not on a prototype).
-  _.has = function(obj, key) {
-    return hasOwnProperty.call(obj, key);
-  };
-
-  // Utility Functions
-  // -----------------
-
-  // Run Underscore.js in *noConflict* mode, returning the `_` variable to its
-  // previous owner. Returns a reference to the Underscore object.
-  _.noConflict = function() {
-    root._ = previousUnderscore;
-    return this;
-  };
-
-  // Keep the identity function around for default iterators.
-  _.identity = function(value) {
-    return value;
-  };
-
-  // Run a function **n** times.
-  _.times = function(n, iterator, context) {
-    var accum = Array(Math.max(0, n));
-    for (var i = 0; i < n; i++) accum[i] = iterator.call(context, i);
-    return accum;
-  };
-
-  // Return a random integer between min and max (inclusive).
-  _.random = function(min, max) {
-    if (max == null) {
-      max = min;
-      min = 0;
-    }
-    return min + Math.floor(Math.random() * (max - min + 1));
-  };
-
-  // List of HTML entities for escaping.
-  var entityMap = {
-    escape: {
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#x27;'
-    }
-  };
-  entityMap.unescape = _.invert(entityMap.escape);
-
-  // Regexes containing the keys and values listed immediately above.
-  var entityRegexes = {
-    escape:   new RegExp('[' + _.keys(entityMap.escape).join('') + ']', 'g'),
-    unescape: new RegExp('(' + _.keys(entityMap.unescape).join('|') + ')', 'g')
-  };
-
-  // Functions for escaping and unescaping strings to/from HTML interpolation.
-  _.each(['escape', 'unescape'], function(method) {
-    _[method] = function(string) {
-      if (string == null) return '';
-      return ('' + string).replace(entityRegexes[method], function(match) {
-        return entityMap[method][match];
-      });
-    };
-  });
-
-  // If the value of the named `property` is a function then invoke it with the
-  // `object` as context; otherwise, return it.
-  _.result = function(object, property) {
-    if (object == null) return void 0;
-    var value = object[property];
-    return _.isFunction(value) ? value.call(object) : value;
-  };
-
-  // Add your own custom functions to the Underscore object.
-  _.mixin = function(obj) {
-    each(_.functions(obj), function(name) {
-      var func = _[name] = obj[name];
-      _.prototype[name] = function() {
-        var args = [this._wrapped];
-        push.apply(args, arguments);
-        return result.call(this, func.apply(_, args));
-      };
-    });
-  };
-
-  // Generate a unique integer id (unique within the entire client session).
-  // Useful for temporary DOM ids.
-  var idCounter = 0;
-  _.uniqueId = function(prefix) {
-    var id = ++idCounter + '';
-    return prefix ? prefix + id : id;
-  };
-
-  // By default, Underscore uses ERB-style template delimiters, change the
-  // following template settings to use alternative delimiters.
-  _.templateSettings = {
-    evaluate    : /<%([\s\S]+?)%>/g,
-    interpolate : /<%=([\s\S]+?)%>/g,
-    escape      : /<%-([\s\S]+?)%>/g
-  };
-
-  // When customizing `templateSettings`, if you don't want to define an
-  // interpolation, evaluation or escaping regex, we need one that is
-  // guaranteed not to match.
-  var noMatch = /(.)^/;
-
-  // Certain characters need to be escaped so that they can be put into a
-  // string literal.
-  var escapes = {
-    "'":      "'",
-    '\\':     '\\',
-    '\r':     'r',
-    '\n':     'n',
-    '\t':     't',
-    '\u2028': 'u2028',
-    '\u2029': 'u2029'
-  };
-
-  var escaper = /\\|'|\r|\n|\t|\u2028|\u2029/g;
-
-  // JavaScript micro-templating, similar to John Resig's implementation.
-  // Underscore templating handles arbitrary delimiters, preserves whitespace,
-  // and correctly escapes quotes within interpolated code.
-  _.template = function(text, data, settings) {
-    var render;
-    settings = _.defaults({}, settings, _.templateSettings);
-
-    // Combine delimiters into one regular expression via alternation.
-    var matcher = new RegExp([
-      (settings.escape || noMatch).source,
-      (settings.interpolate || noMatch).source,
-      (settings.evaluate || noMatch).source
-    ].join('|') + '|$', 'g');
-
-    // Compile the template source, escaping string literals appropriately.
-    var index = 0;
-    var source = "__p+='";
-    text.replace(matcher, function(match, escape, interpolate, evaluate, offset) {
-      source += text.slice(index, offset)
-        .replace(escaper, function(match) { return '\\' + escapes[match]; });
-
-      if (escape) {
-        source += "'+\n((__t=(" + escape + "))==null?'':_.escape(__t))+\n'";
-      }
-      if (interpolate) {
-        source += "'+\n((__t=(" + interpolate + "))==null?'':__t)+\n'";
-      }
-      if (evaluate) {
-        source += "';\n" + evaluate + "\n__p+='";
-      }
-      index = offset + match.length;
-      return match;
-    });
-    source += "';\n";
-
-    // If a variable is not specified, place data values in local scope.
-    if (!settings.variable) source = 'with(obj||{}){\n' + source + '}\n';
-
-    source = "var __t,__p='',__j=Array.prototype.join," +
-      "print=function(){__p+=__j.call(arguments,'');};\n" +
-      source + "return __p;\n";
-
-    try {
-      render = new Function(settings.variable || 'obj', '_', source);
-    } catch (e) {
-      e.source = source;
-      throw e;
-    }
-
-    if (data) return render(data, _);
-    var template = function(data) {
-      return render.call(this, data, _);
-    };
-
-    // Provide the compiled function source as a convenience for precompilation.
-    template.source = 'function(' + (settings.variable || 'obj') + '){\n' + source + '}';
-
-    return template;
-  };
-
-  // Add a "chain" function, which will delegate to the wrapper.
-  _.chain = function(obj) {
-    return _(obj).chain();
-  };
-
-  // OOP
-  // ---------------
-  // If Underscore is called as a function, it returns a wrapped object that
-  // can be used OO-style. This wrapper holds altered versions of all the
-  // underscore functions. Wrapped objects may be chained.
-
-  // Helper function to continue chaining intermediate results.
-  var result = function(obj) {
-    return this._chain ? _(obj).chain() : obj;
-  };
-
-  // Add all of the Underscore functions to the wrapper object.
-  _.mixin(_);
-
-  // Add all mutator Array functions to the wrapper.
-  each(['pop', 'push', 'reverse', 'shift', 'sort', 'splice', 'unshift'], function(name) {
-    var method = ArrayProto[name];
-    _.prototype[name] = function() {
-      var obj = this._wrapped;
-      method.apply(obj, arguments);
-      if ((name == 'shift' || name == 'splice') && obj.length === 0) delete obj[0];
-      return result.call(this, obj);
-    };
-  });
-
-  // Add all accessor Array functions to the wrapper.
-  each(['concat', 'join', 'slice'], function(name) {
-    var method = ArrayProto[name];
-    _.prototype[name] = function() {
-      return result.call(this, method.apply(this._wrapped, arguments));
-    };
-  });
-
-  _.extend(_.prototype, {
-
-    // Start chaining a wrapped Underscore object.
-    chain: function() {
-      this._chain = true;
-      return this;
-    },
-
-    // Extracts the result from a wrapped and chained object.
-    value: function() {
-      return this._wrapped;
-    }
-
-  });
-
-}).call(this);
-
-},{}],185:[function(require,module,exports){
-module.exports=require(160)
+},{"./lib/factory":216}],218:[function(_dereq_,module,exports){
+module.exports=_dereq_(192)
+},{}],219:[function(_dereq_,module,exports){
+module.exports=_dereq_(194)
 },{}]},{},[1])
 (1)
 });
-;
