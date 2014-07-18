@@ -4,6 +4,7 @@
     <title>stanza.io — Jingle Interop Testing</title>
     <script src="attachmediastream.bundle.js"></script>
     <script src="stanzaio.bundle.js"></script>
+    <script src="localmedia.bundle.js"></script>
     <style>
     video {
       width: 320px;
@@ -49,6 +50,14 @@
 
     <script>
       var client;
+      var localMedia = new LocalMedia();
+      localMedia.on('localStream', function (stream) {
+          attachMediaStream(stream, document.getElementById('localVideo'), {
+              muted: true,
+              mirror: true
+          });
+      });
+
       var loginInfo = document.getElementById('loginInfo');
 
       var inlog = console.log.bind(console, '<<in');
@@ -96,18 +105,12 @@
 
         client.connect();
 
-        client.on('jingle:localstream:added', function (stream) {
-            attachMediaStream(stream, document.getElementById('localVideo'), {
-                muted: true,
-                mirror: true
-            });
-        });
-
         client.on('jingle:remotestream:added', function (session, stream) {
             attachMediaStream(stream, document.getElementById('remoteVideo'));
         });
 
         client.on('jingle:incoming', function (session) {
+            session.addStream(localMedia.localStream);
             session.accept();
         });
 
@@ -124,13 +127,15 @@
             href.style.display = 'block';
         });
 
-        client.jingle.startLocalMedia();
+        localMedia.start();
 
         var callInfo = document.getElementById('callInfo');
         callInfo.onsubmit = function (e) {
           e.preventDefault();
           var jid = document.getElementById('peer').value;
-          client.call(jid);
+          var session = client.jingle.createMediaSession(jid);
+          session.addStream(localMedia.localStream);
+          session.start();
           return false;
         };
 
