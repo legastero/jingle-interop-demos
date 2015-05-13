@@ -89,6 +89,8 @@
           transport: transport
         });
 
+        client.jingle.config.debug = true;
+
         client.on('raw:incoming', function (data) {
             inlog(data);
         });
@@ -103,14 +105,15 @@
           document.getElementById('myJID').textContent = client.jid.full;
         });
 
-        client.connect();
 
         client.on('jingle:remotestream:added', function (session, stream) {
             attachMediaStream(stream, document.getElementById('remoteVideo'));
         });
 
         client.on('jingle:incoming', function (session) {
-            session.addStream(localMedia.localStream);
+            if (session.addStream) {
+                session.addStream(localMedia.localStream);
+            }
             session.accept();
         });
 
@@ -128,6 +131,7 @@
         });
 
         localMedia.start();
+        client.connect();
 
         var callInfo = document.getElementById('callInfo');
         callInfo.onsubmit = function (e) {
