@@ -1,0 +1,51 @@
+/*
+ * Giggle.js Simple Client
+ *
+ * @fileoverview Stylesheet for the Simple client
+ *
+ * @url https://github.com/valeriansaliou/giggle
+ * @author Valérian Saliou https://valeriansaliou.name/
+ *
+ * @copyright 2015, Valérian Saliou
+ * @license Mozilla Public License v2.0 (MPL v2.0)
+ */
+
+#fieldset_call label.call_bare {
+  padding-top: 20px;
+  cursor: pointer;
+}
+
+#fieldset_call label.call_bare input {
+  width: auto;
+  padding: 0;
+  margin-right: 4px;
+}
+
+.video_container {
+  width: 642px;
+  height: 362px;
+  margin: 0 auto 8px auto;
+  position: relative;
+}
+
+#video_local {
+  opacity: 0.6;
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  -webkit-transition: all 0.4s ease-in-out 0.2s;
+  -moz-transition: all 0.4s ease-in-out 0.2s;
+  -o-transition: all 0.4s ease-in-out 0.2s;
+  transition: all 0.4s ease-in-out 0.2s;
+}
+
+#video_local:hover {
+  width: 320px;
+  height: 180px;
+  opacity: 1;
+  cursor: pointer;
+}
+
+#live_unmute {
+  display: none;
+}
