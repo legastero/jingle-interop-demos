@@ -14,7 +14,7 @@ video {width:320;height:240}
       <form id="loginInfo">
         <label>JID: <input id="jid" type="text" name="jid" placeholder="me@example.com"/></label>
         <label>Password: <input id="password" type="password" name="password" placeholder="secret"/></label>
-        <label>BOSH URL: <input id="boshURL" type="text" name="boshURL" placeholder="/http-bind"/></label>
+        <label>BOSH URL: <input id="boshURL" type="text" name="boshURL" value="/http-bind/"/></label>
         <input id="connect" type="submit" value="Connect" />
       </form>
       <h2>Your JID</h2>
@@ -35,14 +35,31 @@ video {width:320;height:240}
     </div>
 
     <script>
+
       var connection = null;
       var RTC = setupRTC();
       var RTCPeerconnection = RTC.peerconnection;
+   
+
       loginInfo.onsubmit = function (e) {
         if (e.preventDefault) e.preventDefault();
 
-        connection = new Strophe.Connection(document.getElementById('boshURL').value || '/http-bind');
+        connection = new Strophe.Connection(document.getElementById('boshURL').value || '/http-bind/');
         connection.jingle.pc_constraints = RTC.pc_constraints;
+        /*******************************************************
+        * we need a STUN server - for development, we may use a free google supplied server
+        * replace this setting with a valid stun server
+        * https://gist.github.com/zziuni/3741933
+        * or setup your own
+        ********************************************************/
+        connection.jingle.ice_config = {
+          iceServers: [
+            {
+              url: 'stun:stun.l.google.com:19302'
+            }
+          ]
+        };
+
         var jid = document.getElementById('jid').value || window.location.hostname;
 
         connection.connect(jid, document.getElementById('password').value, function(status) {
@@ -51,6 +68,9 @@ video {width:320;height:240}
             getUserMediaWithConstraints(['audio', 'video']);
             document.getElementById('connect').disabled = true;
             document.getElementById('myJID').textContent = connection.jid;
+            // init presence
+            connection.send($pres());
+
           } else {
             console.log('status', status);
           }
@@ -81,9 +101,11 @@ video {width:320;height:240}
         document.getElementById('call').disabled = false;
         document.getElementById('peer').disabled = false;
       });
+
       //$(document).bind('mediafailure.jingle', onMediaFailure);
       
       $(document).bind('remotestreamadded.jingle', function(event, data, sid) {
+        
         function waitForRemoteVideo(selector, sid) {
             sess = connection.jingle.sessions[sid];
             videoTracks = sess.remoteStream.getVideoTracks();
@@ -95,15 +117,18 @@ video {width:320;height:240}
                 setTimeout(function() { waitForRemoteVideo(selector, sid); }, 100);
             }
         }
+
         var sess = connection.jingle.sessions[sid];
         var vid = document.createElement('video');
-        var id = 'remoteVideo_' + sid + '_' + data.stream.id;
+        var id = 'remoteVideo_' + sid + '_default';
+        console.log(id);
         vid.id = id;
         vid.autoplay = true;
         var remotes = document.getElementById('remoteVideos');
         remotes.appendChild(vid);
         var sel = $('#' + id);
-        sel.hide();
+        // sel.hide();
+
         RTC.attachMediaStream(sel, data.stream);
         waitForRemoteVideo(sel, sid);
         console.log(data.stream);
@@ -112,10 +137,12 @@ video {width:320;height:240}
             $('#' + id).remove();
         });
       });
+
       $(document).bind('remotestreamremoved.jingle', function(event, data, sid) {
-        console.log('remove stream', 'remoteVideo_' + sid + '_' + data.stream.id);
+        console.log('remove stream', 'remoteVideo_' + sid + '_default');
         // note that this isn't triggered when the peerconnection is closed
       });
+
       $(document).bind('callincoming.jingle', function(event, sid) {
         var sess = connection.jingle.sessions[sid];
         document.getElementById('call').disabled = true;
@@ -124,12 +151,14 @@ video {width:320;height:240}
         sess.sendAnswer();
         sess.accept();
       });
+
       $(document).bind('callactive.jingle', function(event, videoelem, sid) {
         console.log('call active');
         document.getElementById('call').disabled = false;
         document.getElementById('call').value = 'hangup';
         videoelem.show();
       });
+
       $(document).bind('callterminated.jingle', function(event, sid, reason) {
         document.getElementById('call').disabled = false;
         document.getElementById('call').value = 'Call';
