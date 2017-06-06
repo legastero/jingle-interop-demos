@@ -61,7 +61,7 @@
       var loginInfo = document.getElementById('loginInfo');
 
       var inlog = console.log.bind(console, '<<in');
-      var outlog = console.log.bind(console, 'out>>');;
+      var outlog = console.log.bind(console, 'out>>');
 
       loginInfo.onsubmit = function (e) {
         if (e.preventDefault) e.preventDefault();
@@ -138,7 +138,7 @@
           e.preventDefault();
           var jid = document.getElementById('peer').value;
           var session = client.jingle.createMediaSession(jid);
-          session.addStream(localMedia.localStream);
+          session.addStream(localMedia.localStreams[0]);
           session.start();
           return false;
         };
